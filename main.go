@@ -17,8 +17,7 @@ import (
 var assets embed.FS
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
-// and starts a goroutine that emits a time-based event every second. It subsequently runs the application and
-// logs any error that might occur.
+// runs the application, and logs any error that might occur.
 func main() {
 
 	// Create a new Wails application by providing the necessary options.
@@ -29,7 +28,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "Hermes",
 		Description: "Academic markdown editor",
-		Services: []application.Service{},
+		Services:    []application.Service{},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -44,7 +43,7 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title: "Hermes",
+		Title:  "Hermes",
 		Width:  1200,
 		Height: 800,
 		Mac: application.MacWindow{
