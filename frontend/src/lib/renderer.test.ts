@@ -42,3 +42,29 @@ describe('render: math', () => {
     expect(render('costs $5 total')).not.toContain('katex')
   })
 })
+
+describe('render: vega-lite fences', () => {
+  const spec = '{"mark": "bar", "data": {"values": [{"a": 1}]}}'
+
+  it('turns a vega-lite fence into a chart placeholder', () => {
+    const html = render('```vega-lite\n' + spec + '\n```')
+    expect(html).toContain('class="vega-lite-chart"')
+    expect(html).not.toContain('<pre>')
+  })
+
+  it('carries the spec text, HTML-escaped, in data-spec', () => {
+    const html = render('```vega-lite\n' + spec + '\n```')
+    expect(html).toContain('data-spec="')
+    expect(html).toContain('&quot;mark&quot;')
+  })
+
+  it('passes malformed JSON through for the hydrator to report', () => {
+    const html = render('```vega-lite\nnot json\n```')
+    expect(html).toContain('class="vega-lite-chart"')
+    expect(html).toContain('not json')
+  })
+
+  it('does not hijack other fence languages', () => {
+    expect(render('```json\n{}\n```')).toContain('<pre>')
+  })
+})
