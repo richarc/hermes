@@ -19,9 +19,9 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
 - [x] Bug: the Open / Save / Export PDF toolbar buttons overlap the standard
       macOS window controls (traffic lights). Fixed by insetting the toolbar's
       left padding to clear them (hidden-inset title bar retained).
-- [ ] Chart lifecycle polish: `finalize()` evicted Vega views (listener/timer
-      leak over long sessions) and guard `hydrateCharts` against overlapping
-      passes during rapid re-renders.
+- [x] Chart lifecycle polish: Vega views are now `finalize()`d when their
+      chart leaves the document, and hydration passes are generation-guarded
+      so rapid re-renders can't interleave (charts.ts hydrator factory).
 - [ ] In-session file navigation: File → Open Recent menu and File → New,
       so recents are reachable after the welcome pane is gone.
 - [ ] Dirty-state edge case: a document deleted back to empty still counts as

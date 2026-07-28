@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { hydrateCharts, embedChart } from './charts'
+import { createChartHydrator, embedChart, type EmbedFn, type ChartView } from './charts'
 
 vi.mock('vega-embed', () => ({
   default: vi.fn(async (el: HTMLElement) => {
     el.appendChild(document.createElement('svg'))
+    return { view: { finalize: vi.fn() } }
   }),
 }))
 
@@ -15,84 +16,149 @@ function containerWith(html: string): HTMLElement {
 }
 
 const SPEC = '{"mark": "bar"}'
+const SPEC2 = '{"mark": "line"}'
 const placeholder = (spec: string) =>
   `<div class="vega-lite-chart" data-spec="${spec.replace(/"/g, '&quot;')}"></div>`
 
-describe('hydrateCharts', () => {
-  it('embeds every placeholder and caches by spec text', async () => {
-    const embed = vi.fn(async () => {})
-    const cache = new Map<string, HTMLElement>()
-    const container = containerWith(placeholder(SPEC))
-
-    await hydrateCharts(container, cache, embed)
-
-    expect(embed).toHaveBeenCalledTimes(1)
-    expect(cache.size).toBe(1)
+/** Fake embed that marks the element and returns a trackable view. */
+function fakeEmbed() {
+  const views: ChartView[] = []
+  const fn = vi.fn(async (el: HTMLElement) => {
+    el.textContent = 'RENDERED'
+    const view: ChartView = { finalize: vi.fn() }
+    views.push(view)
+    return view
   })
+  return { fn: fn as unknown as EmbedFn, calls: fn, views }
+}
 
-  it('reuses the cached element instead of re-embedding an unchanged spec', async () => {
-    const embed = vi.fn(async (el: HTMLElement) => {
-      el.textContent = 'RENDERED'
-    })
-    const cache = new Map<string, HTMLElement>()
+describe('createChartHydrator: caching', () => {
+  it('embeds every placeholder and reuses the cached node on an unchanged spec', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
 
     const first = containerWith(placeholder(SPEC))
-    await hydrateCharts(first, cache, embed)
+    await h.hydrate(first)
+    expect(embed.calls).toHaveBeenCalledTimes(1)
 
     const second = containerWith(placeholder(SPEC))
-    await hydrateCharts(second, cache, embed)
-
-    expect(embed).toHaveBeenCalledTimes(1)
+    await h.hydrate(second)
+    expect(embed.calls).toHaveBeenCalledTimes(1) // reused, not re-embedded
     expect(second.textContent).toContain('RENDERED')
   })
 
-  it('evicts cache entries whose spec is no longer in the document', async () => {
-    const embed = vi.fn(async () => {})
-    const cache = new Map<string, HTMLElement>()
+  it('renders both copies of a duplicate spec, reusing only the first on later passes', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
 
-    await hydrateCharts(containerWith(placeholder(SPEC)), cache, embed)
-    await hydrateCharts(containerWith(placeholder('{"mark": "line"}')), cache, embed)
+    const first = containerWith(placeholder(SPEC) + placeholder(SPEC))
+    await h.hydrate(first)
+    expect(embed.calls).toHaveBeenCalledTimes(2)
+    expect(first.children.length).toBe(2)
 
-    expect(cache.size).toBe(1)
-    expect(cache.has('{"mark": "line"}')).toBe(true)
+    const second = containerWith(placeholder(SPEC) + placeholder(SPEC))
+    await h.hydrate(second)
+    // first occurrence moved from cache (no call), extra occurrence embedded fresh
+    expect(embed.calls).toHaveBeenCalledTimes(3)
+    expect(second.children.length).toBe(2)
+    expect(
+      Array.from(second.children).every((c) => (c as HTMLElement).textContent === 'RENDERED'),
+    ).toBe(true)
+  })
+})
+
+describe('createChartHydrator: view lifecycle', () => {
+  it('finalizes the view of an evicted cache entry', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+
+    await h.hydrate(containerWith(placeholder(SPEC)))
+    await h.hydrate(containerWith(placeholder(SPEC2)))
+
+    expect(embed.views[0].finalize).toHaveBeenCalledTimes(1) // SPEC evicted
+    expect(embed.views[1].finalize).not.toHaveBeenCalled() // SPEC2 live
   })
 
-  it('handles duplicate specs in a single container by embedding each occurrence', async () => {
+  it('finalizes the extra duplicate view when the next pass replaces it', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+
+    await h.hydrate(containerWith(placeholder(SPEC) + placeholder(SPEC)))
+    // next pass has only one copy: the previous extra (ephemeral) node is gone
+    await h.hydrate(containerWith(placeholder(SPEC)))
+
+    const finalizedCount = embed.views.filter(
+      (v) => (v.finalize as ReturnType<typeof vi.fn>).mock.calls.length > 0,
+    ).length
+    expect(finalizedCount).toBe(1)
+  })
+
+  it('destroy() finalizes every live view and empties the cache', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+
+    await h.hydrate(containerWith(placeholder(SPEC) + placeholder(SPEC2)))
+    h.destroy()
+
+    for (const view of embed.views) {
+      expect(view.finalize).toHaveBeenCalledTimes(1)
+    }
+
+    // hydrating again after destroy embeds from scratch
+    await h.hydrate(containerWith(placeholder(SPEC)))
+    expect(embed.calls).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('createChartHydrator: overlapping passes', () => {
+  it('a stale pass abandons its work and finalizes its orphaned view', async () => {
+    let release: (() => void) | undefined
+    const views: ChartView[] = []
     const embed = vi.fn(async (el: HTMLElement) => {
+      const view: ChartView = { finalize: vi.fn() }
+      views.push(view)
+      if (views.length === 1) {
+        // hold the FIRST embed open until told to finish
+        await new Promise<void>((resolve) => (release = resolve))
+      }
       el.textContent = 'RENDERED'
+      return view
     })
-    const cache = new Map<string, HTMLElement>()
+    const h = createChartHydrator(embed as unknown as EmbedFn)
 
-    // First pass: two identical specs, both should be embedded
-    const first = containerWith(placeholder(SPEC) + placeholder(SPEC))
-    await hydrateCharts(first, cache, embed)
+    const stale = h.hydrate(containerWith(placeholder(SPEC)))
+    const fresh = h.hydrate(containerWith(placeholder(SPEC2)))
+    await fresh
+    release!()
+    await stale
 
-    expect(embed).toHaveBeenCalledTimes(2)
-    expect(first.children.length).toBe(2)
-    expect(Array.from(first.children).every((c) => (c as HTMLElement).textContent === 'RENDERED')).toBe(true)
+    // the stale pass's orphaned view was finalized; the fresh pass's was not
+    expect(views[0].finalize).toHaveBeenCalledTimes(1)
+    expect(views[1].finalize).not.toHaveBeenCalled()
 
-    // Second pass: first occurrence reused without embed, second occurrence embedded fresh
-    const second = containerWith(placeholder(SPEC) + placeholder(SPEC))
-    await hydrateCharts(second, cache, embed)
-
-    expect(embed).toHaveBeenCalledTimes(3) // first occurrence reused (no call), second occurrence embedded (1 call)
-    expect(second.children.length).toBe(2)
-    expect(Array.from(second.children).every((c) => (c as HTMLElement).textContent === 'RENDERED')).toBe(true)
+    // the stale pass must not have cached SPEC: rendering it again re-embeds
+    const again = containerWith(placeholder(SPEC))
+    await h.hydrate(again)
+    expect(again.textContent).toContain('RENDERED')
+    expect(embed).toHaveBeenCalledTimes(3)
   })
 })
 
 describe('embedChart', () => {
-  it('renders an error card for invalid JSON', async () => {
+  it('renders an error card and returns null for invalid JSON', async () => {
     const el = document.createElement('div')
-    await embedChart(el, 'not json')
+    const view = await embedChart(el, 'not json')
+    expect(view).toBeNull()
     expect(el.classList.contains('chart-error')).toBe(true)
     expect(el.textContent).toContain('Chart error:')
   })
 
-  it('embeds valid specs via vega-embed', async () => {
+  it('embeds valid specs via vega-embed and returns the view', async () => {
     const el = document.createElement('div')
-    await embedChart(el, SPEC)
+    const view = await embedChart(el, SPEC)
     expect(el.querySelector('svg')).not.toBeNull()
     expect(el.classList.contains('chart-error')).toBe(false)
+    expect(view).not.toBeNull()
+    expect(typeof view!.finalize).toBe('function')
   })
 })

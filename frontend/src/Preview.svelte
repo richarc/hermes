@@ -1,16 +1,19 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { Browser } from '@wailsio/runtime'
-  import { hydrateCharts } from './lib/charts'
+  import { createChartHydrator } from './lib/charts'
 
   let { html }: { html: string } = $props()
 
   let container: HTMLElement
-  const chartCache = new Map<string, HTMLElement>()
+  const hydrator = createChartHydrator()
 
   $effect(() => {
     container.innerHTML = html
-    void hydrateCharts(container, chartCache)
+    void hydrator.hydrate(container)
   })
+
+  onDestroy(() => hydrator.destroy())
 
   function onPreviewClick(e: MouseEvent) {
     const anchor = (e.target as Element).closest('a')

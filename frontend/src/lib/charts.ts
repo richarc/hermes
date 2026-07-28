@@ -1,67 +1,122 @@
 import vegaEmbed from 'vega-embed'
 
-export async function hydrateCharts(
-  container: HTMLElement,
-  cache: Map<string, HTMLElement>,
-  embed: (el: HTMLElement, specText: string) => Promise<void> = embedChart,
-): Promise<void> {
-  const placeholders = Array.from(
-    container.querySelectorAll<HTMLElement>('.vega-lite-chart'),
-  )
-  const liveSpecs = new Set<string>()
-  const usedCachedNodes = new Set<HTMLElement>()
-  const newlyEmbedded = new Map<string, HTMLElement>()
+/** The slice of a Vega view the hydrator needs for cleanup. */
+export interface ChartView {
+  finalize(): void
+}
 
-  for (const el of placeholders) {
-    const specText = el.dataset.spec ?? ''
-    liveSpecs.add(specText)
-    const cached = cache.get(specText)
+export type EmbedFn = (el: HTMLElement, specText: string) => Promise<ChartView | null>
 
-    // If cached and already used this pass, embed fresh (not moving/cloning)
-    if (cached && usedCachedNodes.has(cached)) {
-      await embed(el, specText)
-      // Don't cache this duplicate occurrence
-      continue
-    }
+export interface ChartHydrator {
+  hydrate(container: HTMLElement): Promise<void>
+  destroy(): void
+}
 
-    // If cached and not yet used, move it
-    if (cached && !usedCachedNodes.has(cached)) {
-      el.replaceWith(cached)
-      usedCachedNodes.add(cached)
-      continue
-    }
+/**
+ * Creates a hydrator that turns `.vega-lite-chart` placeholders into live
+ * charts. It owns the chart lifecycle:
+ * - caches the first rendered node per spec text and moves it (no re-embed)
+ *   into the new DOM on later passes; extra occurrences of a duplicated spec
+ *   are embedded fresh each pass;
+ * - finalizes Vega views when their chart leaves the document (cache
+ *   eviction, replaced duplicates, or `destroy()`), releasing listeners and
+ *   timers;
+ * - guards against overlapping passes: when a newer `hydrate` starts, the
+ *   older pass abandons its remaining work.
+ */
+export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator {
+  const cache = new Map<string, HTMLElement>()
+  const views = new Map<HTMLElement, ChartView>()
+  let generation = 0
 
-    // Embed fresh and track first embed of this spec this pass
-    await embed(el, specText)
-    if (!newlyEmbedded.has(specText)) {
-      newlyEmbedded.set(specText, el)
-    }
+  function finalizeElement(el: HTMLElement): void {
+    views.get(el)?.finalize()
+    views.delete(el)
   }
 
-  // Update cache with newly embedded elements (only first occurrence of each spec)
-  for (const [spec, el] of newlyEmbedded) {
-    if (!cache.has(spec)) {
-      cache.set(spec, el)
-    }
-  }
+  return {
+    async hydrate(container: HTMLElement): Promise<void> {
+      const gen = ++generation
+      const placeholders = Array.from(
+        container.querySelectorAll<HTMLElement>('.vega-lite-chart'),
+      )
+      const liveSpecs = new Set<string>()
+      // Every node placed into the new DOM this pass — moved from cache or
+      // freshly embedded. A cached node already in this set means the spec is
+      // duplicated, so the extra occurrence embeds fresh instead of stealing.
+      const placedThisPass = new Set<HTMLElement>()
 
-  for (const key of cache.keys()) {
-    if (!liveSpecs.has(key)) cache.delete(key)
+      for (const el of placeholders) {
+        const specText = el.dataset.spec ?? ''
+        liveSpecs.add(specText)
+        const cached = cache.get(specText)
+
+        if (cached && !placedThisPass.has(cached)) {
+          el.replaceWith(cached)
+          placedThisPass.add(cached)
+          continue
+        }
+
+        // No cache entry, or the cached node is already placed this pass
+        // (duplicated spec): embed fresh.
+        const view = await embed(el, specText)
+        if (gen !== generation) {
+          // A newer pass started while we awaited: this element belongs to a
+          // stale DOM. Release its view and abandon the pass.
+          view?.finalize()
+          return
+        }
+        if (view) views.set(el, view)
+        placedThisPass.add(el)
+        if (!cache.has(specText)) cache.set(specText, el)
+      }
+
+      // Evict cache entries whose spec left the document.
+      for (const [spec, el] of cache) {
+        if (!liveSpecs.has(spec)) {
+          cache.delete(spec)
+          finalizeElement(el)
+        }
+      }
+
+      // Finalize tracked views whose element was neither reused nor embedded
+      // this pass (e.g. last pass's extra duplicate, or a stale pass's
+      // leftovers) — they were discarded with the old DOM.
+      for (const el of Array.from(views.keys())) {
+        if (!placedThisPass.has(el)) {
+          finalizeElement(el)
+        }
+      }
+    },
+
+    destroy(): void {
+      for (const el of Array.from(views.keys())) {
+        finalizeElement(el)
+      }
+      cache.clear()
+    },
   }
 }
 
-export async function embedChart(el: HTMLElement, specText: string): Promise<void> {
+export async function embedChart(
+  el: HTMLElement,
+  specText: string,
+): Promise<ChartView | null> {
   let spec: unknown
   try {
     spec = JSON.parse(specText)
   } catch (err) {
     renderChartError(el, `Invalid JSON: ${(err as Error).message}`)
-    return
+    return null
   }
   try {
-    await vegaEmbed(el, spec as Parameters<typeof vegaEmbed>[1], { actions: false })
+    const result = await vegaEmbed(el, spec as Parameters<typeof vegaEmbed>[1], {
+      actions: false,
+    })
+    return result.view
   } catch (err) {
     renderChartError(el, (err as Error).message)
+    return null
   }
 }
 

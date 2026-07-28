@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Toolbar buttons (Open / Save / Export PDF) no longer sit under the macOS
   traffic-light window controls; the toolbar is inset to clear them.
+- Chart lifecycle: Vega views are finalized when their chart leaves the
+  document (previously leaked listeners/timers over long sessions), and
+  overlapping preview re-renders can no longer interleave chart hydration
+  passes.
 
 ## [0.1.0] - 2026-07-28
 
