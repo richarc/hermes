@@ -9,17 +9,40 @@ export async function hydrateCharts(
     container.querySelectorAll<HTMLElement>('.vega-lite-chart'),
   )
   const liveSpecs = new Set<string>()
+  const usedCachedNodes = new Set<HTMLElement>()
+  const newlyEmbedded = new Map<string, HTMLElement>()
 
   for (const el of placeholders) {
     const specText = el.dataset.spec ?? ''
     liveSpecs.add(specText)
     const cached = cache.get(specText)
-    if (cached) {
-      el.replaceWith(cached)
+
+    // If cached and already used this pass, clone it instead of moving
+    if (cached && usedCachedNodes.has(cached)) {
+      const clone = cached.cloneNode(true) as HTMLElement
+      el.replaceWith(clone)
       continue
     }
+
+    // If cached and not yet used, move it
+    if (cached && !usedCachedNodes.has(cached)) {
+      el.replaceWith(cached)
+      usedCachedNodes.add(cached)
+      continue
+    }
+
+    // Embed fresh and track first embed of this spec this pass
     await embed(el, specText)
-    cache.set(specText, el)
+    if (!newlyEmbedded.has(specText)) {
+      newlyEmbedded.set(specText, el)
+    }
+  }
+
+  // Update cache with newly embedded elements (only first occurrence of each spec)
+  for (const [spec, el] of newlyEmbedded) {
+    if (!cache.has(spec)) {
+      cache.set(spec, el)
+    }
   }
 
   for (const key of cache.keys()) {

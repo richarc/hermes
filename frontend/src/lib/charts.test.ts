@@ -56,6 +56,28 @@ describe('hydrateCharts', () => {
     expect(cache.size).toBe(1)
     expect(cache.has('{"mark": "line"}')).toBe(true)
   })
+
+  it('handles duplicate specs in a single container by embedding each occurrence', async () => {
+    const embed = vi.fn(async (el: HTMLElement) => {
+      el.textContent = 'RENDERED'
+    })
+    const cache = new Map<string, HTMLElement>()
+
+    // First pass: two identical specs, both should be embedded
+    const first = containerWith(placeholder(SPEC) + placeholder(SPEC))
+    await hydrateCharts(first, cache, embed)
+
+    expect(embed).toHaveBeenCalledTimes(2)
+    expect(first.children.length).toBe(2)
+    expect(Array.from(first.children).every((c) => (c as HTMLElement).textContent === 'RENDERED')).toBe(true)
+
+    // Second pass: both should be reused from cache, no new embeds
+    const second = containerWith(placeholder(SPEC) + placeholder(SPEC))
+    await hydrateCharts(second, cache, embed)
+
+    expect(embed).toHaveBeenCalledTimes(2) // still 2, not 4
+    expect(second.children.length).toBe(2)
+  })
 })
 
 describe('embedChart', () => {
