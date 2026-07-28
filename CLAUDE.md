@@ -29,7 +29,7 @@ The core Go↔JS boundary works like this:
    - `lib/renderer.ts`: markdown-it + KaTeX plugin; renders markdown to HTML; intercepts `vega-lite` code blocks as chart placeholders.
    - `lib/charts.ts`: Vega-Embed integration; hydrates chart placeholders with live SVG charts; caches embedded specs for efficiency.
    - `Editor.svelte` / `Preview.svelte` / `App.svelte`: Svelte components; Editor contains the CodeMirror instance, Preview renders and hydrates charts in the live output, App orchestrates both panes and the surrounding toolbar/status-bar.
-4. **Events (Go → JS)**: Go emits events with `app.Event.Emit(name, data)`; the frontend subscribes with `Events.On(name, cb)` from `@wailsio/runtime`. Hermes uses `menu:open`, `menu:save`, `menu:save-as` (for menu commands) and `close:confirm` (for window-close confirmations). Registering the event type in Go (`application.RegisterEvent[T](name)` in `main.go`'s `init`) gives the binding generator a strongly typed JS/TS API for it.
+4. **Events (Go → JS)**: Go emits events with `app.Event.Emit(name, data)`; the frontend subscribes with `Events.On(name, cb)` from `@wailsio/runtime`. Hermes uses `menu:open`, `menu:save`, `menu:save-as` (for menu commands) and `close:confirm` (for window-close confirmations); these are plain, untyped events — there is no `application.RegisterEvent[T](name)` registration step in `main.go` (or anywhere else), so the frontend types each payload manually where it calls `Events.On`.
 5. **Asset embedding**: `frontend/dist` is embedded into the binary via `//go:embed all:frontend/dist` in `main.go`, so the frontend must be built before the Go binary is (the Taskfiles handle this ordering).
 
 Other things to know:
