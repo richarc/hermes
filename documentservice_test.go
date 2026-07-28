@@ -103,3 +103,49 @@ func TestDirtyFlag(t *testing.T) {
 		t.Error("Save should clear dirty")
 	}
 }
+
+func TestClearRecents(t *testing.T) {
+	s := newTestService(t)
+	dir := t.TempDir()
+	for _, name := range []string{"a.md", "b.md"} {
+		if err := s.Save(filepath.Join(dir, name), "x"); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+	}
+	if len(s.RecentFiles()) != 2 {
+		t.Fatal("precondition: expected 2 recents")
+	}
+
+	s.ClearRecents()
+
+	if got := s.RecentFiles(); len(got) != 0 {
+		t.Errorf("want no recents after clear, got %v", got)
+	}
+}
+
+func TestRecentsChangedCallback(t *testing.T) {
+	s := newTestService(t)
+	fired := 0
+	s.onRecentsChanged = func() { fired++ }
+	dir := t.TempDir()
+
+	path := filepath.Join(dir, "a.md")
+	if err := s.Save(path, "x"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if fired != 1 {
+		t.Errorf("want callback after Save, fired=%d", fired)
+	}
+
+	if _, err := s.OpenPath(path); err != nil {
+		t.Fatalf("OpenPath: %v", err)
+	}
+	if fired != 2 {
+		t.Errorf("want callback after OpenPath, fired=%d", fired)
+	}
+
+	s.ClearRecents()
+	if fired != 3 {
+		t.Errorf("want callback after ClearRecents, fired=%d", fired)
+	}
+}

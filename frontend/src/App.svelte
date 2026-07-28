@@ -12,7 +12,7 @@
   let dirty = $state(false)
   let html = $state('')
   let recents = $state<string[]>([])
-  let pendingAction = $state<'quit' | 'open' | null>(null)
+  let pendingAction = $state<'quit' | 'open' | 'new' | null>(null)
   let pendingRecentPath = $state<string | null>(null)
   let welcomeDismissed = $state(false)
   let toastMsg = $state('')
@@ -58,6 +58,24 @@
 
   async function refreshRecents() {
     recents = (await DocumentService.RecentFiles()) ?? []
+  }
+
+  function requestNew() {
+    if (dirty) {
+      pendingAction = 'new'
+      return
+    }
+    doNew()
+  }
+
+  function doNew() {
+    path = null
+    editor.setContent('') // fires onEditorChange; reset dirty after
+    content = ''
+    dirty = false
+    void DocumentService.SetDirty(false)
+    html = ''
+    welcomeDismissed = true
   }
 
   function requestOpen() {
@@ -144,6 +162,7 @@
     pendingAction = null
     pendingRecentPath = null
     if (action === 'quit') void DocumentService.Quit()
+    else if (action === 'new') doNew()
     else if (action === 'open') {
       if (recentPath) void openRecent(recentPath)
       else void doOpen()
@@ -164,10 +183,15 @@
   }
 
   onMount(() => {
+    Events.On('menu:new', requestNew)
     Events.On('menu:open', requestOpen)
+    Events.On('menu:open-recent', (ev: { data: unknown }) => {
+      if (typeof ev.data === 'string') requestOpenRecent(ev.data)
+    })
     Events.On('menu:save', () => void save())
     Events.On('menu:save-as', () => void saveAs())
     Events.On('close:confirm', () => (pendingAction = 'quit'))
+    Events.On('recents:changed', () => void refreshRecents())
     void refreshRecents()
   })
 </script>

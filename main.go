@@ -72,7 +72,17 @@ func main() {
 		}
 	})
 
-	setupMenu(app, win)
+	// Rebuild the menu (Open Recent submenu) whenever recents change. The
+	// change can originate on a binding goroutine, so hop to the main thread
+	// for the AppKit calls; the event lets the frontend refresh its own list.
+	docs.onRecentsChanged = func() {
+		application.InvokeAsync(func() {
+			installMenu(app, win, docs)
+		})
+		app.Event.Emit("recents:changed")
+	}
+
+	installMenu(app, win, docs)
 
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- File → New (⌘N) starts a fresh untitled document, guarded by the
+  unsaved-changes prompt.
+- File → Open Recent submenu listing recent files (with Clear Recents),
+  kept in sync as documents are opened and saved — recents are now
+  reachable after the welcome pane is gone.
+
 ### Fixed
 
 - Toolbar buttons (Open / Save / Export PDF) no longer sit under the macOS

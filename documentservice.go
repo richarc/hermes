@@ -21,6 +21,9 @@ type DocumentService struct {
 	recentsPath string
 	dirty       atomic.Bool
 	window      *application.WebviewWindow
+	// Notified whenever the recents list changes (add or clear), so the
+	// native Open Recent menu can be rebuilt. Set once during startup.
+	onRecentsChanged func()
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
@@ -100,6 +103,11 @@ func (s *DocumentService) Quit() {
 	application.Get().Quit()
 }
 
+func (s *DocumentService) ClearRecents() {
+	_ = os.Remove(s.recentsPath)
+	s.notifyRecentsChanged()
+}
+
 func (s *DocumentService) addRecent(path string) {
 	recents := s.RecentFiles()
 	recents = slices.DeleteFunc(recents, func(p string) bool { return p == path })
@@ -115,4 +123,11 @@ func (s *DocumentService) addRecent(path string) {
 		return
 	}
 	_ = os.WriteFile(s.recentsPath, data, 0o644)
+	s.notifyRecentsChanged()
+}
+
+func (s *DocumentService) notifyRecentsChanged() {
+	if s.onRecentsChanged != nil {
+		s.onRecentsChanged()
+	}
 }

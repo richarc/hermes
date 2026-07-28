@@ -22,8 +22,8 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
 - [x] Chart lifecycle polish: Vega views are now `finalize()`d when their
       chart leaves the document, and hydration passes are generation-guarded
       so rapid re-renders can't interleave (charts.ts hydrator factory).
-- [ ] In-session file navigation: File → Open Recent menu and File → New,
-      so recents are reachable after the welcome pane is gone.
+- [x] In-session file navigation: File → New (⌘N) and a File → Open Recent
+      submenu (with Clear Recents) that rebuilds as the list changes.
 - [ ] Dirty-state edge case: a document deleted back to empty still counts as
       dirty; re-evaluate against last-saved content.
 - [ ] Keyboard accessibility for the pane divider (currently mouse-only).
