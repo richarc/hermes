@@ -1,0 +1,105 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"slices"
+	"testing"
+)
+
+func newTestService(t *testing.T) *DocumentService {
+	t.Helper()
+	return NewDocumentService(filepath.Join(t.TempDir(), "recents.json"))
+}
+
+func TestSaveAndOpenPathRoundTrip(t *testing.T) {
+	s := newTestService(t)
+	path := filepath.Join(t.TempDir(), "paper.md")
+
+	if err := s.Save(path, "# Title\n$x^2$\n"); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	doc, err := s.OpenPath(path)
+	if err != nil {
+		t.Fatalf("OpenPath: %v", err)
+	}
+	if doc.Path != path || doc.Content != "# Title\n$x^2$\n" {
+		t.Errorf("got %+v", doc)
+	}
+}
+
+func TestOpenPathMissingFile(t *testing.T) {
+	s := newTestService(t)
+	if _, err := s.OpenPath(filepath.Join(t.TempDir(), "nope.md")); err == nil {
+		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestRecentsOrderDedupeAndCap(t *testing.T) {
+	s := newTestService(t)
+	dir := t.TempDir()
+
+	var paths []string
+	for i := 0; i < 12; i++ {
+		p := filepath.Join(dir, string(rune('a'+i))+".md")
+		if err := s.Save(p, "x"); err != nil {
+			t.Fatalf("Save: %v", err)
+		}
+		paths = append(paths, p)
+	}
+	// re-open an old file: it must move to the front, not duplicate
+	if _, err := s.OpenPath(paths[5]); err != nil {
+		t.Fatalf("OpenPath: %v", err)
+	}
+
+	recents := s.RecentFiles()
+	if len(recents) != 10 {
+		t.Fatalf("want 10 recents, got %d", len(recents))
+	}
+	if recents[0] != paths[5] {
+		t.Errorf("want %s first, got %s", paths[5], recents[0])
+	}
+	count := 0
+	for _, r := range recents {
+		if r == paths[5] {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("path duplicated %d times in recents", count)
+	}
+	if slices.Contains(recents, paths[0]) {
+		t.Error("oldest entry should have been evicted")
+	}
+}
+
+func TestRecentsCorruptFileReturnsEmpty(t *testing.T) {
+	s := newTestService(t)
+	if err := os.MkdirAll(filepath.Dir(s.recentsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(s.recentsPath, []byte("{corrupt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.RecentFiles(); len(got) != 0 {
+		t.Errorf("want empty recents, got %v", got)
+	}
+}
+
+func TestDirtyFlag(t *testing.T) {
+	s := newTestService(t)
+	if s.IsDirty() {
+		t.Error("new service should not be dirty")
+	}
+	s.SetDirty(true)
+	if !s.IsDirty() {
+		t.Error("should be dirty after SetDirty(true)")
+	}
+	path := filepath.Join(t.TempDir(), "p.md")
+	if err := s.Save(path, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if s.IsDirty() {
+		t.Error("Save should clear dirty")
+	}
+}
