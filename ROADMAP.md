@@ -16,6 +16,11 @@ tracking, and PDF export via the print panel. Design and plan documents live in
 
 Feature list to be defined. Candidates carried over from v0.1 review notes:
 
+- [ ] Bug: the Open / Save / Export PDF toolbar buttons overlap the standard
+      macOS window controls (traffic lights) — the window uses a hidden-inset
+      title bar, so the buttons sit under them. Explore options to fix
+      (e.g. left padding matching the inset, moving the buttons, or a normal
+      title bar).
 - [ ] Chart lifecycle polish: `finalize()` evicted Vega views (listener/timer
       leak over long sessions) and guard `hydrateCharts` against overlapping
       passes during rapid re-renders.
