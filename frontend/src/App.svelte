@@ -13,6 +13,8 @@
   let html = $state('')
   let recents = $state<string[]>([])
   let pendingAction = $state<'quit' | 'open' | null>(null)
+  let pendingRecentPath = $state<string | null>(null)
+  let welcomeDismissed = $state(false)
   let toastMsg = $state('')
   let editorWidth = $state(50)
   let editor: ReturnType<typeof Editor>
@@ -23,7 +25,9 @@
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
-  const showWelcome = $derived(path === null && content === '' && recents.length > 0)
+  const showWelcome = $derived(
+    !welcomeDismissed && path === null && content === '' && recents.length > 0,
+  )
 
   function toast(msg: string) {
     toastMsg = msg
@@ -33,6 +37,7 @@
 
   function onEditorChange(text: string) {
     content = text
+    welcomeDismissed = true
     if (!dirty) {
       dirty = true
       void DocumentService.SetDirty(true)
@@ -43,6 +48,7 @@
   function loadDocument(docPath: string, docContent: string) {
     path = docPath
     content = docContent
+    welcomeDismissed = true
     editor.setContent(docContent) // fires onEditorChange; reset dirty after
     dirty = false
     void DocumentService.SetDirty(false)
@@ -70,6 +76,15 @@
     } catch (err) {
       toast(`Could not open file: ${err}`)
     }
+  }
+
+  function requestOpenRecent(p: string) {
+    if (dirty) {
+      pendingAction = 'open'
+      pendingRecentPath = p
+      return
+    }
+    void openRecent(p)
   }
 
   async function openRecent(p: string) {
@@ -117,17 +132,22 @@
     else pendingAction = null
   }
 
-  function confirmDiscard() {
+  async function confirmDiscard() {
     dirty = false
-    void DocumentService.SetDirty(false)
+    await DocumentService.SetDirty(false)
     finishPending()
   }
 
   function finishPending() {
     const action = pendingAction
+    const recentPath = pendingRecentPath
     pendingAction = null
+    pendingRecentPath = null
     if (action === 'quit') void DocumentService.Quit()
-    else if (action === 'open') void doOpen()
+    else if (action === 'open') {
+      if (recentPath) void openRecent(recentPath)
+      else void doOpen()
+    }
   }
 
   function startDrag(e: MouseEvent) {
@@ -181,9 +201,10 @@
       <h2>Recent files</h2>
       <ul>
         {#each recents as r (r)}
-          <li><button onclick={() => void openRecent(r)}>{r}</button></li>
+          <li><button onclick={() => requestOpenRecent(r)}>{r}</button></li>
         {/each}
       </ul>
+      <button class="welcome-new" onclick={() => (welcomeDismissed = true)}>New document</button>
     </div>
   {/if}
 
@@ -193,8 +214,13 @@
         <p>"{filename}" has unsaved changes.</p>
         <div class="modal-buttons">
           <button onclick={() => void confirmSave()}>Save</button>
-          <button onclick={confirmDiscard}>Don't Save</button>
-          <button onclick={() => (pendingAction = null)}>Cancel</button>
+          <button onclick={() => void confirmDiscard()}>Don't Save</button>
+          <button
+            onclick={() => {
+              pendingAction = null
+              pendingRecentPath = null
+            }}>Cancel</button
+          >
         </div>
       </div>
     </div>
