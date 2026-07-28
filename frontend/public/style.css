@@ -14,7 +14,10 @@ html, body {
 .app { display: flex; flex-direction: column; height: 100vh; }
 
 .toolbar {
-  display: flex; gap: 8px; padding: 8px 12px;
+  display: flex; gap: 8px;
+  /* Left padding clears the macOS traffic lights, which float over the
+     content because the window uses a hidden-inset title bar. */
+  padding: 8px 12px 8px 85px;
   border-bottom: 1px solid #ddd; -webkit-app-region: drag;
 }
 .toolbar button { -webkit-app-region: no-drag; }

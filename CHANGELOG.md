@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Toolbar buttons (Open / Save / Export PDF) no longer sit under the macOS
+  traffic-light window controls; the toolbar is inset to clear them.
+
 ## [0.1.0] - 2026-07-28
 
 First working release: an academic markdown editor with live rendering and PDF export.
