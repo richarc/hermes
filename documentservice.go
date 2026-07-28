@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"slices"
 	"sync/atomic"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const maxRecents = 10
@@ -18,6 +20,7 @@ type Document struct {
 type DocumentService struct {
 	recentsPath string
 	dirty       atomic.Bool
+	window      *application.WebviewWindow
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
@@ -60,6 +63,41 @@ func (s *DocumentService) SetDirty(dirty bool) {
 
 func (s *DocumentService) IsDirty() bool {
 	return s.dirty.Load()
+}
+
+func (s *DocumentService) Open() (Document, error) {
+	path, err := application.Get().Dialog.OpenFile().
+		SetTitle("Open Markdown File").
+		AddFilter("Markdown files", "*.md;*.markdown").
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return Document{}, err
+	}
+	return s.OpenPath(path)
+}
+
+func (s *DocumentService) SaveAs(content string) (string, error) {
+	path, err := application.Get().Dialog.SaveFile().
+		SetMessage("Save Markdown File").
+		SetFilename("untitled.md").
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := s.Save(path, content); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func (s *DocumentService) ExportPDF() {
+	if s.window != nil {
+		_ = s.window.Print()
+	}
+}
+
+func (s *DocumentService) Quit() {
+	application.Get().Quit()
 }
 
 func (s *DocumentService) addRecent(path string) {

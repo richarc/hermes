@@ -5,7 +5,9 @@ import (
 
 	"log"
 
+	"github.com/adrg/xdg"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 // Wails uses Go's `embed` package to embed the frontend files into the binary.
@@ -20,6 +22,12 @@ var assets embed.FS
 // runs the application, and logs any error that might occur.
 func main() {
 
+	recentsPath, err := xdg.DataFile("hermes/recents.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	docs := NewDocumentService(recentsPath)
+
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
 	// 'Assets' configures the asset server with the 'FS' variable pointing to the frontend files.
@@ -28,7 +36,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "Hermes",
 		Description: "Academic markdown editor",
-		Services:    []application.Service{},
+		Services:    []application.Service{application.NewService(docs)},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},
@@ -42,7 +50,7 @@ func main() {
 	// 'Mac' options tailor the window when running on macOS.
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:  "Hermes",
 		Width:  1200,
 		Height: 800,
@@ -55,8 +63,19 @@ func main() {
 		URL:              "/",
 	})
 
+	docs.window = win
+
+	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if docs.IsDirty() {
+			e.Cancel()
+			app.Event.Emit("close:confirm")
+		}
+	})
+
+	setupMenu(app, win)
+
 	// Run the application. This blocks until the application has been exited.
-	err := app.Run()
+	err = app.Run()
 
 	// If an error occurred while running the application, log it and exit.
 	if err != nil {
