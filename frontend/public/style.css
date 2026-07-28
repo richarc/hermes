@@ -45,3 +45,17 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-
   border: 1px solid #cc0000; background: #fff5f5; color: #cc0000;
   padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;
 }
+
+@media print {
+  .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, .modal-backdrop {
+    display: none !important;
+  }
+  .panes { display: block; }
+  .preview-pane {
+    overflow: visible; padding: 0;
+    font-size: 11pt; line-height: 1.5;
+  }
+  .katex-display, .vega-lite-chart, .chart-error { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+  @page { margin: 2cm; }
+}
