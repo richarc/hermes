@@ -1,6 +1,15 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+/* Light document editor by design: opt out of the OS dark scheme and the
+   translucent window backdrop so colors don't invert under macOS dark mode. */
+:root { color-scheme: light; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #ffffff;
+  color: #000000;
+}
 
 .app { display: flex; flex-direction: column; height: 100vh; }
 
