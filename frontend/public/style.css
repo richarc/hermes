@@ -22,7 +22,42 @@ html, body {
 .panes { flex: 1; display: flex; min-height: 0; }
 .editor-pane { border-right: 1px solid #ddd; overflow: auto; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
-.preview-pane { flex: 1; overflow: auto; padding: 24px 32px; }
+.preview-pane { flex: 1; overflow: auto; padding: 24px 32px; line-height: 1.6; }
+
+/* Document typography — the global reset strips default margins, so the
+   rendered markdown gets its spacing back here. */
+.preview-pane p,
+.preview-pane ul,
+.preview-pane ol,
+.preview-pane blockquote,
+.preview-pane pre,
+.preview-pane table,
+.preview-pane .katex-display { margin-bottom: 0.9em; }
+.preview-pane h1, .preview-pane h2, .preview-pane h3,
+.preview-pane h4, .preview-pane h5, .preview-pane h6 {
+  margin: 1.3em 0 0.5em; line-height: 1.25;
+}
+.preview-pane > h1:first-child, .preview-pane > h2:first-child { margin-top: 0; }
+.preview-pane ul, .preview-pane ol { padding-left: 1.7em; }
+.preview-pane li { margin: 0.25em 0; }
+.preview-pane li > ul, .preview-pane li > ol { margin-bottom: 0; }
+.preview-pane blockquote {
+  padding-left: 1em; border-left: 3px solid #ddd; color: #555;
+}
+.preview-pane pre {
+  background: #f6f6f6; padding: 12px; border-radius: 6px; overflow-x: auto;
+}
+.preview-pane code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+}
+.preview-pane :not(pre) > code {
+  background: #f2f2f2; padding: 0.1em 0.3em; border-radius: 4px;
+}
+.preview-pane table { border-collapse: collapse; }
+.preview-pane th, .preview-pane td { border: 1px solid #ddd; padding: 6px 10px; }
+.preview-pane hr { border: 0; border-top: 1px solid #ddd; margin: 1.5em 0; }
+.preview-pane img { max-width: 100%; }
+.preview-pane a { color: #0b62d6; }
 
 .divider { width: 4px; cursor: col-resize; background: #eee; flex-shrink: 0; }
 
