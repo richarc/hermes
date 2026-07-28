@@ -17,10 +17,10 @@ export async function hydrateCharts(
     liveSpecs.add(specText)
     const cached = cache.get(specText)
 
-    // If cached and already used this pass, clone it instead of moving
+    // If cached and already used this pass, embed fresh (not moving/cloning)
     if (cached && usedCachedNodes.has(cached)) {
-      const clone = cached.cloneNode(true) as HTMLElement
-      el.replaceWith(clone)
+      await embed(el, specText)
+      // Don't cache this duplicate occurrence
       continue
     }
 

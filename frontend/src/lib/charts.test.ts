@@ -71,12 +71,13 @@ describe('hydrateCharts', () => {
     expect(first.children.length).toBe(2)
     expect(Array.from(first.children).every((c) => (c as HTMLElement).textContent === 'RENDERED')).toBe(true)
 
-    // Second pass: both should be reused from cache, no new embeds
+    // Second pass: first occurrence reused without embed, second occurrence embedded fresh
     const second = containerWith(placeholder(SPEC) + placeholder(SPEC))
     await hydrateCharts(second, cache, embed)
 
-    expect(embed).toHaveBeenCalledTimes(2) // still 2, not 4
+    expect(embed).toHaveBeenCalledTimes(3) // first occurrence reused (no call), second occurrence embedded (1 call)
     expect(second.children.length).toBe(2)
+    expect(Array.from(second.children).every((c) => (c as HTMLElement).textContent === 'RENDERED')).toBe(true)
   })
 })
 
