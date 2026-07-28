@@ -24,7 +24,7 @@
     "vega-lite": "^6.4.3"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@tsconfig/svelte": "^5.0.8",
     "@types/katex": "^0.16.8",
     "@types/markdown-it": "^14.1.2",
@@ -33,7 +33,7 @@
     "svelte-check": "^4.4.8",
     "tslib": "^2.6.2",
     "typescript": "^5.2.2",
-    "vite": "^8.0.5",
+    "vite": "^7.3.6",
     "vitest": "^4.1.10"
   }
 }
