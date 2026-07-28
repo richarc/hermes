@@ -12,12 +12,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vscode/markdown-it-katex": "^1.1.2",
     "@wailsio/runtime": "latest",
+    "katex": "^0.18.1",
     "markdown-it": "^14.3.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tsconfig/svelte": "^5.0.8",
+    "@types/katex": "^0.16.8",
     "@types/markdown-it": "^14.1.2",
     "svelte": "^5.46.4",
     "svelte-check": "^4.4.8",

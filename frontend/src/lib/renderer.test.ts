@@ -22,3 +22,23 @@ describe('render: markdown', () => {
     expect(html).toContain('print(1)')
   })
 })
+
+describe('render: math', () => {
+  it('renders inline math with $..$', () => {
+    expect(render('Euler: $e^{i\\pi} = -1$')).toContain('katex')
+  })
+
+  it('renders display math with $$..$$', () => {
+    expect(render('$$\\int_0^1 x\\,dx$$')).toContain('katex-display')
+  })
+
+  it('renders invalid LaTeX as an inline error instead of throwing', () => {
+    const html = render('$\\notacommand$')
+    expect(html).toContain('katex')          // still produced output
+    expect(html).toContain('#cc0000')        // errorColor styling present
+  })
+
+  it('leaves plain dollar amounts alone', () => {
+    expect(render('costs $5 total')).not.toContain('katex')
+  })
+})
