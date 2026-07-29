@@ -36,4 +36,4 @@ Other things to know:
 
 - The frontend uses Svelte 5 runes (`$state`, etc.).
 - App metadata (name, version, product identifier) lives in `build/config.yml`; after changing it, run `wails3 task common:update:build-assets` to regenerate build assets (this overwrites manual edits to those assets).
-- Links that should open in the system browser use the `data-wml-openURL` attribute plus `WML.Reload()` rather than plain `<a href>`.
+- Links in the preview are intercepted by a delegated click handler in `Preview.svelte` and opened in the system browser via `Browser.OpenURL` from `@wailsio/runtime`; a plain `<a href>` click would otherwise navigate the webview away and destroy the app state.

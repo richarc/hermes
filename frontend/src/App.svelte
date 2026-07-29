@@ -9,7 +9,7 @@
 
   let path = $state<string | null>(null)
   let content = $state('')
-  let dirty = $state(false)
+  let savedContent = $state('')
   let html = $state('')
   let recents = $state<string[]>([])
   let pendingAction = $state<'quit' | 'open' | 'new' | null>(null)
@@ -25,6 +25,14 @@
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
+  // Dirty means "differs from what's on disk" — typing back to the saved
+  // text (or emptying a never-saved doc) clears it again.
+  const dirty = $derived(content !== savedContent)
+
+  // Keep the Go side (window-close hook) in sync with the derived flag.
+  $effect(() => {
+    void DocumentService.SetDirty(dirty)
+  })
   const showWelcome = $derived(
     !welcomeDismissed && path === null && content === '' && recents.length > 0,
   )
@@ -38,10 +46,6 @@
   function onEditorChange(text: string) {
     content = text
     welcomeDismissed = true
-    if (!dirty) {
-      dirty = true
-      void DocumentService.SetDirty(true)
-    }
     updatePreview(text)
   }
 
@@ -49,9 +53,8 @@
     path = docPath
     content = docContent
     welcomeDismissed = true
-    editor.setContent(docContent) // fires onEditorChange; reset dirty after
-    dirty = false
-    void DocumentService.SetDirty(false)
+    editor.setContent(docContent) // fires onEditorChange
+    savedContent = docContent
     html = render(docContent)
     void refreshRecents()
   }
@@ -70,10 +73,9 @@
 
   function doNew() {
     path = null
-    editor.setContent('') // fires onEditorChange; reset dirty after
+    editor.setContent('') // fires onEditorChange
     content = ''
-    dirty = false
-    void DocumentService.SetDirty(false)
+    savedContent = ''
     html = ''
     welcomeDismissed = true
   }
@@ -116,16 +118,17 @@
 
   /** Returns true if the document was saved (false = cancelled/failed). */
   async function save(): Promise<boolean> {
+    const snapshot = content // what we're writing (content may change mid-await)
     try {
       if (path) {
-        await DocumentService.Save(path, content)
+        await DocumentService.Save(path, snapshot)
       } else {
-        const newPath = await DocumentService.SaveAs(content)
+        const newPath = await DocumentService.SaveAs(snapshot)
         if (!newPath) return false // cancelled
         path = newPath
         void refreshRecents()
       }
-      dirty = false
+      savedContent = snapshot
       return true
     } catch (err) {
       toast(`Could not save: ${err}`)
@@ -134,11 +137,12 @@
   }
 
   async function saveAs() {
+    const snapshot = content
     try {
-      const newPath = await DocumentService.SaveAs(content)
+      const newPath = await DocumentService.SaveAs(snapshot)
       if (!newPath) return
       path = newPath
-      dirty = false
+      savedContent = snapshot
       void refreshRecents()
     } catch (err) {
       toast(`Could not save: ${err}`)
@@ -151,7 +155,7 @@
   }
 
   async function confirmDiscard() {
-    dirty = false
+    savedContent = content // treat current text as accepted; clears dirty
     await DocumentService.SetDirty(false)
     finishPending()
   }
@@ -167,6 +171,13 @@
       if (recentPath) void openRecent(recentPath)
       else void doOpen()
     }
+  }
+
+  function onDividerKeydown(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const step = e.key === 'ArrowLeft' ? -2 : 2
+    editorWidth = Math.min(80, Math.max(20, editorWidth + step))
   }
 
   function startDrag(e: MouseEvent) {
@@ -207,11 +218,18 @@
     <section class="editor-pane" style="width: {editorWidth}%">
       <Editor bind:this={editor} onchange={onEditorChange} />
     </section>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- WAI-ARIA "window splitter" pattern: a focusable separator with arrow-key resizing is the recommended markup -->
     <div
       class="divider"
       onmousedown={startDrag}
+      onkeydown={onDividerKeydown}
       role="separator"
       aria-orientation="vertical"
+      aria-label="Resize editor and preview panes"
+      aria-valuenow={Math.round(editorWidth)}
+      aria-valuemin={20}
+      aria-valuemax={80}
+      tabindex="0"
     ></div>
     <Preview {html} />
   </main>
