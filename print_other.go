@@ -2,6 +2,7 @@
 
 package main
 
-// applyPrintOrientation is a no-op off macOS; other platforms' print
-// dialogs manage orientation themselves.
-func applyPrintOrientation(landscape bool) {}
+// printWithOrientation reports false off macOS so the caller falls back to
+// the default Wails print path; other platforms' print dialogs manage
+// orientation themselves.
+func printWithOrientation(landscape bool) bool { return false }

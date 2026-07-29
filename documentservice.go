@@ -142,8 +142,10 @@ func (s *DocumentService) ExportPDF() {
 	if s.window == nil {
 		return
 	}
-	applyPrintOrientation(s.PrintOrientation() == "landscape")
-	_ = s.window.Print()
+	if !printWithOrientation(s.PrintOrientation() == "landscape") {
+		// Fallback: Wails' built-in print (hardcodes landscape upstream).
+		_ = s.window.Print()
+	}
 }
 
 func (s *DocumentService) Quit() {
