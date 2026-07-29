@@ -56,8 +56,11 @@ func main() {
 		Height: 800,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
+			// Normal backdrop: the app paints an opaque white background, so
+			// the template's translucent NSVisualEffectView only added the
+			// oversized "glass" corner radius on macOS 26.
+			Backdrop: application.MacBackdropNormal,
+			TitleBar: application.MacTitleBarHiddenInset,
 		},
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
