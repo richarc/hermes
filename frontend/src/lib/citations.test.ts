@@ -146,3 +146,44 @@ describe('citationPlugin parsing', () => {
     expect(html).toContain('data-cite-index="2"')
   })
 })
+
+describe('citationPlugin does not hijack markdown links (regression)', () => {
+  it('an @-word inside an inline link label leaves the link intact', () => {
+    // The outer `[...](url)` has no nested bracket construct, so it's a
+    // normal link; a bare `@cite` inside link text is not treated as a
+    // narrative citation (only the bracketed form nests inside links).
+    const { html, clusters } = parseDoc('[my @cite here](https://example.com)')
+    expect(html).toContain('<a href="https://example.com">my @cite here</a>')
+    expect(clusters).toEqual([])
+  })
+
+  it('a bracketed citation nested inside a link label still parses, per CommonMark link-in-link rules', () => {
+    // Per CommonMark (spec example: `[foo [bar](/uri)](/uri)`), a link label
+    // containing another bracket-consuming construct disqualifies the OUTER
+    // brackets from being a link -- they render as literal text -- while the
+    // inner construct still renders normally. Our citation span is one such
+    // construct, so `[a [@cite] link](url)` behaves the same way a literal
+    // nested link would: outer brackets/parens stay literal, inner citation
+    // renders.
+    const { html, clusters } = parseDoc('[a [@cite] link](https://example.com)')
+    expect(clusters).toEqual([{ items: [{ key: 'cite' }] }])
+    expect(html).toContain('data-cite-index="0"')
+    expect(html).toContain('>[@cite]<') // placeholder span wraps the raw "[@cite]" text
+    expect(html).not.toContain('<a href')
+  })
+
+  it('an @-word inside a reference-style link label leaves the link intact', () => {
+    const { html, clusters } = parseDoc(
+      '[see @smith][ref]\n\n[ref]: https://example.com',
+    )
+    expect(html).toContain('<a href="https://example.com">see @smith</a>')
+    expect(clusters).toEqual([])
+  })
+
+  it('an unclosed bracket never absorbs later content, and does not fall back to a bare citation', () => {
+    const { html, clusters } = parseDoc('Note [@key\nsome [text] after')
+    expect(clusters).toEqual([])
+    expect(html).toContain('Note [@key')
+    expect(html).toContain('some [text] after')
+  })
+})

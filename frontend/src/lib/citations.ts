@@ -170,12 +170,35 @@ function pushCitation(
   token.content = raw
 }
 
+/**
+ * Finds the `]` that balances the `[` at `open`, tracking nested `[`/`]`
+ * pairs. Returns -1 if the source runs out before the brackets balance
+ * (e.g. an unclosed `[` — never absorbs unrelated trailing content).
+ */
+function findBalancedClose(src: string, open: number): number {
+  let depth = 0
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '[') depth++
+    else if (src[i] === ']') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
 /** Inline rule for bracketed citations: `[@key]`, `[see @key, p. 33; @other]`. */
 function bracketRule(state: StateInline, silent: boolean): boolean {
   const { src, pos } = state
   if (src[pos] !== '[') return false
-  const close = src.indexOf(']', pos)
+  const close = findBalancedClose(src, pos)
   if (close === -1) return false
+  // `(` or `[` right after the balanced close means this is (or is
+  // attempting to be) a markdown link/reference — defer to the `link` rule
+  // rather than hijacking it. (markdown-it re-tokenizes link labels through
+  // the full inline ruler, so a citation nested inside one still parses.)
+  const next = src[close + 1]
+  if (next === '(' || next === '[') return false
   const content = src.slice(pos + 1, close)
   if (!content.includes('@')) return false
   const items = parseBracketContent(content)
@@ -189,9 +212,16 @@ function bracketRule(state: StateInline, silent: boolean): boolean {
 function narrativeRule(state: StateInline, silent: boolean): boolean {
   const { src, pos } = state
   if (src[pos] !== '@') return false
-  // must not be mid-word (emails, handles-in-words)
+  // Bare citations don't nest inside link text (only the bracketed form
+  // does, via bracketRule, since it has explicit delimiters to recover with).
+  // `linkLevel` exists at runtime (markdown-it's own `linkify` rule reads it
+  // the same way) but is missing from @types/markdown-it's StateInline decl.
+  if ((state as StateInline & { linkLevel: number }).linkLevel > 0) return false
+  // must not be mid-word (emails, handles-in-words), nor immediately after a
+  // `[` — that position belongs to bracketRule; if it declined (e.g. an
+  // unclosed bracket), the `@` shouldn't be reinterpreted as a bare citation.
   const before = pos === 0 ? '' : src[pos - 1]
-  if (before && /[\w.\-@]/.test(before)) return false
+  if (before && /[\w.\-@[]/.test(before)) return false
   const parsed = parseKey(src.slice(pos + 1))
   if (!parsed) return false
   if (!silent) {
