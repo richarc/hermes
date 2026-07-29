@@ -12,9 +12,10 @@ KaTeX math + Vega-Lite charts), native file handling with recents and dirty
 tracking, and PDF export via the print panel. Design and plan documents live in
 `docs/superpowers/`.
 
-## v0.2.0 — Refinements and fixes (in planning)
+## v0.2.0 — Refinements and fixes ✅ (released 2026-07-29)
 
-Feature list to be defined. Candidates carried over from v0.1 review notes:
+Everything below shipped except the Vite 8 revisit, which moved to the
+backlog (blocked on an upstream Rolldown fix):
 
 - [x] Bug: the Open / Save / Export PDF toolbar buttons overlap the standard
       macOS window controls (traffic lights). Fixed by insetting the toolbar's
@@ -32,14 +33,12 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
 - [x] Bug: the window corner radius was noticeably larger than other macOS
       apps — the template's translucent backdrop drew macOS 26's oversized
       glass corners. Switched to a normal backdrop (opaque app anyway).
-- [ ] Dirty-state edge case: a document deleted back to empty still counts as
-      dirty; re-evaluate against last-saved content.
-- [ ] Keyboard accessibility for the pane divider (currently mouse-only).
-- [ ] Strip unused template assets from `frontend/public/` (embedded into the
-      shipped binary).
-- [ ] Docs: correct the stale `data-wml-openURL` note in CLAUDE.md.
-- [ ] Revisit Vite 8 once the upstream Rolldown lone-surrogate bug is fixed
-      (v0.1 pinned Vite 7 to keep KaTeX's lexer intact).
+- [x] Dirty-state edge case: dirty is now derived from a comparison with the
+      last-saved content instead of a sticky flag.
+- [x] Keyboard accessibility for the pane divider (WAI-ARIA window splitter:
+      focusable, arrow-key resizing).
+- [x] Stripped unused template assets from `frontend/public/`.
+- [x] Docs: corrected the stale `data-wml-openURL` note in CLAUDE.md.
 
 ## v0.3.0 — Citations and bibliography
 
@@ -53,6 +52,11 @@ The headline academic feature (previously referred to as "v2"):
 
 Ideas noted along the way, not yet committed to a release:
 
+- Revisit Vite 8 once the upstream Rolldown lone-surrogate bug is fixed
+  (v0.1 pinned Vite 7 to keep KaTeX's lexer intact).
+- File a Wails issue for the hardcoded landscape print orientation (their
+  code carries a TODO inviting a config option; Hermes ships its own print
+  path meanwhile).
 - Dark theme (theme-aware app chrome, preview, and CodeMirror theme) — v0.1
   deliberately pins a light scheme.
 - Dialog-free PDF export (e.g. headless rendering) if the print panel proves

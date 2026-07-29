@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-29
+
+Quality-of-life release: in-session file navigation, proper app identity, and
+a batch of macOS polish and lifecycle fixes.
+
 ### Added
 
 - File → New (⌘N) starts a fresh untitled document, guarded by the
@@ -14,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - File → Open Recent submenu listing recent files (with Clear Recents),
   kept in sync as documents are opened and saved — recents are now
   reachable after the welcome pane is gone.
+- The pane divider is keyboard-accessible (WAI-ARIA window splitter: Tab to
+  focus, arrow keys resize).
+
+### Changed
+
+- The unsaved indicator now compares against the last-saved content, so
+  editing back to the saved text (or emptying a never-saved document) clears
+  it instead of sticking.
+- Removed unused template assets from the shipped binary (background images,
+  logos, bundled Inter font).
 
 ### Fixed
 
