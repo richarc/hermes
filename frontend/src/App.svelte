@@ -23,7 +23,11 @@
   let editor: ReturnType<typeof Editor>
   let toastTimer: ReturnType<typeof setTimeout>
   let formatter = $state<CitationFormatter | undefined>(undefined)
-  let bibPath = $state<string | null>(null)
+  // Guards against a stale ReadBibliography response landing after a newer
+  // request (e.g. rapid frontmatter edits or back-to-back bib:changed
+  // events): each call captures its generation and bails after every await
+  // if a later call has since started, so the latest call always wins.
+  let reloadGeneration = 0
 
   const fm = $derived(parseFrontmatter(content))
   // Svelte's $derived always treats an object return value as "changed" on
@@ -62,8 +66,8 @@
   // Reload the bibliography when the document's frontmatter changes it,
   // when the document path changes, or on bib:changed from the watcher.
   async function reloadBibliography() {
+    const gen = ++reloadGeneration
     const wanted = fmBibliography ?? null
-    bibPath = wanted
     if (!wanted || !path) {
       formatter = undefined
       void DocumentService.WatchBibliography('', path ?? '')
@@ -71,12 +75,14 @@
     }
     try {
       const text = await DocumentService.ReadBibliography(wanted, path)
+      if (gen !== reloadGeneration) return // superseded by a newer request
       const { entries, warnings } = parseBib(text)
       if (warnings.length)
         toast(`Bibliography: ${warnings.length} entr${warnings.length === 1 ? 'y' : 'ies'} could not be parsed`)
       formatter = createCitationFormatter(entries, fmCsl ?? 'apa')
       if (fmCsl && !STYLE_IDS.includes(fmCsl)) toast(`Unknown citation style "${fmCsl}" — using APA`)
     } catch {
+      if (gen !== reloadGeneration) return // superseded by a newer request
       formatter = undefined
       toast(`Bibliography not found: ${wanted}`)
     }
