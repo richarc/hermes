@@ -187,20 +187,31 @@ function findBalancedClose(src: string, open: number): number {
   return -1
 }
 
-/** Inline rule for bracketed citations: `[@key]`, `[see @key, p. 33; @other]`. */
+/**
+ * Inline rule for bracketed citations: `[@key]`, `[see @key, p. 33; @other]`.
+ * Registered AFTER `link` (see `citationPlugin`) so a genuine link or
+ * reference link always gets first refusal at a `[...]`; we only see the
+ * position at all once `link` has already declined it (e.g. an undefined
+ * reference, or no `(`/`[` following at all), so there's no risk of
+ * pre-emptively guessing wrong and silently dropping a citation that was
+ * never going to become a link in the first place.
+ */
 function bracketRule(state: StateInline, silent: boolean): boolean {
   const { src, pos } = state
   if (src[pos] !== '[') return false
   const close = findBalancedClose(src, pos)
   if (close === -1) return false
-  // `(` or `[` right after the balanced close means this is (or is
-  // attempting to be) a markdown link/reference — defer to the `link` rule
-  // rather than hijacking it. (markdown-it re-tokenizes link labels through
-  // the full inline ruler, so a citation nested inside one still parses.)
-  const next = src[close + 1]
-  if (next === '(' || next === '[') return false
   const content = src.slice(pos + 1, close)
   if (!content.includes('@')) return false
+  // A well-formed citation group's content is flat prose + citekeys; a
+  // literal `[` inside it means this bracket actually encloses a nested
+  // bracket construct (e.g. `[a [@cite] link](url)`, an inner citation, or a
+  // link/reference the outer one can't also be — see the CommonMark
+  // "links may not contain other links" precedent). Declining here (rather
+  // than guessing what follows the close) lets that inner content get its
+  // own turn at its own position instead of being absorbed as literal
+  // prefix/suffix text.
+  if (content.includes('[')) return false
   const items = parseBracketContent(content)
   if (!items) return false
   if (!silent) pushCitation(state, 'citation', { items }, src.slice(pos, close + 1))
@@ -244,7 +255,10 @@ function narrativeRule(state: StateInline, silent: boolean): boolean {
  * order, for a later render pass (Task 5) to replace with formatted text.
  */
 export function citationPlugin(md: MarkdownIt): void {
-  md.inline.ruler.before('link', 'citation', bracketRule)
+  // Registered AFTER `link`: real links/reference links always get first
+  // refusal at a `[`, and the citation rule only runs once `link` has
+  // already declined (see `bracketRule`'s doc comment).
+  md.inline.ruler.after('link', 'citation', bracketRule)
   md.inline.ruler.before('emphasis', 'citation_narrative', narrativeRule)
   const renderCitation = (tokens: Token[], idx: number) => {
     const t = tokens[idx]

@@ -187,3 +187,29 @@ describe('citationPlugin does not hijack markdown links (regression)', () => {
     expect(html).toContain('some [text] after')
   })
 })
+
+describe('citationPlugin: adjacent brackets and declined links (round-2 fix)', () => {
+  it('two adjacent bracketed citations both parse -- the second is not swallowed as a bogus reference label', () => {
+    // `link` tries `[@a2020]` first: no `(` follows, and `[@b2021]` doesn't
+    // resolve as a reference (no definition), so `link` declines and
+    // `bracketRule` (registered right after it) gets both brackets in turn.
+    const { html, clusters } = parseDoc('[@a2020][@b2021]')
+    expect(clusters.map((c) => c.items.map((i) => i.key))).toEqual([['a2020'], ['b2021']])
+    expect(html).toContain('data-cite-index="0"')
+    expect(html).toContain('data-cite-index="1"')
+  })
+
+  it('a citation followed by an undefined reference label keeps the citation and leaves the label literal', () => {
+    // `link` attempts the `[text][label]` reference form using
+    // "TODO check" as the label; since no such reference is defined, `link`
+    // declines the whole thing (not just the label) rather than silently
+    // eating `[@smith2020]`. `bracketRule` then still gets a turn at
+    // `[@smith2020]` and parses it; `[TODO check]` has no `@`, so it's left
+    // as literal text.
+    const { html, clusters } = parseDoc('See [@smith2020][TODO check]')
+    expect(clusters).toEqual([{ items: [{ key: 'smith2020' }] }])
+    expect(html).toContain('data-cite-index="0"')
+    expect(html).toContain('[TODO check]')
+    expect(html).not.toContain('<a href')
+  })
+})
