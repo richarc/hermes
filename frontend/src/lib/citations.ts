@@ -64,10 +64,16 @@ export function createCitationFormatter(
       const engine = new CSL.Engine(sys, style)
       const texts: string[] = new Array(clusters.length).fill('')
       const pre: [string, number][] = []
+      // citeproc's update indices are positions among SUBMITTED clusters, not
+      // original cluster positions. Since empty clusters are never submitted,
+      // map submitted index -> original index to keep texts[] aligned with
+      // the caller's cluster array.
+      const submittedToOriginal: number[] = []
       let processed = 0
       clusters.forEach((cluster, i) => {
         if (cluster.items.length === 0) return // caller-blanked cluster: keep '' at index i
         processed++
+        submittedToOriginal.push(i)
         const citation = {
           citationID: `cite-${i}`,
           citationItems: cluster.items.map((item) => ({
@@ -81,7 +87,7 @@ export function createCitationFormatter(
           properties: { noteIndex: 0, ...(cluster.mode ? { mode: cluster.mode } : {}) },
         }
         const [, updates] = engine.processCitationCluster(citation, [...pre], [])
-        for (const [index, html] of updates) texts[index] = html
+        for (const [index, html] of updates) texts[submittedToOriginal[index]] = html
         pre.push([`cite-${i}`, 0])
       })
       if (processed === 0) return { texts, bibliographyHtml: '' }

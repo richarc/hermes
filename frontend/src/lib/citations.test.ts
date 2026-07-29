@@ -66,4 +66,18 @@ describe('createCitationFormatter (apa)', () => {
     const fb = createCitationFormatter(ENTRIES, 'nope').format([{ items: [{ key: 'doe2021' }] }])
     expect(fb.texts[0]).toBe(apa.texts[0])
   })
+
+  it('keeps index alignment when an empty-items cluster precedes a real one', () => {
+    const f = createCitationFormatter(ENTRIES, 'apa')
+    const { texts, bibliographyHtml } = f.format([
+      { items: [{ key: 'smith2020' }] },
+      { items: [] },
+      { items: [{ key: 'doe2021' }] },
+    ])
+    expect(texts[0]).toContain('Smith')
+    expect(texts[1]).toBe('')
+    expect(texts[2]).toContain('Doe')
+    expect(bibliographyHtml).toContain('Smith')
+    expect(bibliographyHtml).toContain('Doe')
+  })
 })
