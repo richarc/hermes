@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -27,6 +30,10 @@ type DocumentService struct {
 	onRecentsChanged func()
 	// Notified when the PDF orientation setting changes (menu rebuild).
 	onOrientationChanged func()
+	watchTick            time.Duration
+	emitBibChanged       func()
+	watchMu              sync.Mutex
+	watchCancel          context.CancelFunc
 }
 
 type settings struct {
@@ -37,6 +44,7 @@ func NewDocumentService(recentsPath string) *DocumentService {
 	return &DocumentService{
 		recentsPath:  recentsPath,
 		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
+		watchTick:    2 * time.Second,
 	}
 }
 
@@ -179,4 +187,69 @@ func (s *DocumentService) notifyRecentsChanged() {
 	if s.onRecentsChanged != nil {
 		s.onRecentsChanged()
 	}
+}
+
+func (s *DocumentService) resolveAgainstDoc(path, docPath string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(filepath.Dir(docPath), path)
+}
+
+func (s *DocumentService) ReadBibliography(path, docPath string) (string, error) {
+	data, err := os.ReadFile(s.resolveAgainstDoc(path, docPath))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// WatchBibliography (re)arms the single bibliography watcher. An empty path
+// stops watching. The goroutine polls mtime+size and notifies on change; a
+// missing file keeps polling and notifies when it appears.
+func (s *DocumentService) WatchBibliography(path, docPath string) {
+	s.watchMu.Lock()
+	defer s.watchMu.Unlock()
+	if s.watchCancel != nil {
+		s.watchCancel()
+		s.watchCancel = nil
+	}
+	if path == "" {
+		return
+	}
+	resolved := s.resolveAgainstDoc(path, docPath)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.watchCancel = cancel
+
+	notify := s.emitBibChanged
+	if notify == nil {
+		notify = func() { application.Get().Event.Emit("bib:changed") }
+	}
+
+	go func() {
+		var lastMod time.Time
+		var lastSize int64
+		known := false
+		if info, err := os.Stat(resolved); err == nil {
+			lastMod, lastSize, known = info.ModTime(), info.Size(), true
+		}
+		ticker := time.NewTicker(s.watchTick)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				info, err := os.Stat(resolved)
+				if err != nil {
+					known = false
+					continue
+				}
+				if !known || !info.ModTime().Equal(lastMod) || info.Size() != lastSize {
+					lastMod, lastSize, known = info.ModTime(), info.Size(), true
+					notify()
+				}
+			}
+		}
+	}()
 }
