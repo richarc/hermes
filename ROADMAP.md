@@ -29,8 +29,9 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
       regenerated all platform build assets.
 - [x] Bug: printing / PDF preview defaulted to landscape. Portrait is now the
       default, with a persisted File → PDF Orientation menu choice.
-- [ ] Bug: the window corner radius is noticeably larger than other macOS
-      apps. Reduce it to match the platform norm.
+- [x] Bug: the window corner radius was noticeably larger than other macOS
+      apps — the template's translucent backdrop drew macOS 26's oversized
+      glass corners. Switched to a normal backdrop (opaque app anyway).
 - [ ] Dirty-state edge case: a document deleted back to empty still counts as
       dirty; re-evaluate against last-saved content.
 - [ ] Keyboard accessibility for the pane divider (currently mouse-only).

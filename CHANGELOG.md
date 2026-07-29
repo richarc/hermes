@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Window corners now match the standard macOS radius; the template's
+  translucent backdrop had been drawing macOS 26's oversized glass corners
+  (and was invisible anyway behind the app's opaque background).
 - PDF export now defaults to portrait orientation (was landscape), with a
   File → PDF Orientation menu (Portrait/Landscape radio choice, persisted
   across launches).
