@@ -1,3 +1,8 @@
+---
+bibliography: visual-test.bib
+csl: apa
+---
+
 # Hermes Visual Test Document
 
 Open this file in Hermes after any major change and scan each section in the
@@ -138,7 +143,18 @@ The same bar chart again — a duplicate spec must render **both** copies
 While this document is open, type some text elsewhere in the file: the charts
 must **not** flicker while you type (cache check).
 
-## 8. Intentional errors — these SHOULD look broken
+## 9. Citations
+
+A simple citation [@smith2020], a multi-cite [@smith2020; @doe2021], a
+narrative citation: @doe2021 argues the point. Suppressed author [-@smith2020],
+with locator [see @doe2021, pp. 33-35], and disambiguation [@smith2020; @smith2020x].
+An unknown key must show an inline error: [@notakey1999].
+
+A References section should appear at the end of this document, before nothing —
+check it lists Smith (2020a, 2020b) and Doe (2021), and that ⌘E includes it in
+the PDF without splitting entries across pages.
+
+## 10. Intentional errors — these SHOULD look broken
 
 Invalid LaTeX renders inline in red, without blanking the preview:
 $\thisisnotacommand{x}$
