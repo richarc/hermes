@@ -24,6 +24,13 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
       so rapid re-renders can't interleave (charts.ts hydrator factory).
 - [x] In-session file navigation: File → New (⌘N) and a File → Open Recent
       submenu (with Clear Recents) that rebuilds as the list changes.
+- [ ] Bug: the app is named "My Product" in the menu bar and About dialog
+      (template defaults in `build/config.yml`). Rename to "Hermes Editor"
+      and regenerate the build assets.
+- [ ] Bug: printing / PDF preview defaults to landscape. Make portrait the
+      default and provide a way to choose the orientation.
+- [ ] Bug: the window corner radius is noticeably larger than other macOS
+      apps. Reduce it to match the platform norm.
 - [ ] Dirty-state edge case: a document deleted back to empty still counts as
       dirty; re-evaluate against last-saved content.
 - [ ] Keyboard accessibility for the pane divider (currently mouse-only).
