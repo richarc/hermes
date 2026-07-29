@@ -81,6 +81,11 @@ func main() {
 		})
 		app.Event.Emit("recents:changed")
 	}
+	docs.onOrientationChanged = func() {
+		application.InvokeAsync(func() {
+			installMenu(app, win, docs)
+		})
+	}
 
 	installMenu(app, win, docs)
 

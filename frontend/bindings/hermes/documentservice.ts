@@ -29,6 +29,13 @@ export function OpenPath(path: string): $CancellablePromise<$models.Document> {
     return $Call.ByID(3640861155, path);
 }
 
+/**
+ * PrintOrientation returns "portrait" or "landscape"; portrait is the default.
+ */
+export function PrintOrientation(): $CancellablePromise<string> {
+    return $Call.ByID(1186847191);
+}
+
 export function Quit(): $CancellablePromise<void> {
     return $Call.ByID(2527160883);
 }
@@ -47,4 +54,8 @@ export function SaveAs(content: string): $CancellablePromise<string> {
 
 export function SetDirty(dirty: boolean): $CancellablePromise<void> {
     return $Call.ByID(2193338676, dirty);
+}
+
+export function SetPrintOrientation(orientation: string): $CancellablePromise<void> {
+    return $Call.ByID(360162911, orientation);
 }

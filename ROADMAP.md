@@ -27,8 +27,8 @@ Feature list to be defined. Candidates carried over from v0.1 review notes:
 - [x] Bug: the app was named "My Product" in the menu bar and About dialog.
       Renamed to "Hermes Editor" (bundle id com.hermes.editor, © Hermes) and
       regenerated all platform build assets.
-- [ ] Bug: printing / PDF preview defaults to landscape. Make portrait the
-      default and provide a way to choose the orientation.
+- [x] Bug: printing / PDF preview defaulted to landscape. Portrait is now the
+      default, with a persisted File → PDF Orientation menu choice.
 - [ ] Bug: the window corner radius is noticeably larger than other macOS
       apps. Reduce it to match the platform norm.
 - [ ] Dirty-state edge case: a document deleted back to empty still counts as

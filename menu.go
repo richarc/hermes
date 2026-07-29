@@ -46,8 +46,16 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		app.Event.Emit("menu:save-as")
 	})
 	file.AddSeparator()
+	orientation := file.AddSubmenu("PDF Orientation")
+	current := docs.PrintOrientation()
+	orientation.AddRadio("Portrait", current == "portrait").OnClick(func(*application.Context) {
+		docs.SetPrintOrientation("portrait")
+	})
+	orientation.AddRadio("Landscape", current == "landscape").OnClick(func(*application.Context) {
+		docs.SetPrintOrientation("landscape")
+	})
 	file.Add("Export PDF…").SetAccelerator("cmdorctrl+e").OnClick(func(*application.Context) {
-		_ = win.Print()
+		docs.ExportPDF()
 	})
 
 	menu.AddRole(application.EditMenu)

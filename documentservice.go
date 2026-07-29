@@ -18,16 +18,26 @@ type Document struct {
 }
 
 type DocumentService struct {
-	recentsPath string
-	dirty       atomic.Bool
-	window      *application.WebviewWindow
+	recentsPath  string
+	settingsPath string
+	dirty        atomic.Bool
+	window       *application.WebviewWindow
 	// Notified whenever the recents list changes (add or clear), so the
 	// native Open Recent menu can be rebuilt. Set once during startup.
 	onRecentsChanged func()
+	// Notified when the PDF orientation setting changes (menu rebuild).
+	onOrientationChanged func()
+}
+
+type settings struct {
+	PrintOrientation string `json:"printOrientation"`
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
-	return &DocumentService{recentsPath: recentsPath}
+	return &DocumentService{
+		recentsPath:  recentsPath,
+		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
+	}
 }
 
 func (s *DocumentService) OpenPath(path string) (Document, error) {
@@ -93,10 +103,47 @@ func (s *DocumentService) SaveAs(content string) (string, error) {
 	return path, nil
 }
 
-func (s *DocumentService) ExportPDF() {
-	if s.window != nil {
-		_ = s.window.Print()
+// PrintOrientation returns "portrait" or "landscape"; portrait is the default.
+func (s *DocumentService) PrintOrientation() string {
+	data, err := os.ReadFile(s.settingsPath)
+	if err != nil {
+		return "portrait"
 	}
+	var cfg settings
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return "portrait"
+	}
+	if cfg.PrintOrientation == "landscape" {
+		return "landscape"
+	}
+	return "portrait"
+}
+
+func (s *DocumentService) SetPrintOrientation(orientation string) {
+	if orientation != "portrait" && orientation != "landscape" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(s.settingsPath), 0o755); err != nil {
+		return
+	}
+	data, err := json.Marshal(settings{PrintOrientation: orientation})
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(s.settingsPath, data, 0o644); err != nil {
+		return
+	}
+	if s.onOrientationChanged != nil {
+		s.onOrientationChanged()
+	}
+}
+
+func (s *DocumentService) ExportPDF() {
+	if s.window == nil {
+		return
+	}
+	applyPrintOrientation(s.PrintOrientation() == "landscape")
+	_ = s.window.Print()
 }
 
 func (s *DocumentService) Quit() {

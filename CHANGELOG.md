@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PDF export now defaults to portrait orientation (was landscape), with a
+  File → PDF Orientation menu (Portrait/Landscape radio choice, persisted
+  across launches).
 - The app now identifies as "Hermes Editor" (bundle id `com.hermes.editor`)
   in the menu bar and About dialog instead of the template's "My Product".
 - Toolbar buttons (Open / Save / Export PDF) no longer sit under the macOS
