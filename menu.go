@@ -39,6 +39,10 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		clearItem.SetEnabled(false)
 	}
 
+	file.Add("Insert Citation…").SetAccelerator("shift+cmdorctrl+c").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:insert-citation")
+	})
+
 	file.Add("Save").SetAccelerator("cmdorctrl+s").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:save")
 	})

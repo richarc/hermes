@@ -34,6 +34,7 @@ type DocumentService struct {
 	emitBibChanged       func()
 	watchMu              sync.Mutex
 	watchCancel          context.CancelFunc
+	caywBase             string
 }
 
 type settings struct {
@@ -45,6 +46,7 @@ func NewDocumentService(recentsPath string) *DocumentService {
 		recentsPath:  recentsPath,
 		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
 		watchTick:    2 * time.Second,
+		caywBase:     "http://127.0.0.1:23119",
 	}
 }
 

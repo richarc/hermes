@@ -30,6 +30,16 @@ export function OpenPath(path: string): $CancellablePromise<$models.Document> {
 }
 
 /**
+ * PickCitations opens Zotero's citation picker via Better BibTeX's CAYW
+ * endpoint and returns the chosen citations in Pandoc format. The timeout is
+ * long because the user is interacting with the picker; an empty response
+ * means they cancelled.
+ */
+export function PickCitations(): $CancellablePromise<string> {
+    return $Call.ByID(873413501);
+}
+
+/**
  * PrintOrientation returns "portrait" or "landscape"; portrait is the default.
  */
 export function PrintOrientation(): $CancellablePromise<string> {
@@ -38,6 +48,10 @@ export function PrintOrientation(): $CancellablePromise<string> {
 
 export function Quit(): $CancellablePromise<void> {
     return $Call.ByID(2527160883);
+}
+
+export function ReadBibliography(path: string, docPath: string): $CancellablePromise<string> {
+    return $Call.ByID(3582225424, path, docPath);
 }
 
 export function RecentFiles(): $CancellablePromise<string[] | null> {
@@ -58,4 +72,13 @@ export function SetDirty(dirty: boolean): $CancellablePromise<void> {
 
 export function SetPrintOrientation(orientation: string): $CancellablePromise<void> {
     return $Call.ByID(360162911, orientation);
+}
+
+/**
+ * WatchBibliography (re)arms the single bibliography watcher. An empty path
+ * stops watching. The goroutine polls mtime+size and notifies on change; a
+ * missing file keeps polling and notifies when it appears.
+ */
+export function WatchBibliography(path: string, docPath: string): $CancellablePromise<void> {
+    return $Call.ByID(3958672815, path, docPath);
 }
