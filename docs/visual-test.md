@@ -150,6 +150,10 @@ narrative citation: @doe2021 argues the point. Suppressed author [-@smith2020],
 with locator [see @doe2021, pp. 33-35], and disambiguation [@smith2020; @smith2020x].
 An unknown key must show an inline error: [@notakey1999].
 
+A group split by a hard line wrap must format like any other, showing no raw
+brackets and no `data-cite-index` attribute: [see @smith2020,
+pp. 12-14].
+
 A References section should appear at the end of this document, before nothing —
 check it lists Smith (2020a, 2020b) and Doe (2021), and that ⌘E includes it in
 the PDF without splitting entries across pages.

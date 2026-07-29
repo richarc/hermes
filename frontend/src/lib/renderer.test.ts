@@ -113,6 +113,19 @@ describe('render: citations', () => {
     expect(html).not.toContain('<y>')
   })
 
+  it('formats a citation group that wraps across a line break', () => {
+    const html = render('Blah [see @smith2020,\np. 33].', { formatter: FORMATTER })
+    expect(html).not.toContain('data-cite-index')
+    expect(html).toContain('see Smith')
+    expect(html).toContain('p. 33')
+  })
+
+  it('reports an unresolvable wrapped citation group as an in-place error', () => {
+    const html = render('Blah [@nope2000;\n@alsonope].', { formatter: FORMATTER })
+    expect(html).not.toContain('data-cite-index')
+    expect(html).toContain('cite-error')
+  })
+
   it('adds no References section when the document has no citations', () => {
     expect(render('Just text.', { formatter: FORMATTER })).not.toContain('References')
   })

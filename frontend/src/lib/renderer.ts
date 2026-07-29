@@ -40,7 +40,9 @@ export function render(markdown: string, opts?: RenderOptions): string {
     clusters.map((c) => (resolvable(formatter, c) ? c : { items: [] })),
   )
   html = html.replace(
-    /<span class="citation" data-cite-index="(\d+)">(.*?)<\/span>/g,
+    // The s flag matters: a hard-wrapped citation group keeps its newline in
+    // the placeholder, and without it the group renders as raw markup.
+    /<span class="citation" data-cite-index="(\d+)">(.*?)<\/span>/gs,
     (whole, idx: string, raw: string) => {
       const i = Number(idx)
       const cluster = clusters[i]
