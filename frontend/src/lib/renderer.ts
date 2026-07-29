@@ -46,8 +46,13 @@ export function render(markdown: string, opts?: RenderOptions): string {
       const cluster = clusters[i]
       if (!cluster || !resolvable(formatter, cluster)) {
         const marked = cluster
-          ? cluster.items.map((it) => `[@${it.key}${formatter.has(it.key) ? '' : '?'}]`).join(' ')
-          : raw
+          ? cluster.items
+              .map(
+                (it) =>
+                  `[@${md.utils.escapeHtml(it.key)}${formatter.has(it.key) ? '' : '?'}]`,
+              )
+              .join(' ')
+          : md.utils.escapeHtml(raw)
         return `<span class="cite-error">${marked}</span>`
       }
       return `<span class="citation">${texts[i]}</span>`

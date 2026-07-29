@@ -106,6 +106,13 @@ describe('render: citations', () => {
     expect(html).toMatch(/Smith.*2020/)
   })
 
+  it('escapes HTML-significant characters in an unresolvable citekey', () => {
+    const html = render('Weird [@bad&x<y>z].', { formatter: FORMATTER })
+    expect(html).toContain('cite-error')
+    expect(html).toContain('&amp;x&lt;y&gt;z?')
+    expect(html).not.toContain('<y>')
+  })
+
   it('adds no References section when the document has no citations', () => {
     expect(render('Just text.', { formatter: FORMATTER })).not.toContain('References')
   })
