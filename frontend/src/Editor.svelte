@@ -15,6 +15,11 @@
     })
   }
 
+  export function insertAtCursor(text: string): void {
+    view.dispatch(view.state.replaceSelection(text))
+    view.focus()
+  }
+
   onMount(() => {
     view = new EditorView({
       parent: host,

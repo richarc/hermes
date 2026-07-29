@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { Events } from '@wailsio/runtime'
   import { DocumentService } from '../bindings/hermes'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
   import { render } from './lib/renderer'
   import { debounce } from './lib/debounce'
+  import { parseFrontmatter } from './lib/frontmatter'
+  import { parseBib } from './lib/bibliography'
+  import { createCitationFormatter, STYLE_IDS, type CitationFormatter } from './lib/citations'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -19,9 +22,22 @@
   let editorWidth = $state(50)
   let editor: ReturnType<typeof Editor>
   let toastTimer: ReturnType<typeof setTimeout>
+  let formatter = $state<CitationFormatter | undefined>(undefined)
+  let bibPath = $state<string | null>(null)
+
+  const fm = $derived(parseFrontmatter(content))
+  // Svelte's $derived always treats an object return value as "changed" on
+  // recomputation (safe_not_equal short-circuits true for objects), so an
+  // effect reading fm.bibliography/fm.csl directly would rerun on every
+  // keystroke, not just when those fields actually change — since content
+  // (and therefore fm) changes on every keystroke. Deriving the primitive
+  // fields separately lets each one's own equality check (plain !==) gate
+  // correctly, so the reload effect below only fires on a real change.
+  const fmBibliography = $derived(fm.bibliography)
+  const fmCsl = $derived(fm.csl)
 
   const updatePreview = debounce((text: string) => {
-    html = render(text)
+    html = render(text, { formatter })
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
@@ -43,6 +59,54 @@
     toastTimer = setTimeout(() => (toastMsg = ''), 4000)
   }
 
+  // Reload the bibliography when the document's frontmatter changes it,
+  // when the document path changes, or on bib:changed from the watcher.
+  async function reloadBibliography() {
+    const wanted = fmBibliography ?? null
+    bibPath = wanted
+    if (!wanted || !path) {
+      formatter = undefined
+      void DocumentService.WatchBibliography('', path ?? '')
+      return
+    }
+    try {
+      const text = await DocumentService.ReadBibliography(wanted, path)
+      const { entries, warnings } = parseBib(text)
+      if (warnings.length)
+        toast(`Bibliography: ${warnings.length} entr${warnings.length === 1 ? 'y' : 'ies'} could not be parsed`)
+      formatter = createCitationFormatter(entries, fmCsl ?? 'apa')
+      if (fmCsl && !STYLE_IDS.includes(fmCsl)) toast(`Unknown citation style "${fmCsl}" — using APA`)
+    } catch {
+      formatter = undefined
+      toast(`Bibliography not found: ${wanted}`)
+    }
+    void DocumentService.WatchBibliography(wanted, path)
+  }
+
+  $effect(() => {
+    void fmBibliography
+    void fmCsl
+    void path
+    void reloadBibliography()
+  })
+
+  // Re-render when the FORMATTER changes (bib loaded/reloaded, style change).
+  // content is read untracked: content changes flow through the debounced
+  // typing path, not this immediate effect.
+  $effect(() => {
+    void formatter
+    html = render(untrack(() => content), { formatter })
+  })
+
+  async function insertCitation() {
+    try {
+      const picked = await DocumentService.PickCitations()
+      if (picked) editor.insertAtCursor(picked)
+    } catch {
+      toast("Zotero (with Better BibTeX) isn't running")
+    }
+  }
+
   function onEditorChange(text: string) {
     content = text
     welcomeDismissed = true
@@ -55,7 +119,7 @@
     welcomeDismissed = true
     editor.setContent(docContent) // fires onEditorChange
     savedContent = docContent
-    html = render(docContent)
+    html = render(docContent, { formatter })
     void refreshRecents()
   }
 
@@ -203,6 +267,8 @@
     Events.On('menu:save-as', () => void saveAs())
     Events.On('close:confirm', () => (pendingAction = 'quit'))
     Events.On('recents:changed', () => void refreshRecents())
+    Events.On('bib:changed', () => void reloadBibliography())
+    Events.On('menu:insert-citation', () => void insertCitation())
     void refreshRecents()
   })
 </script>
@@ -211,6 +277,7 @@
   <header class="toolbar">
     <button onclick={requestOpen}>Open</button>
     <button onclick={() => void save()}>Save</button>
+    <button onclick={() => void insertCitation()}>Cite</button>
     <button onclick={() => void DocumentService.ExportPDF()}>Export PDF</button>
   </header>
 
