@@ -34,7 +34,7 @@ func main() {
 	// 'Bind' is a list of Go struct instances. The frontend has access to the methods of these instances.
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
-		Name:        "Hermes",
+		Name:        "Hermes Editor",
 		Description: "Academic markdown editor",
 		Services:    []application.Service{application.NewService(docs)},
 		Assets: application.AssetOptions{

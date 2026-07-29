@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The app now identifies as "Hermes Editor" (bundle id `com.hermes.editor`)
+  in the menu bar and About dialog instead of the template's "My Product".
 - Toolbar buttons (Open / Save / Export PDF) no longer sit under the macOS
   traffic-light window controls; the toolbar is inset to clear them.
 - Chart lifecycle: Vega views are finalized when their chart leaves the
