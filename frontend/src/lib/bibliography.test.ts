@@ -50,4 +50,13 @@ describe('parseBib', () => {
     expect(r.entries.map((e) => e.id)).toContain('ok')
     expect(r.warnings.length).toBeGreaterThan(0)
   })
+
+  it('filters out phantom entries with empty keys from parser recovery', () => {
+    const r = parseBib('@article{ok, title={Fine}, year={2020}}\n@article{broken')
+    expect(r.entries.length).toBe(1)
+    expect(r.entries[0].id).toBe('ok')
+    expect(r.warnings.length).toBeGreaterThan(0)
+    // Ensure no entry has empty id
+    expect(r.entries.every((e) => e.id && e.id.length > 0)).toBe(true)
+  })
 })

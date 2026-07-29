@@ -72,6 +72,8 @@ export function parseBib(text: string): { entries: CSLEntry[]; warnings: string[
   )
   const entries: CSLEntry[] = []
   for (const raw of parsed.entries) {
+    // Skip phantom entries from parser recovery (empty key, empty fields)
+    if (!raw.key) continue
     const f = raw.fields as Record<string, unknown>
     const entry: CSLEntry = {
       id: raw.key,
