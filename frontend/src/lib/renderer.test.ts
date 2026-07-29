@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render } from './renderer'
+import { createCitationFormatter } from './citations'
+import type { CSLEntry } from './bibliography'
 
 describe('render: markdown', () => {
   it('renders headings', () => {
@@ -66,5 +68,50 @@ describe('render: vega-lite fences', () => {
 
   it('does not hijack other fence languages', () => {
     expect(render('```json\n{}\n```')).toContain('<pre>')
+  })
+})
+
+const ENTRIES: CSLEntry[] = [
+  { id: 'smith2020', type: 'article-journal', title: 'A study',
+    author: [{ family: 'Smith', given: 'John A.' }],
+    issued: { 'date-parts': [[2020]] }, 'container-title': 'Nature' },
+]
+const FORMATTER = createCitationFormatter(ENTRIES, 'apa')
+
+describe('render: citations', () => {
+  it('strips frontmatter with or without a formatter', () => {
+    const doc = '---\nbibliography: refs.bib\n---\n# Title'
+    expect(render(doc)).toContain('<h1>Title</h1>')
+    expect(render(doc)).not.toContain('bibliography')
+  })
+
+  it('renders formatted citations and a References section', () => {
+    const html = render('Blah [@smith2020].', { formatter: FORMATTER })
+    expect(html).toContain('Smith')
+    expect(html).toContain('2020')
+    expect(html).toContain('<h2>References</h2>')
+    expect(html).toContain('csl-entry')
+  })
+
+  it('renders raw citation text without a formatter, no References', () => {
+    const html = render('Blah [@smith2020].')
+    expect(html).toContain('[@smith2020]')
+    expect(html).not.toContain('References')
+  })
+
+  it('renders unknown keys as in-place errors, rest of doc fine', () => {
+    const html = render('Good [@smith2020]. Bad [@nope2000].', { formatter: FORMATTER })
+    expect(html).toContain('cite-error')
+    expect(html).toContain('[@nope2000?]')
+    expect(html).toMatch(/Smith.*2020/)
+  })
+
+  it('adds no References section when the document has no citations', () => {
+    expect(render('Just text.', { formatter: FORMATTER })).not.toContain('References')
+  })
+
+  it('renders documents without citations identically to the plain pipeline', () => {
+    const doc = '# H\n\nSome *text* with $x^2$ and\n\n```vega-lite\n{"mark": "bar"}\n```\n'
+    expect(render(doc, { formatter: FORMATTER })).toBe(render(doc))
   })
 })
