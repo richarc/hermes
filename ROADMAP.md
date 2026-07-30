@@ -54,6 +54,25 @@ full, plus Zotero integration that was not in the original sketch:
 - [x] Zotero / Better BibTeX integration: CAYW picker insertion (⌘⇧C) and a
       watched `.bib` that refreshes the preview on auto-export.
 
+## v0.4.0 — Navigation and reading comfort
+
+- Bug: there is no discoverable way to open a document that is not already in
+  the recents list. The startup pane offers recent files and a "New document"
+  button only. The toolbar's Open button does exist, but `.welcome` is an
+  opaque full-window overlay (`position: absolute; inset: 0`) that covers the
+  toolbar, so the sole route to an arbitrary file is File → Open… (⌘O) in the
+  menu bar — which is installed at startup but invisible from that screen.
+  Fix by adding an Open button beside "New document", or by letting the
+  welcome pane sit below the toolbar instead of over it.
+- Optional scroll sync between the editor and preview panes, so the preview
+  follows the editor as it scrolls. Off by default, with a user-visible
+  toggle. Open design questions to settle first: where the toggle lives (a
+  View menu, or the toolbar); whether the choice persists across sessions as
+  the PDF orientation setting does; whether sync is one-way (editor drives
+  preview) or bidirectional; and how source position maps to rendered
+  position when the two heights diverge sharply — charts, math blocks, and
+  tables all render far taller or shorter than their markdown.
+
 ## Backlog (unscheduled)
 
 Ideas noted along the way, not yet committed to a release:
