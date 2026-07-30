@@ -9,6 +9,10 @@
   import { parseFrontmatter } from './lib/frontmatter'
   import { parseBib } from './lib/bibliography'
   import { createCitationFormatter, STYLE_IDS, type CitationFormatter } from './lib/citations'
+  import {
+    unresolvedInsertionMessage,
+    unsavedBibliographyMessage,
+  } from './lib/citationFeedback'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -70,6 +74,10 @@
     const wanted = fmBibliography ?? null
     if (!wanted || !path) {
       formatter = undefined
+      // A named bibliography resolves relative to the document, so an unsaved
+      // document cannot load one. Say so rather than failing silently.
+      const unsaved = unsavedBibliographyMessage(wanted ?? undefined, path ?? null)
+      if (unsaved) toast(unsaved)
       void DocumentService.WatchBibliography('', path ?? '')
       return
     }
@@ -107,7 +115,20 @@
   async function insertCitation() {
     try {
       const picked = await DocumentService.PickCitations()
-      if (picked) editor.insertAtCursor(picked)
+      if (picked) {
+        editor.insertAtCursor(picked)
+        // Zotero supplies the key; only the document's .bib can resolve it.
+        // Warn when the two disagree, which is the common Zotero setup error.
+        const f = formatter
+        if (f) {
+          const unresolved = unresolvedInsertionMessage(
+            picked,
+            (key) => f.has(key),
+            fmBibliography ?? null,
+          )
+          if (unresolved) toast(unresolved)
+        }
+      }
     } catch {
       toast("Zotero (with Better BibTeX) isn't running")
     }
