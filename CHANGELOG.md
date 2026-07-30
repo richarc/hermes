@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-30
+
+Citations and bibliography: the headline academic feature. Cite with Pandoc
+syntax against a per-document `.bib`, and get a formatted References section
+in both the preview and the exported PDF.
+
+### Added
+
+- Pandoc-subset citation syntax: `[@key]`, multi-cite groups
+  (`[@a; @b]`), narrative citations (`@key` → "Smith (2020)"),
+  suppressed author (`[-@key]`), prefixes, and page/chapter/section
+  locators (`[see @key, pp. 33-35]`).
+- Per-document bibliography named in YAML frontmatter (`bibliography:`),
+  resolved relative to the document, parsed with Better BibTeX's own parser.
+- Five bundled CSL styles selectable per document via `csl:` — APA (default),
+  Chicago author-date, IEEE, Vancouver, and Harvard — with a References
+  section appended to the preview and the PDF.
+- Zotero integration through Better BibTeX: File → Insert Citation… (⌘⇧C) and
+  a Cite toolbar button open the CAYW picker and insert the chosen keys at the
+  cursor. The `.bib` is watched, so a Better BibTeX auto-export refreshes the
+  preview without reopening the document.
+- Sample and test documents: `docs/sample-paper.md` with `sample-paper.bib`
+  exercise every citation form, entry type, and error case.
+
+### Notes
+
+- Unresolvable citekeys render visibly in place as `[@key?]` rather than
+  blanking the preview, and inserting a key the bibliography does not contain
+  now says which file was checked.
+- A bibliography path is resolved relative to the document, so an unsaved
+  document cannot load one; Hermes now says so instead of failing silently.
+- Citation formatting uses citeproc-js, which is AGPL-3.0 licensed. The
+  bundled CSL styles and locale come from the Citation Style Language project
+  under CC-BY-SA-3.0 (see `frontend/src/assets/csl/LICENSE.md`).
+
 ## [0.2.0] - 2026-07-29
 
 Quality-of-life release: in-session file navigation, proper app identity, and

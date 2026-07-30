@@ -40,13 +40,19 @@ backlog (blocked on an upstream Rolldown fix):
 - [x] Stripped unused template assets from `frontend/public/`.
 - [x] Docs: corrected the stale `data-wml-openURL` note in CLAUDE.md.
 
-## v0.3.0 — Citations and bibliography
+## v0.3.0 — Citations and bibliography ✅ (released 2026-07-30)
 
-The headline academic feature (previously referred to as "v2"):
+The headline academic feature (previously referred to as "v2") shipped in
+full, plus Zotero integration that was not in the original sketch:
 
-- BibTeX support: a `.bib` file per document.
-- `[@key]` citation syntax rendered in the preview and in the PDF.
-- Bibliography generation via citeproc with CSL styles.
+- [x] BibTeX support: a `.bib` file per document, named in frontmatter and
+      resolved relative to the document.
+- [x] `[@key]` citation syntax rendered in the preview and in the PDF,
+      including multi-cite, narrative, suppressed-author, and locator forms.
+- [x] Bibliography generation via citeproc with five bundled CSL styles
+      (APA, Chicago author-date, IEEE, Vancouver, Harvard).
+- [x] Zotero / Better BibTeX integration: CAYW picker insertion (⌘⇧C) and a
+      watched `.bib` that refreshes the preview on auto-export.
 
 ## Backlog (unscheduled)
 
