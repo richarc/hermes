@@ -34,6 +34,30 @@ describe('parseFrontmatter', () => {
     expect(fm.body).toBe(doc)
   })
 
+  it('strips an empty frontmatter block', () => {
+    expect(parseFrontmatter('---\n---\n# Title').body).toBe('# Title')
+  })
+
+  it('parses a block written with CRLF line endings', () => {
+    const doc = '---\r\nbibliography: refs.bib\r\ncsl: ieee\r\n---\r\n# Title\r\n'
+    const fm = parseFrontmatter(doc)
+    expect(fm.bibliography).toBe('refs.bib')
+    expect(fm.csl).toBe('ieee')
+    expect(fm.body).toBe('# Title\r\n')
+  })
+
+  it('handles an unterminated CRLF block as plain text', () => {
+    const doc = '---\r\nbibliography: refs.bib\r\nno closing fence'
+    expect(parseFrontmatter(doc).body).toBe(doc)
+  })
+
+  it('does not accept a longer run of dashes as the closing fence', () => {
+    const doc = '---\ncsl: apa\n----\nstill inside\n---\nreal body'
+    const fm = parseFrontmatter(doc)
+    expect(fm.csl).toBe('apa')
+    expect(fm.body).toBe('real body')
+  })
+
   it('handles an unterminated frontmatter block as plain text', () => {
     const doc = '---\nbibliography: refs.bib\nno closing fence'
     expect(parseFrontmatter(doc).body).toBe(doc)

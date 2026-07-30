@@ -113,6 +113,14 @@ describe('render: citations', () => {
     expect(html).not.toContain('<y>')
   })
 
+  it('strips CRLF frontmatter and still resolves citations', () => {
+    const doc = '---\r\nbibliography: refs.bib\r\n---\r\n# Title\r\n\r\nBlah [@smith2020].'
+    const html = render(doc, { formatter: FORMATTER })
+    expect(html).toContain('<h1>Title</h1>')
+    expect(html).not.toContain('bibliography')
+    expect(html).toContain('Smith')
+  })
+
   it('formats a citation group that wraps across a line break', () => {
     const html = render('Blah [see @smith2020,\np. 33].', { formatter: FORMATTER })
     expect(html).not.toContain('data-cite-index')
