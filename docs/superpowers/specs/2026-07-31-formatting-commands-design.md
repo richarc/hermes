@@ -1,7 +1,7 @@
 # Hermes v0.4 — Editor Formatting Commands: Design
 
 **Date:** 2026-07-31
-**Status:** Architecture chosen (Option C), open decisions pending
+**Status:** Approved design, pending implementation plan
 
 ## Overview
 
@@ -105,38 +105,64 @@ So: use the tree for fenced-code guarding and inline mark detection; use
 explicit line-start logic for frontmatter, headings, and list prefixes, where a
 regex is both simpler and more accurate than walking the tree.
 
-## Open decisions
-
-These are taste calls that drive most of the logic and should be settled before
-an implementation plan is written. Recommendations are proposals, not decisions.
+## Settled decisions
 
 ### 1. Toggle semantics
 
-- Does applying H2 to an existing H2 remove the heading, or do nothing?
-  *Recommended: remove it — matches the muscle memory from every other editor.*
-- Does bold on a partially-bold selection bold the remainder, or unbold
-  everything? *Recommended: bold the remainder; "make it more formatted" is
-  almost always the intent.*
-- What happens when a selection spans a mix of list and non-list lines?
-  *Recommended: convert everything to a list.*
+- **Applying a heading level a line already has removes it**, returning the line
+  to a paragraph. Matches the muscle memory from every other editor.
+- **Applying a heading level a line does not have replaces the marker.** `###
+  Foo` with H2 requested becomes `## Foo`, never `## ### Foo`.
+- **Bold on a partially-bold selection bolds the remainder** rather than
+  unbolding everything. "Make it more formatted" is almost always the intent;
+  unbolding is still reachable by selecting text that is wholly bold.
+- **A selection spanning a mix of list and non-list lines converts everything to
+  a list.** Same principle: the mixed case resolves toward the requested format.
+- **Block commands applied to an empty selection act on the cursor's line.**
+  Selecting text first is not required to make a line a heading.
 
-### 2. Shortcut ownership — note the trap
+### 2. Shortcut ownership
 
-Accelerators can be owned by the Go menu **or** by a CodeMirror keymap, never
-both. A shortcut registered in `menu.go` is intercepted by AppKit before the
-webview sees it, so a CodeMirror binding for the same chord would never fire.
+Accelerators are owned by the Go menu, following the existing
+`menu:insert-citation` precedent: `menu.go` registers the accelerator and emits
+an event the frontend handles. CodeMirror keymap bindings are **not** used for
+these commands.
 
-*Recommended: follow the existing `menu:insert-citation` precedent — accelerators
-live in `menu.go` and emit events the frontend handles.* This requires a focus
-guard, because menu accelerators fire regardless of focus: without one, ⌘B while
-the welcome pane is up would mutate a hidden editor.
+This is a constraint, not a preference. A shortcut registered in `menu.go` is
+intercepted by AppKit before the webview sees it, so a CodeMirror binding for
+the same chord would never fire. Exactly one layer can own each chord.
+
+The consequence is that a **focus guard is required**: menu accelerators fire
+regardless of where focus sits, so without one, ⌘B while the welcome pane is up
+would mutate a hidden editor. Commands must no-op unless the editor is the
+active surface.
+
+Proposed accelerators, chosen to avoid the existing bindings (⌘N, ⌘O, ⌘S, ⌘⇧S,
+⌘⇧C, ⌘E — note ⌘E is Export PDF, so it is unavailable for emphasis):
+
+| Command | Accelerator |
+|---|---|
+| Heading 1–6 | ⌘1 – ⌘6 |
+| Paragraph (remove heading) | ⌘0 |
+| Bold | ⌘B |
+| Italic | ⌘I |
+| Inline code | ⌘⇧K |
+| Strikethrough | ⌘⇧X |
+| Bulleted list | ⌘⇧8 |
+| Numbered list | ⌘⇧7 |
+| Blockquote | ⌘⇧. |
 
 ### 3. UI surface
 
-The toolbar already carries four buttons plus the traffic-light inset, so a
-full set of format buttons will not fit that row. A Format menu costs no pixels
-but is less discoverable than a visible formatting bar. This interacts with the
-other v0.4 item about the welcome overlay covering the toolbar.
+**A Format menu holds the full set for v0.4; no toolbar buttons are added.**
+Headings go in a `Format → Heading` submenu, with the inline and list commands
+as siblings.
+
+Toolbar buttons for the highest-frequency actions are deliberately deferred
+rather than rejected. The toolbar already carries four buttons plus the
+traffic-light inset, and the other v0.4 item — the welcome overlay covering the
+toolbar — may change that row's layout. Adding format buttons now would mean
+designing the row twice. Revisit once the welcome/toolbar work has landed.
 
 ## Out of scope
 
