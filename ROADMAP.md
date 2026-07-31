@@ -73,6 +73,24 @@ full, plus Zotero integration that was not in the original sketch:
   position when the two heights diverge sharply — charts, math blocks, and
   tables all render far taller or shorter than their markdown.
 
+- Editor formatting commands: select text and apply markdown formatting —
+  put the cursor on a line and make it a heading, select a block and make it a
+  list, select a phrase and make it bold. Nothing off the shelf does this
+  (`@codemirror/lang-markdown` ships only list-continuation commands), so it is
+  hand-rolled as pure `StateCommand`s in `lib/markdownCommands.ts`, keeping
+  `Editor.svelte` a thin passthrough and the logic headlessly testable. Block
+  commands (headings, lists, quote) and inline commands (bold, italic, code)
+  stay separate primitives; each action is one transaction, so it is one undo
+  step and gets multi-cursor support for free. Detection is hybrid: the syntax
+  tree reliably identifies fenced code — guarding the case where formatting
+  inside a `vega-lite` block would corrupt the chart — but it misreads
+  frontmatter as a setext heading, sees citations as links, and cannot see math
+  at all, so those need explicit guards. Design:
+  [docs/superpowers/specs/2026-07-31-formatting-commands-design.md](docs/superpowers/specs/2026-07-31-formatting-commands-design.md).
+  Open decisions before planning: toggle semantics, shortcut ownership (a
+  `menu.go` accelerator is intercepted by AppKit before a CodeMirror keymap can
+  see it — one owner only), and UI surface.
+
 ## Backlog (unscheduled)
 
 Ideas noted along the way, not yet committed to a release:
