@@ -1,0 +1,267 @@
+# Review package: 4ae7896..HEAD
+
+## Commits
+a29081d feat: bibliography read and mtime watcher with bib:changed event
+
+## Files changed
+ documentservice.go      | 73 ++++++++++++++++++++++++++++++++++++++++++
+ documentservice_test.go | 85 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 158 insertions(+)
+
+## Diff
+diff --git a/documentservice.go b/documentservice.go
+index 76829fa..114dfbe 100644
+--- a/documentservice.go
++++ b/documentservice.go
+@@ -1,18 +1,21 @@
+ package main
+ 
+ import (
++	"context"
+ 	"encoding/json"
+ 	"os"
+ 	"path/filepath"
+ 	"slices"
++	"sync"
+ 	"sync/atomic"
++	"time"
+ 
+ 	"github.com/wailsapp/wails/v3/pkg/application"
+ )
+ 
+ const maxRecents = 10
+ 
+ type Document struct {
+ 	Path    string `json:"path"`
+ 	Content string `json:"content"`
+ }
+@@ -20,30 +23,35 @@ type Document struct {
+ type DocumentService struct {
+ 	recentsPath  string
+ 	settingsPath string
+ 	dirty        atomic.Bool
+ 	window       *application.WebviewWindow
+ 	// Notified whenever the recents list changes (add or clear), so the
+ 	// native Open Recent menu can be rebuilt. Set once during startup.
+ 	onRecentsChanged func()
+ 	// Notified when the PDF orientation setting changes (menu rebuild).
+ 	onOrientationChanged func()
++	watchTick            time.Duration
++	emitBibChanged       func()
++	watchMu              sync.Mutex
++	watchCancel          context.CancelFunc
+ }
+ 
+ type settings struct {
+ 	PrintOrientation string `json:"printOrientation"`
+ }
+ 
+ func NewDocumentService(recentsPath string) *DocumentService {
+ 	return &DocumentService{
+ 		recentsPath:  recentsPath,
+ 		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
++		watchTick:    2 * time.Second,
+ 	}
+ }
+ 
+ func (s *DocumentService) OpenPath(path string) (Document, error) {
+ 	data, err := os.ReadFile(path)
+ 	if err != nil {
+ 		return Document{}, err
+ 	}
+ 	s.addRecent(path)
+ 	return Document{Path: path, Content: string(data)}, nil
+@@ -173,10 +181,75 @@ func (s *DocumentService) addRecent(path string) {
+ 	}
+ 	_ = os.WriteFile(s.recentsPath, data, 0o644)
+ 	s.notifyRecentsChanged()
+ }
+ 
+ func (s *DocumentService) notifyRecentsChanged() {
+ 	if s.onRecentsChanged != nil {
+ 		s.onRecentsChanged()
+ 	}
+ }
++
++func (s *DocumentService) resolveAgainstDoc(path, docPath string) string {
++	if filepath.IsAbs(path) {
++		return path
++	}
++	return filepath.Join(filepath.Dir(docPath), path)
++}
++
++func (s *DocumentService) ReadBibliography(path, docPath string) (string, error) {
++	data, err := os.ReadFile(s.resolveAgainstDoc(path, docPath))
++	if err != nil {
++		return "", err
++	}
++	return string(data), nil
++}
++
++// WatchBibliography (re)arms the single bibliography watcher. An empty path
++// stops watching. The goroutine polls mtime+size and notifies on change; a
++// missing file keeps polling and notifies when it appears.
++func (s *DocumentService) WatchBibliography(path, docPath string) {
++	s.watchMu.Lock()
++	defer s.watchMu.Unlock()
++	if s.watchCancel != nil {
++		s.watchCancel()
++		s.watchCancel = nil
++	}
++	if path == "" {
++		return
++	}
++	resolved := s.resolveAgainstDoc(path, docPath)
++	ctx, cancel := context.WithCancel(context.Background())
++	s.watchCancel = cancel
++
++	notify := s.emitBibChanged
++	if notify == nil {
++		notify = func() { application.Get().Event.Emit("bib:changed") }
++	}
++
++	go func() {
++		var lastMod time.Time
++		var lastSize int64
++		known := false
++		if info, err := os.Stat(resolved); err == nil {
++			lastMod, lastSize, known = info.ModTime(), info.Size(), true
++		}
++		ticker := time.NewTicker(s.watchTick)
++		defer ticker.Stop()
++		for {
++			select {
++			case <-ctx.Done():
++				return
++			case <-ticker.C:
++				info, err := os.Stat(resolved)
++				if err != nil {
++					known = false
++					continue
++				}
++				if !known || !info.ModTime().Equal(lastMod) || info.Size() != lastSize {
++					lastMod, lastSize, known = info.ModTime(), info.Size(), true
++					notify()
++				}
++			}
++		}
++	}()
++}
+diff --git a/documentservice_test.go b/documentservice_test.go
+index 042c321..3e9718c 100644
+--- a/documentservice_test.go
++++ b/documentservice_test.go
+@@ -1,17 +1,19 @@
+ package main
+ 
+ import (
+ 	"os"
+ 	"path/filepath"
+ 	"slices"
++	"sync/atomic"
+ 	"testing"
++	"time"
+ )
+ 
+ func newTestService(t *testing.T) *DocumentService {
+ 	t.Helper()
+ 	return NewDocumentService(filepath.Join(t.TempDir(), "recents.json"))
+ }
+ 
+ func TestSaveAndOpenPathRoundTrip(t *testing.T) {
+ 	s := newTestService(t)
+ 	path := filepath.Join(t.TempDir(), "paper.md")
+@@ -188,10 +190,93 @@ func TestSetPrintOrientationNotifies(t *testing.T) {
+ 
+ 	s.SetPrintOrientation("landscape")
+ 	if fired != 1 {
+ 		t.Errorf("want notification on change, fired=%d", fired)
+ 	}
+ 	s.SetPrintOrientation("bogus")
+ 	if fired != 1 {
+ 		t.Errorf("invalid value must not notify, fired=%d", fired)
+ 	}
+ }
++
++func TestReadBibliographyResolvesRelativeToDocument(t *testing.T) {
++	s := newTestService(t)
++	dir := t.TempDir()
++	docPath := filepath.Join(dir, "paper.md")
++	bibPath := filepath.Join(dir, "refs.bib")
++	if err := os.WriteFile(bibPath, []byte("@article{x, year={2020}}"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++
++	got, err := s.ReadBibliography("refs.bib", docPath)
++	if err != nil {
++		t.Fatalf("relative read: %v", err)
++	}
++	if got != "@article{x, year={2020}}" {
++		t.Errorf("unexpected content %q", got)
++	}
++
++	got, err = s.ReadBibliography(bibPath, docPath) // absolute passes through
++	if err != nil || got == "" {
++		t.Errorf("absolute read failed: %v", err)
++	}
++
++	if _, err := s.ReadBibliography("missing.bib", docPath); err == nil {
++		t.Error("want error for missing bibliography")
++	}
++}
++
++func TestWatchBibliographyEmitsOnChange(t *testing.T) {
++	s := newTestService(t)
++	s.watchTick = 10 * time.Millisecond
++	dir := t.TempDir()
++	docPath := filepath.Join(dir, "paper.md")
++	bibPath := filepath.Join(dir, "refs.bib")
++	if err := os.WriteFile(bibPath, []byte("v1"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	var emitted atomic.Int32
++	s.emitBibChanged = func() { emitted.Add(1) }
++
++	s.WatchBibliography("refs.bib", docPath)
++	time.Sleep(30 * time.Millisecond) // no change yet
++	if emitted.Load() != 0 {
++		t.Fatalf("emitted %d before any change", emitted.Load())
++	}
++
++	// mtime resolution can be coarse; change size too
++	if err := os.WriteFile(bibPath, []byte("v2 longer"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	deadline := time.Now().Add(2 * time.Second)
++	for emitted.Load() == 0 && time.Now().Before(deadline) {
++		time.Sleep(5 * time.Millisecond)
++	}
++	if emitted.Load() == 0 {
++		t.Fatal("no emit after change")
++	}
++
++	s.WatchBibliography("", docPath) // stop
++}
++
++func TestWatchBibliographySelfHealsMissingFile(t *testing.T) {
++	s := newTestService(t)
++	s.watchTick = 10 * time.Millisecond
++	dir := t.TempDir()
++	docPath := filepath.Join(dir, "paper.md")
++	var emitted atomic.Int32
++	s.emitBibChanged = func() { emitted.Add(1) }
++
++	s.WatchBibliography("refs.bib", docPath) // file doesn't exist yet
++	time.Sleep(30 * time.Millisecond)
++	if err := os.WriteFile(filepath.Join(dir, "refs.bib"), []byte("now"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	deadline := time.Now().Add(2 * time.Second)
++	for emitted.Load() == 0 && time.Now().Before(deadline) {
++		time.Sleep(5 * time.Millisecond)
++	}
++	if emitted.Load() == 0 {
++		t.Fatal("no emit when file appeared")
++	}
++	s.WatchBibliography("", docPath)
++}

@@ -1,0 +1,93 @@
+# Review package: f3387dc..HEAD
+
+## Commits
+a3e9bcb feat: frontmatter parsing for bibliography and csl keys
+
+## Files changed
+ frontend/src/lib/frontmatter.test.ts | 41 ++++++++++++++++++++++++++++++++++++
+ frontend/src/lib/frontmatter.ts      | 29 +++++++++++++++++++++++++
+ 2 files changed, 70 insertions(+)
+
+## Diff
+diff --git a/frontend/src/lib/frontmatter.test.ts b/frontend/src/lib/frontmatter.test.ts
+new file mode 100644
+index 0000000..04b85ba
+--- /dev/null
++++ b/frontend/src/lib/frontmatter.test.ts
+@@ -0,0 +1,41 @@
++import { describe, it, expect } from 'vitest'
++import { parseFrontmatter } from './frontmatter'
++
++describe('parseFrontmatter', () => {
++  it('extracts bibliography and csl and strips the block', () => {
++    const doc = '---\nbibliography: refs.bib\ncsl: ieee\n---\n# Title\n'
++    const fm = parseFrontmatter(doc)
++    expect(fm.bibliography).toBe('refs.bib')
++    expect(fm.csl).toBe('ieee')
++    expect(fm.body).toBe('# Title\n')
++  })
++
++  it('handles quoted values and extra whitespace', () => {
++    const doc = '---\nbibliography:  "my refs.bib"\n---\nText'
++    const fm = parseFrontmatter(doc)
++    expect(fm.bibliography).toBe('my refs.bib')
++  })
++
++  it('ignores unknown keys but still strips the block', () => {
++    const doc = '---\ntitle: My Paper\n---\nText'
++    const fm = parseFrontmatter(doc)
++    expect(fm.bibliography).toBeUndefined()
++    expect(fm.body).toBe('Text')
++  })
++
++  it('returns the document unchanged when there is no frontmatter', () => {
++    expect(parseFrontmatter('# Just a doc').body).toBe('# Just a doc')
++  })
++
++  it('does not treat a mid-document --- as frontmatter', () => {
++    const doc = 'Intro\n\n---\nbibliography: x.bib\n---\n'
++    const fm = parseFrontmatter(doc)
++    expect(fm.bibliography).toBeUndefined()
++    expect(fm.body).toBe(doc)
++  })
++
++  it('handles an unterminated frontmatter block as plain text', () => {
++    const doc = '---\nbibliography: refs.bib\nno closing fence'
++    expect(parseFrontmatter(doc).body).toBe(doc)
++  })
++})
+diff --git a/frontend/src/lib/frontmatter.ts b/frontend/src/lib/frontmatter.ts
+new file mode 100644
+index 0000000..1ed755a
+--- /dev/null
++++ b/frontend/src/lib/frontmatter.ts
+@@ -0,0 +1,29 @@
++export interface Frontmatter {
++  body: string
++  bibliography?: string
++  csl?: string
++}
++
++const KNOWN_KEYS = ['bibliography', 'csl'] as const
++
++export function parseFrontmatter(markdown: string): Frontmatter {
++  if (!markdown.startsWith('---\n') && markdown !== '---') {
++    return { body: markdown }
++  }
++  const end = markdown.indexOf('\n---', 3)
++  if (end === -1) return { body: markdown }
++  const block = markdown.slice(4, end)
++  // body starts after the closing fence line (and one following newline)
++  const afterFence = markdown.indexOf('\n', end + 1)
++  const body = afterFence === -1 ? '' : markdown.slice(afterFence + 1)
++
++  const result: Frontmatter = { body }
++  for (const line of block.split('\n')) {
++    const m = line.match(/^([A-Za-z][\w-]*)\s*:\s*(.+?)\s*$/)
++    if (!m) continue
++    const key = m[1] as (typeof KNOWN_KEYS)[number]
++    if (!KNOWN_KEYS.includes(key)) continue
++    result[key] = m[2].replace(/^["']|["']$/g, '')
++  }
++  return result
++}

@@ -1,0 +1,76 @@
+# Review package: dc76eb2..HEAD
+
+## Commits
+4ae7896 fix: escape citekeys in .cite-error markup to prevent HTML injection
+
+## Files changed
+ frontend/src/lib/renderer.test.ts | 7 +++++++
+ frontend/src/lib/renderer.ts      | 9 +++++++--
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/frontend/src/lib/renderer.test.ts b/frontend/src/lib/renderer.test.ts
+index 155ea77..ca43528 100644
+--- a/frontend/src/lib/renderer.test.ts
++++ b/frontend/src/lib/renderer.test.ts
+@@ -99,19 +99,26 @@ describe('render: citations', () => {
+     expect(html).not.toContain('References')
+   })
+ 
+   it('renders unknown keys as in-place errors, rest of doc fine', () => {
+     const html = render('Good [@smith2020]. Bad [@nope2000].', { formatter: FORMATTER })
+     expect(html).toContain('cite-error')
+     expect(html).toContain('[@nope2000?]')
+     expect(html).toMatch(/Smith.*2020/)
+   })
+ 
++  it('escapes HTML-significant characters in an unresolvable citekey', () => {
++    const html = render('Weird [@bad&x<y>z].', { formatter: FORMATTER })
++    expect(html).toContain('cite-error')
++    expect(html).toContain('&amp;x&lt;y&gt;z?')
++    expect(html).not.toContain('<y>')
++  })
++
+   it('adds no References section when the document has no citations', () => {
+     expect(render('Just text.', { formatter: FORMATTER })).not.toContain('References')
+   })
+ 
+   it('renders documents without citations identically to the plain pipeline', () => {
+     const doc = '# H\n\nSome *text* with $x^2$ and\n\n```vega-lite\n{"mark": "bar"}\n```\n'
+     expect(render(doc, { formatter: FORMATTER })).toBe(render(doc))
+   })
+ })
+diff --git a/frontend/src/lib/renderer.ts b/frontend/src/lib/renderer.ts
+index e2f23f8..b688d6b 100644
+--- a/frontend/src/lib/renderer.ts
++++ b/frontend/src/lib/renderer.ts
+@@ -39,22 +39,27 @@ export function render(markdown: string, opts?: RenderOptions): string {
+   const { texts, bibliographyHtml } = formatter.format(
+     clusters.map((c) => (resolvable(formatter, c) ? c : { items: [] })),
+   )
+   html = html.replace(
+     /<span class="citation" data-cite-index="(\d+)">(.*?)<\/span>/g,
+     (whole, idx: string, raw: string) => {
+       const i = Number(idx)
+       const cluster = clusters[i]
+       if (!cluster || !resolvable(formatter, cluster)) {
+         const marked = cluster
+-          ? cluster.items.map((it) => `[@${it.key}${formatter.has(it.key) ? '' : '?'}]`).join(' ')
+-          : raw
++          ? cluster.items
++              .map(
++                (it) =>
++                  `[@${md.utils.escapeHtml(it.key)}${formatter.has(it.key) ? '' : '?'}]`,
++              )
++              .join(' ')
++          : md.utils.escapeHtml(raw)
+         return `<span class="cite-error">${marked}</span>`
+       }
+       return `<span class="citation">${texts[i]}</span>`
+     },
+   )
+   if (clusters.some((c) => resolvable(formatter, c))) {
+     html += `<h2>References</h2>\n${bibliographyHtml}\n`
+   }
+   return html
+ }

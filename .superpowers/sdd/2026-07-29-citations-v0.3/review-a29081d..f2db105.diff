@@ -1,0 +1,238 @@
+# Review package: a29081d..HEAD
+
+## Commits
+f2db105 feat: Zotero CAYW picker binding and Insert Citation menu item
+
+## Files changed
+ documentservice.go                          |  2 ++
+ frontend/bindings/hermes/documentservice.ts | 23 ++++++++++++++
+ menu.go                                     |  4 +++
+ zotero.go                                   | 29 +++++++++++++++++
+ zotero_test.go                              | 48 +++++++++++++++++++++++++++++
+ 5 files changed, 106 insertions(+)
+
+## Diff
+diff --git a/documentservice.go b/documentservice.go
+index 114dfbe..53a6296 100644
+--- a/documentservice.go
++++ b/documentservice.go
+@@ -27,31 +27,33 @@ type DocumentService struct {
+ 	window       *application.WebviewWindow
+ 	// Notified whenever the recents list changes (add or clear), so the
+ 	// native Open Recent menu can be rebuilt. Set once during startup.
+ 	onRecentsChanged func()
+ 	// Notified when the PDF orientation setting changes (menu rebuild).
+ 	onOrientationChanged func()
+ 	watchTick            time.Duration
+ 	emitBibChanged       func()
+ 	watchMu              sync.Mutex
+ 	watchCancel          context.CancelFunc
++	caywBase             string
+ }
+ 
+ type settings struct {
+ 	PrintOrientation string `json:"printOrientation"`
+ }
+ 
+ func NewDocumentService(recentsPath string) *DocumentService {
+ 	return &DocumentService{
+ 		recentsPath:  recentsPath,
+ 		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
+ 		watchTick:    2 * time.Second,
++		caywBase:     "http://127.0.0.1:23119",
+ 	}
+ }
+ 
+ func (s *DocumentService) OpenPath(path string) (Document, error) {
+ 	data, err := os.ReadFile(path)
+ 	if err != nil {
+ 		return Document{}, err
+ 	}
+ 	s.addRecent(path)
+ 	return Document{Path: path, Content: string(data)}, nil
+diff --git a/frontend/bindings/hermes/documentservice.ts b/frontend/bindings/hermes/documentservice.ts
+index 67beb88..284068e 100644
+--- a/frontend/bindings/hermes/documentservice.ts
++++ b/frontend/bindings/hermes/documentservice.ts
+@@ -22,40 +22,63 @@ export function IsDirty(): $CancellablePromise<boolean> {
+ }
+ 
+ export function Open(): $CancellablePromise<$models.Document> {
+     return $Call.ByID(4179904212);
+ }
+ 
+ export function OpenPath(path: string): $CancellablePromise<$models.Document> {
+     return $Call.ByID(3640861155, path);
+ }
+ 
++/**
++ * PickCitations opens Zotero's citation picker via Better BibTeX's CAYW
++ * endpoint and returns the chosen citations in Pandoc format. The timeout is
++ * long because the user is interacting with the picker; an empty response
++ * means they cancelled.
++ */
++export function PickCitations(): $CancellablePromise<string> {
++    return $Call.ByID(873413501);
++}
++
+ /**
+  * PrintOrientation returns "portrait" or "landscape"; portrait is the default.
+  */
+ export function PrintOrientation(): $CancellablePromise<string> {
+     return $Call.ByID(1186847191);
+ }
+ 
+ export function Quit(): $CancellablePromise<void> {
+     return $Call.ByID(2527160883);
+ }
+ 
++export function ReadBibliography(path: string, docPath: string): $CancellablePromise<string> {
++    return $Call.ByID(3582225424, path, docPath);
++}
++
+ export function RecentFiles(): $CancellablePromise<string[] | null> {
+     return $Call.ByID(3158636934);
+ }
+ 
+ export function Save(path: string, content: string): $CancellablePromise<void> {
+     return $Call.ByID(494444433, path, content);
+ }
+ 
+ export function SaveAs(content: string): $CancellablePromise<string> {
+     return $Call.ByID(1161953465, content);
+ }
+ 
+ export function SetDirty(dirty: boolean): $CancellablePromise<void> {
+     return $Call.ByID(2193338676, dirty);
+ }
+ 
+ export function SetPrintOrientation(orientation: string): $CancellablePromise<void> {
+     return $Call.ByID(360162911, orientation);
+ }
++
++/**
++ * WatchBibliography (re)arms the single bibliography watcher. An empty path
++ * stops watching. The goroutine polls mtime+size and notifies on change; a
++ * missing file keeps polling and notifies when it appears.
++ */
++export function WatchBibliography(path: string, docPath: string): $CancellablePromise<void> {
++    return $Call.ByID(3958672815, path, docPath);
++}
+diff --git a/menu.go b/menu.go
+index 7a6cf67..b8c02ac 100644
+--- a/menu.go
++++ b/menu.go
+@@ -32,20 +32,24 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
+ 	if len(recents) > 0 {
+ 		recent.AddSeparator()
+ 	}
+ 	clearItem := recent.Add("Clear Recents").OnClick(func(*application.Context) {
+ 		docs.ClearRecents()
+ 	})
+ 	if len(recents) == 0 {
+ 		clearItem.SetEnabled(false)
+ 	}
+ 
++	file.Add("Insert Citation…").SetAccelerator("shift+cmdorctrl+c").OnClick(func(*application.Context) {
++		app.Event.Emit("menu:insert-citation")
++	})
++
+ 	file.Add("Save").SetAccelerator("cmdorctrl+s").OnClick(func(*application.Context) {
+ 		app.Event.Emit("menu:save")
+ 	})
+ 	file.Add("Save As…").SetAccelerator("shift+cmdorctrl+s").OnClick(func(*application.Context) {
+ 		app.Event.Emit("menu:save-as")
+ 	})
+ 	file.AddSeparator()
+ 	orientation := file.AddSubmenu("PDF Orientation")
+ 	current := docs.PrintOrientation()
+ 	orientation.AddRadio("Portrait", current == "portrait").OnClick(func(*application.Context) {
+diff --git a/zotero.go b/zotero.go
+new file mode 100644
+index 0000000..61d6dab
+--- /dev/null
++++ b/zotero.go
+@@ -0,0 +1,29 @@
++package main
++
++import (
++	"fmt"
++	"io"
++	"net/http"
++	"time"
++)
++
++// PickCitations opens Zotero's citation picker via Better BibTeX's CAYW
++// endpoint and returns the chosen citations in Pandoc format. The timeout is
++// long because the user is interacting with the picker; an empty response
++// means they cancelled.
++func (s *DocumentService) PickCitations() (string, error) {
++	client := &http.Client{Timeout: 5 * time.Minute}
++	resp, err := client.Get(s.caywBase + "/better-bibtex/cayw?format=pandoc")
++	if err != nil {
++		return "", fmt.Errorf("zotero picker unavailable: %w", err)
++	}
++	defer resp.Body.Close()
++	if resp.StatusCode != http.StatusOK {
++		return "", fmt.Errorf("zotero picker returned %s", resp.Status)
++	}
++	body, err := io.ReadAll(resp.Body)
++	if err != nil {
++		return "", err
++	}
++	return string(body), nil
++}
+diff --git a/zotero_test.go b/zotero_test.go
+new file mode 100644
+index 0000000..a0a5b1f
+--- /dev/null
++++ b/zotero_test.go
+@@ -0,0 +1,48 @@
++package main
++
++import (
++	"net/http"
++	"net/http/httptest"
++	"testing"
++)
++
++func TestPickCitationsReturnsCAYWResult(t *testing.T) {
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if r.URL.Path != "/better-bibtex/cayw" || r.URL.Query().Get("format") != "pandoc" {
++			t.Errorf("unexpected request: %s?%s", r.URL.Path, r.URL.RawQuery)
++		}
++		_, _ = w.Write([]byte("[@smith2020; @doe2021]"))
++	}))
++	defer srv.Close()
++
++	s := newTestService(t)
++	s.caywBase = srv.URL
++	got, err := s.PickCitations()
++	if err != nil {
++		t.Fatalf("PickCitations: %v", err)
++	}
++	if got != "[@smith2020; @doe2021]" {
++		t.Errorf("got %q", got)
++	}
++}
++
++func TestPickCitationsEmptyOnCancel(t *testing.T) {
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		_, _ = w.Write([]byte("")) // CAYW returns empty on cancel
++	}))
++	defer srv.Close()
++	s := newTestService(t)
++	s.caywBase = srv.URL
++	got, err := s.PickCitations()
++	if err != nil || got != "" {
++		t.Errorf("want empty no-error, got %q err %v", got, err)
++	}
++}
++
++func TestPickCitationsErrorWhenUnreachable(t *testing.T) {
++	s := newTestService(t)
++	s.caywBase = "http://127.0.0.1:1" // nothing listens here
++	if _, err := s.PickCitations(); err == nil {
++		t.Error("want error when Zotero is unreachable")
++	}
++}

@@ -1,0 +1,249 @@
+# Review package: f2db105..HEAD
+
+## Commits
+c878361 feat: bibliography wiring, Cite button, and citation insertion
+
+## Files changed
+ frontend/public/style.css  |  8 ++++-
+ frontend/src/App.svelte    | 73 ++++++++++++++++++++++++++++++++++++++++++++--
+ frontend/src/Editor.svelte |  5 ++++
+ 3 files changed, 82 insertions(+), 4 deletions(-)
+
+## Diff
+diff --git a/frontend/public/style.css b/frontend/public/style.css
+index cfd12f2..b22193b 100644
+--- a/frontend/public/style.css
++++ b/frontend/public/style.css
+@@ -92,23 +92,29 @@ html, body {
+ .toast {
+   position: fixed; bottom: 16px; right: 16px;
+   background: #333; color: white; padding: 10px 16px; border-radius: 6px;
+ }
+ 
+ .chart-error {
+   border: 1px solid #cc0000; background: #fff5f5; color: #cc0000;
+   padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;
+ }
+ 
++.cite-error {
++  color: #cc0000; background: #fff5f5; border-radius: 3px; padding: 0 3px;
++}
++.preview-pane .csl-bib-body { line-height: 1.7; }
++.preview-pane .csl-entry { margin-bottom: 0.5em; }
++
+ @media print {
+   .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, .modal-backdrop {
+     display: none !important;
+   }
+   .panes { display: block; }
+   .preview-pane {
+     overflow: visible; padding: 0;
+     font-size: 11pt; line-height: 1.5;
+   }
+-  .katex-display, .vega-lite-chart, .chart-error { break-inside: avoid; }
++  .katex-display, .vega-lite-chart, .chart-error, .csl-entry { break-inside: avoid; }
+   h1, h2, h3 { break-after: avoid; }
+   @page { margin: 2cm; }
+ }
+diff --git a/frontend/src/App.svelte b/frontend/src/App.svelte
+index 4658520..2ca52c7 100644
+--- a/frontend/src/App.svelte
++++ b/frontend/src/App.svelte
+@@ -1,34 +1,50 @@
+ <script lang="ts">
+-  import { onMount } from 'svelte'
++  import { onMount, untrack } from 'svelte'
+   import { Events } from '@wailsio/runtime'
+   import { DocumentService } from '../bindings/hermes'
+   import Editor from './Editor.svelte'
+   import Preview from './Preview.svelte'
+   import { render } from './lib/renderer'
+   import { debounce } from './lib/debounce'
++  import { parseFrontmatter } from './lib/frontmatter'
++  import { parseBib } from './lib/bibliography'
++  import { createCitationFormatter, STYLE_IDS, type CitationFormatter } from './lib/citations'
+ 
+   let path = $state<string | null>(null)
+   let content = $state('')
+   let savedContent = $state('')
+   let html = $state('')
+   let recents = $state<string[]>([])
+   let pendingAction = $state<'quit' | 'open' | 'new' | null>(null)
+   let pendingRecentPath = $state<string | null>(null)
+   let welcomeDismissed = $state(false)
+   let toastMsg = $state('')
+   let editorWidth = $state(50)
+   let editor: ReturnType<typeof Editor>
+   let toastTimer: ReturnType<typeof setTimeout>
++  let formatter = $state<CitationFormatter | undefined>(undefined)
++  let bibPath = $state<string | null>(null)
++
++  const fm = $derived(parseFrontmatter(content))
++  // Svelte's $derived always treats an object return value as "changed" on
++  // recomputation (safe_not_equal short-circuits true for objects), so an
++  // effect reading fm.bibliography/fm.csl directly would rerun on every
++  // keystroke, not just when those fields actually change — since content
++  // (and therefore fm) changes on every keystroke. Deriving the primitive
++  // fields separately lets each one's own equality check (plain !==) gate
++  // correctly, so the reload effect below only fires on a real change.
++  const fmBibliography = $derived(fm.bibliography)
++  const fmCsl = $derived(fm.csl)
+ 
+   const updatePreview = debounce((text: string) => {
+-    html = render(text)
++    html = render(text, { formatter })
+   }, 250)
+ 
+   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
+   // Dirty means "differs from what's on disk" — typing back to the saved
+   // text (or emptying a never-saved doc) clears it again.
+   const dirty = $derived(content !== savedContent)
+ 
+   // Keep the Go side (window-close hook) in sync with the derived flag.
+   $effect(() => {
+     void DocumentService.SetDirty(dirty)
+@@ -36,33 +52,81 @@
+   const showWelcome = $derived(
+     !welcomeDismissed && path === null && content === '' && recents.length > 0,
+   )
+ 
+   function toast(msg: string) {
+     toastMsg = msg
+     clearTimeout(toastTimer)
+     toastTimer = setTimeout(() => (toastMsg = ''), 4000)
+   }
+ 
++  // Reload the bibliography when the document's frontmatter changes it,
++  // when the document path changes, or on bib:changed from the watcher.
++  async function reloadBibliography() {
++    const wanted = fmBibliography ?? null
++    bibPath = wanted
++    if (!wanted || !path) {
++      formatter = undefined
++      void DocumentService.WatchBibliography('', path ?? '')
++      return
++    }
++    try {
++      const text = await DocumentService.ReadBibliography(wanted, path)
++      const { entries, warnings } = parseBib(text)
++      if (warnings.length)
++        toast(`Bibliography: ${warnings.length} entr${warnings.length === 1 ? 'y' : 'ies'} could not be parsed`)
++      formatter = createCitationFormatter(entries, fmCsl ?? 'apa')
++      if (fmCsl && !STYLE_IDS.includes(fmCsl)) toast(`Unknown citation style "${fmCsl}" — using APA`)
++    } catch {
++      formatter = undefined
++      toast(`Bibliography not found: ${wanted}`)
++    }
++    void DocumentService.WatchBibliography(wanted, path)
++  }
++
++  $effect(() => {
++    void fmBibliography
++    void fmCsl
++    void path
++    void reloadBibliography()
++  })
++
++  // Re-render when the FORMATTER changes (bib loaded/reloaded, style change).
++  // content is read untracked: content changes flow through the debounced
++  // typing path, not this immediate effect.
++  $effect(() => {
++    void formatter
++    html = render(untrack(() => content), { formatter })
++  })
++
++  async function insertCitation() {
++    try {
++      const picked = await DocumentService.PickCitations()
++      if (picked) editor.insertAtCursor(picked)
++    } catch {
++      toast("Zotero (with Better BibTeX) isn't running")
++    }
++  }
++
+   function onEditorChange(text: string) {
+     content = text
+     welcomeDismissed = true
+     updatePreview(text)
+   }
+ 
+   function loadDocument(docPath: string, docContent: string) {
+     path = docPath
+     content = docContent
+     welcomeDismissed = true
+     editor.setContent(docContent) // fires onEditorChange
+     savedContent = docContent
+-    html = render(docContent)
++    html = render(docContent, { formatter })
+     void refreshRecents()
+   }
+ 
+   async function refreshRecents() {
+     recents = (await DocumentService.RecentFiles()) ?? []
+   }
+ 
+   function requestNew() {
+     if (dirty) {
+       pendingAction = 'new'
+@@ -196,28 +260,31 @@
+   onMount(() => {
+     Events.On('menu:new', requestNew)
+     Events.On('menu:open', requestOpen)
+     Events.On('menu:open-recent', (ev: { data: unknown }) => {
+       if (typeof ev.data === 'string') requestOpenRecent(ev.data)
+     })
+     Events.On('menu:save', () => void save())
+     Events.On('menu:save-as', () => void saveAs())
+     Events.On('close:confirm', () => (pendingAction = 'quit'))
+     Events.On('recents:changed', () => void refreshRecents())
++    Events.On('bib:changed', () => void reloadBibliography())
++    Events.On('menu:insert-citation', () => void insertCitation())
+     void refreshRecents()
+   })
+ </script>
+ 
+ <div class="app">
+   <header class="toolbar">
+     <button onclick={requestOpen}>Open</button>
+     <button onclick={() => void save()}>Save</button>
++    <button onclick={() => void insertCitation()}>Cite</button>
+     <button onclick={() => void DocumentService.ExportPDF()}>Export PDF</button>
+   </header>
+ 
+   <main class="panes">
+     <section class="editor-pane" style="width: {editorWidth}%">
+       <Editor bind:this={editor} onchange={onEditorChange} />
+     </section>
+     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- WAI-ARIA "window splitter" pattern: a focusable separator with arrow-key resizing is the recommended markup -->
+     <div
+       class="divider"
+diff --git a/frontend/src/Editor.svelte b/frontend/src/Editor.svelte
+index 3347e42..505a2c9 100644
+--- a/frontend/src/Editor.svelte
++++ b/frontend/src/Editor.svelte
+@@ -8,20 +8,25 @@
+ 
+   let host: HTMLElement
+   let view: EditorView
+ 
+   export function setContent(text: string): void {
+     view.dispatch({
+       changes: { from: 0, to: view.state.doc.length, insert: text },
+     })
+   }
+ 
++  export function insertAtCursor(text: string): void {
++    view.dispatch(view.state.replaceSelection(text))
++    view.focus()
++  }
++
+   onMount(() => {
+     view = new EditorView({
+       parent: host,
+       extensions: [
+         basicSetup,
+         markdown({ codeLanguages: languages }),
+         EditorView.lineWrapping,
+         EditorView.updateListener.of((u) => {
+           if (u.docChanged) onchange(u.state.doc.toString())
+         }),

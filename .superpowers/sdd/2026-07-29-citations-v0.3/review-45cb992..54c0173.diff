@@ -1,0 +1,124 @@
+# Review package: 45cb992..HEAD
+
+## Commits
+54c0173 docs: citations section in visual test document
+
+## Files changed
+ CLAUDE.md            |  2 +-
+ docs/visual-test.bib | 25 +++++++++++++++++++++++++
+ docs/visual-test.md  | 18 +++++++++++++++++-
+ 3 files changed, 43 insertions(+), 2 deletions(-)
+
+## Diff
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 6e2d75e..241b0e4 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -19,21 +19,21 @@ Wails v3 uses [Task](https://taskfile.dev) for orchestration; `wails3 task <name
+ 
+ Server mode (no GUI, HTTP server only) is available via `wails3 task build:server` / `run:server`, and Docker variants via `build:docker` / `run:docker`.
+ 
+ ## Architecture
+ 
+ The core Go↔JS boundary works like this:
+ 
+ 1. **Services**: Go structs (e.g. `DocumentService` in `documentservice.go`) are registered in `main.go` via `application.NewService(...)` in `application.Options.Services`. Their exported methods become callable from the frontend. DocumentService handles file I/O (open, save, save-as), recent file tracking, print/export-to-PDF, and dirty tracking.
+ 2. **Generated bindings**: `wails3 generate bindings` scans registered services and emits typed TS wrappers into `frontend/bindings/` (imported as `../bindings/hermes` in `App.svelte`). Never hand-edit these files — regenerate them after changing a service's API. The build tasks regenerate them automatically.
+ 3. **Frontend pipeline** (editor and preview):
+-   - `lib/renderer.ts`: markdown-it + KaTeX plugin; renders markdown to HTML; intercepts `vega-lite` code blocks as chart placeholders.
++   - `lib/renderer.ts`: markdown-it + KaTeX plugin; renders markdown to HTML; intercepts `vega-lite` code blocks as chart placeholders; citations are parsed by `lib/citations.ts` (markdown-it rule + citeproc-js formatter), bibliography data comes from a frontmatter-named `.bib` read/watched through Go (`bib:changed`), and Zotero insertion uses BBT's CAYW via `PickCitations`.
+    - `lib/charts.ts`: Vega-Embed integration; hydrates chart placeholders with live SVG charts; caches embedded specs for efficiency.
+    - `Editor.svelte` / `Preview.svelte` / `App.svelte`: Svelte components; Editor contains the CodeMirror instance, Preview renders and hydrates charts in the live output, App orchestrates both panes and the surrounding toolbar/status-bar.
+ 4. **Events (Go → JS)**: Go emits events with `app.Event.Emit(name, data)`; the frontend subscribes with `Events.On(name, cb)` from `@wailsio/runtime`. Hermes uses `menu:open`, `menu:save`, `menu:save-as` (for menu commands) and `close:confirm` (for window-close confirmations); these are plain, untyped events — there is no `application.RegisterEvent[T](name)` registration step in `main.go` (or anywhere else), so the frontend types each payload manually where it calls `Events.On`.
+ 5. **Asset embedding**: `frontend/dist` is embedded into the binary via `//go:embed all:frontend/dist` in `main.go`, so the frontend must be built before the Go binary is (the Taskfiles handle this ordering).
+ 
+ Other things to know:
+ 
+ - The frontend uses Svelte 5 runes (`$state`, etc.).
+ - App metadata (name, version, product identifier) lives in `build/config.yml`; after changing it, run `wails3 task common:update:build-assets` to regenerate build assets (this overwrites manual edits to those assets).
+ - Links in the preview are intercepted by a delegated click handler in `Preview.svelte` and opened in the system browser via `Browser.OpenURL` from `@wailsio/runtime`; a plain `<a href>` click would otherwise navigate the webview away and destroy the app state.
+diff --git a/docs/visual-test.bib b/docs/visual-test.bib
+new file mode 100644
+index 0000000..b937759
+--- /dev/null
++++ b/docs/visual-test.bib
+@@ -0,0 +1,25 @@
++@article{smith2020,
++  author  = {Smith, John A. and Doe, Jane},
++  title   = {A Study of Things},
++  journal = {Nature},
++  year    = {2020},
++  volume  = {5},
++  number  = {2},
++  pages   = {10--20},
++  doi     = {10.1000/xyz}
++}
++
++@book{doe2021,
++  author    = {Doe, Jane},
++  title     = {Deep Work on Things},
++  publisher = {Acme Press},
++  address   = {Boston},
++  year      = {2021}
++}
++
++@article{smith2020x,
++  author  = {Smith, John A.},
++  title   = {Another Study},
++  journal = {Science},
++  year    = {2020}
++}
+diff --git a/docs/visual-test.md b/docs/visual-test.md
+index 8d6e958..35e428e 100644
+--- a/docs/visual-test.md
++++ b/docs/visual-test.md
+@@ -1,10 +1,15 @@
++---
++bibliography: visual-test.bib
++csl: apa
++---
++
+ # Hermes Visual Test Document
+ 
+ Open this file in Hermes after any major change and scan each section in the
+ preview. Every element below should render correctly; the final section is
+ *supposed* to show errors.
+ 
+ ## 1. Text basics
+ 
+ This paragraph has **bold text**, *italic text*, ***bold italic***, `inline code`,
+ ~~strikethrough~~, and a [link to the Wails docs](https://v3.wails.io) — clicking
+@@ -131,21 +136,32 @@ The same bar chart again — a duplicate spec must render **both** copies
+   "encoding": {
+     "x": {"field": "category", "type": "nominal", "axis": {"labelAngle": 0}},
+     "y": {"field": "value", "type": "quantitative"}
+   }
+ }
+ ```
+ 
+ While this document is open, type some text elsewhere in the file: the charts
+ must **not** flicker while you type (cache check).
+ 
+-## 8. Intentional errors — these SHOULD look broken
++## 9. Citations
++
++A simple citation [@smith2020], a multi-cite [@smith2020; @doe2021], a
++narrative citation: @doe2021 argues the point. Suppressed author [-@smith2020],
++with locator [see @doe2021, pp. 33-35], and disambiguation [@smith2020; @smith2020x].
++An unknown key must show an inline error: [@notakey1999].
++
++A References section should appear at the end of this document, before nothing —
++check it lists Smith (2020a, 2020b) and Doe (2021), and that ⌘E includes it in
++the PDF without splitting entries across pages.
++
++## 10. Intentional errors — these SHOULD look broken
+ 
+ Invalid LaTeX renders inline in red, without blanking the preview:
+ $\thisisnotacommand{x}$
+ 
+ Broken Vega-Lite JSON renders an error card in place, and everything after it
+ still renders:
+ 
+ ```vega-lite
+ { "mark": "bar", this is not valid JSON
+ ```

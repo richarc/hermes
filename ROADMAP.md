@@ -106,6 +106,9 @@ full, plus Zotero integration that was not in the original sketch:
   `savedContent` should be seeded with the template instead. Keep the template
   short enough to delete in one motion for users who do not want citations.
 
+- Dark theme (theme-aware app chrome, preview, and CodeMirror theme) — v0.1
+  deliberately pins a light scheme. Moved up from the backlog.
+
 ## Backlog (unscheduled)
 
 Ideas noted along the way, not yet committed to a release:
@@ -115,8 +118,6 @@ Ideas noted along the way, not yet committed to a release:
 - File a Wails issue for the hardcoded landscape print orientation (their
   code carries a TODO inviting a config option; Hermes ships its own print
   path meanwhile).
-- Dark theme (theme-aware app chrome, preview, and CodeMirror theme) — v0.1
-  deliberately pins a light scheme.
 - Dialog-free PDF export (e.g. headless rendering) if the print panel proves
   clunky.
 - Windows/Linux support (paths, menus, and print behavior are currently
