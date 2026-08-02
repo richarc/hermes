@@ -91,6 +91,21 @@ full, plus Zotero integration that was not in the original sketch:
   `menu.go` accelerator is intercepted by AppKit before a CodeMirror keymap can
   see it — one owner only), and UI surface.
 
+- New documents start from a template: File → New pre-populates the document
+  with a frontmatter block and short comments explaining how to point it at a
+  `.bib` file and choose a citation style, so the bibliography feature is
+  discoverable without reading the README. Two implementation notes found while
+  scoping it. First, the guidance should be written as YAML `#` comments
+  *inside* the `---` block rather than HTML comments: the renderer runs
+  markdown-it with `html: false`, so `<!-- ... -->` would be escaped and show
+  up as literal text in the preview, whereas the frontmatter block is stripped
+  wholesale and `parseFrontmatter` already ignores any line that is not
+  `key: value`. Second, `dirty` is derived as `content !== savedContent` and
+  File → New currently resets `savedContent` to `''`, so a templated document
+  would be born dirty and prompt on close despite the user never touching it —
+  `savedContent` should be seeded with the template instead. Keep the template
+  short enough to delete in one motion for users who do not want citations.
+
 ## Backlog (unscheduled)
 
 Ideas noted along the way, not yet committed to a release:
