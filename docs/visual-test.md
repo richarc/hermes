@@ -158,7 +158,29 @@ A References section should appear at the end of this document, before nothing �
 check it lists Smith (2020a, 2020b) and Doe (2021), and that ⌘E includes it in
 the PDF without splitting entries across pages.
 
-## 10. Intentional errors — these SHOULD look broken
+## 10. Formatting commands
+
+Put the cursor on this line and press ⌘2 — it becomes a Heading 2. Press ⌘2
+again and it reverts. Press ⌘3 on it while it is a Heading 2 and the marker is
+replaced, never stacked (`## ###` is a bug).
+
+Select these three lines
+and press ⌘⇧8 to bullet them,
+then ⌘⇧7 to renumber them 1, 2, 3.
+
+Select a word in this sentence and press ⌘B, then ⌘B again to remove it. With
+the word still bold, press ⌘I — it must become bold *and* italic, not lose its
+bold. ⌘Z once must undo the whole action, not one marker at a time.
+
+These must refuse to change:
+
+- Any line of the frontmatter at the top of this file.
+- Any line inside the vega-lite block in section 7.
+- The contents of an inline code span like `[@smith2020]`.
+
+On the welcome screen (⌘N with no document open), ⌘B must do nothing at all.
+
+## 11. Intentional errors — these SHOULD look broken
 
 Invalid LaTeX renders inline in red, without blanking the preview:
 $\thisisnotacommand{x}$
