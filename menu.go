@@ -63,6 +63,63 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	})
 
 	menu.AddRole(application.EditMenu)
+
+	format := menu.AddSubmenu("Format")
+	heading := format.AddSubmenu("Heading")
+	headings := []struct {
+		label string
+		key   string
+		arg   string
+	}{
+		{"Heading 1", "cmdorctrl+1", "heading:1"},
+		{"Heading 2", "cmdorctrl+2", "heading:2"},
+		{"Heading 3", "cmdorctrl+3", "heading:3"},
+		{"Heading 4", "cmdorctrl+4", "heading:4"},
+		{"Heading 5", "cmdorctrl+5", "heading:5"},
+		{"Heading 6", "cmdorctrl+6", "heading:6"},
+	}
+	for _, h := range headings {
+		arg := h.arg
+		heading.Add(h.label).SetAccelerator(h.key).OnClick(func(*application.Context) {
+			app.Event.Emit("menu:format", arg)
+		})
+	}
+	heading.AddSeparator()
+	heading.Add("Paragraph").SetAccelerator("cmdorctrl+0").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:format", "heading:0")
+	})
+
+	format.AddSeparator()
+	inline := []struct {
+		label string
+		key   string
+		arg   string
+	}{
+		{"Bold", "cmdorctrl+b", "bold"},
+		{"Italic", "cmdorctrl+i", "italic"},
+		{"Inline Code", "shift+cmdorctrl+k", "code"},
+		{"Strikethrough", "shift+cmdorctrl+x", "strike"},
+	}
+	for _, it := range inline {
+		arg := it.arg
+		format.Add(it.label).SetAccelerator(it.key).OnClick(func(*application.Context) {
+			app.Event.Emit("menu:format", arg)
+		})
+	}
+
+	format.AddSeparator()
+	format.Add("Bulleted List").SetAccelerator("shift+cmdorctrl+8").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:format", "bullet")
+	})
+	format.Add("Numbered List").SetAccelerator("shift+cmdorctrl+7").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:format", "ordered")
+	})
+	// Blockquote deliberately has no accelerator: the punctuation chords are
+	// not worth guessing at, and the menu item is the discoverable route.
+	format.Add("Blockquote").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:format", "quote")
+	})
+
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)

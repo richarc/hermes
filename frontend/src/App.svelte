@@ -13,6 +13,17 @@
     unresolvedInsertionMessage,
     unsavedBibliographyMessage,
   } from './lib/citationFeedback'
+  import type { StateCommand } from '@codemirror/state'
+  import {
+    toggleHeading,
+    toggleBulletList,
+    toggleOrderedList,
+    toggleBlockquote,
+    toggleBold,
+    toggleItalic,
+    toggleInlineCode,
+    toggleStrikethrough,
+  } from './lib/markdownCommands'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -132,6 +143,31 @@
     } catch {
       toast("Zotero (with Better BibTeX) isn't running")
     }
+  }
+
+  const FORMAT_COMMANDS: Record<string, StateCommand> = {
+    'heading:0': toggleHeading(0),
+    'heading:1': toggleHeading(1),
+    'heading:2': toggleHeading(2),
+    'heading:3': toggleHeading(3),
+    'heading:4': toggleHeading(4),
+    'heading:5': toggleHeading(5),
+    'heading:6': toggleHeading(6),
+    bullet: toggleBulletList,
+    ordered: toggleOrderedList,
+    quote: toggleBlockquote,
+    bold: toggleBold,
+    italic: toggleItalic,
+    code: toggleInlineCode,
+    strike: toggleStrikethrough,
+  }
+
+  function applyFormat(name: string) {
+    // Menu accelerators fire regardless of focus, so a guard is required:
+    // without it, Cmd-B on the welcome screen would edit a hidden document.
+    if (showWelcome) return
+    const cmd = FORMAT_COMMANDS[name]
+    if (cmd) editor.runCommand(cmd)
   }
 
   function onEditorChange(text: string) {
@@ -296,6 +332,9 @@
     Events.On('recents:changed', () => void refreshRecents())
     Events.On('bib:changed', () => void reloadBibliography())
     Events.On('menu:insert-citation', () => void insertCitation())
+    Events.On('menu:format', (ev: { data: unknown }) => {
+      if (typeof ev.data === 'string') applyFormat(ev.data)
+    })
     void refreshRecents()
   })
 </script>

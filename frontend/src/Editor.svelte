@@ -3,6 +3,7 @@
   import { EditorView, basicSetup } from 'codemirror'
   import { markdown } from '@codemirror/lang-markdown'
   import { languages } from '@codemirror/language-data'
+  import type { StateCommand } from '@codemirror/state'
 
   let { onchange }: { onchange: (text: string) => void } = $props()
 
@@ -17,6 +18,11 @@
 
   export function insertAtCursor(text: string): void {
     view.dispatch(view.state.replaceSelection(text))
+    view.focus()
+  }
+
+  export function runCommand(cmd: StateCommand): void {
+    cmd({ state: view.state, dispatch: (tr) => view.dispatch(tr) })
     view.focus()
   }
 
