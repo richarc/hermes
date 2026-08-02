@@ -152,3 +152,80 @@ export const toggleBlockquote = blockCommand(
   (p) => ({ ...p, kind: 'quote', level: 0 }),
   clear,
 )
+
+// A single-character mark doubled is a different mark: * is italic but ** is
+// bold. Without this check, italicising bold text would strip one * per side
+// and silently downgrade it.
+function isDoubled(state: EditorState, from: number, to: number, mark: string): boolean {
+  if (mark.length !== 1) return false
+  return (
+    state.sliceDoc(from - mark.length * 2, from - mark.length) === mark ||
+    state.sliceDoc(to + mark.length, to + mark.length * 2) === mark
+  )
+}
+
+function wrappedOutside(state: EditorState, from: number, to: number, mark: string): boolean {
+  return (
+    state.sliceDoc(from - mark.length, from) === mark &&
+    state.sliceDoc(to, to + mark.length) === mark &&
+    !isDoubled(state, from, to, mark)
+  )
+}
+
+function wrappedInside(text: string, mark: string): boolean {
+  return text.length >= mark.length * 2 && text.startsWith(mark) && text.endsWith(mark)
+}
+
+function toggleInline(mark: string): StateCommand {
+  return ({ state, dispatch }) => {
+    const ranges = state.selection.ranges
+    if (ranges.every((r) => isProtected(state, r.from))) return false
+
+    // Uniform toggle rule: remove only when every range already has the mark.
+    const active = ranges.every(
+      (r) =>
+        !r.empty &&
+        (wrappedOutside(state, r.from, r.to, mark) ||
+          wrappedInside(state.sliceDoc(r.from, r.to), mark)),
+    )
+
+    const tr = state.changeByRange((range) => {
+      if (isProtected(state, range.from)) return { range }
+
+      if (active) {
+        if (wrappedOutside(state, range.from, range.to, mark)) {
+          const len = mark.length
+          return {
+            changes: [
+              { from: range.from - len, to: range.from },
+              { from: range.to, to: range.to + len },
+            ],
+            range: EditorSelection.range(range.from - len, range.to - len),
+          }
+        }
+        const text = state.sliceDoc(range.from, range.to)
+        const inner = text.slice(mark.length, text.length - mark.length)
+        return {
+          changes: { from: range.from, to: range.to, insert: inner },
+          range: EditorSelection.range(range.from, range.from + inner.length),
+        }
+      }
+
+      const text = state.sliceDoc(range.from, range.to)
+      return {
+        changes: { from: range.from, to: range.to, insert: mark + text + mark },
+        range: text.length === 0
+          ? EditorSelection.cursor(range.from + mark.length)
+          : EditorSelection.range(range.from + mark.length, range.to + mark.length),
+      }
+    })
+
+    dispatch(state.update(tr, { scrollIntoView: true, userEvent: 'format' }))
+    return true
+  }
+}
+
+export const toggleBold = toggleInline('**')
+export const toggleItalic = toggleInline('*')
+export const toggleInlineCode = toggleInline('`')
+export const toggleStrikethrough = toggleInline('~~')

@@ -141,3 +141,53 @@ describe('list and quote commands', () => {
     expect(run(toggleBlockquote, '> quoted', 4)).toBe('quoted')
   })
 })
+
+import {
+  toggleBold,
+  toggleItalic,
+  toggleInlineCode,
+  toggleStrikethrough,
+} from './markdownCommands'
+
+describe('inline commands', () => {
+  it('wraps the selection in bold markers', () => {
+    const doc = 'a word here'
+    expect(run(toggleBold, doc, 2, 6)).toBe('a **word** here')
+  })
+
+  it('unwraps when the marks sit outside the selection', () => {
+    const doc = 'a **word** here'
+    expect(run(toggleBold, doc, 4, 8)).toBe('a word here')
+  })
+
+  it('unwraps when the marks are inside the selection', () => {
+    const doc = 'a **word** here'
+    expect(run(toggleBold, doc, 2, 10)).toBe('a word here')
+  })
+
+  it('inserts an empty pair at a bare cursor', () => {
+    expect(run(toggleBold, 'ab', 1)).toBe('a****b')
+  })
+
+  it('adds italic to bold text rather than unwrapping the bold', () => {
+    const doc = 'a **word** here'
+    expect(run(toggleItalic, doc, 4, 8)).toBe('a ***word*** here')
+  })
+
+  it('handles inline code and strikethrough', () => {
+    expect(run(toggleInlineCode, 'a word', 2, 6)).toBe('a `word`')
+    expect(run(toggleStrikethrough, 'a word', 2, 6)).toBe('a ~~word~~')
+  })
+
+  it('refuses to format inside a fenced code block', () => {
+    const doc = '```\ncode line\n```'
+    const at = doc.indexOf('code')
+    expect(run(toggleBold, doc, at, at + 4)).toBe(doc)
+  })
+
+  it('refuses to format inside frontmatter', () => {
+    const doc = '---\nbibliography: refs.bib\n---\n'
+    const at = doc.indexOf('refs')
+    expect(run(toggleBold, doc, at, at + 4)).toBe(doc)
+  })
+})
