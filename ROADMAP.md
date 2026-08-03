@@ -73,7 +73,7 @@ full, plus Zotero integration that was not in the original sketch:
   position when the two heights diverge sharply — charts, math blocks, and
   tables all render far taller or shorter than their markdown.
 
-- Editor formatting commands: select text and apply markdown formatting —
+- [x] Editor formatting commands: select text and apply markdown formatting —
   put the cursor on a line and make it a heading, select a block and make it a
   list, select a phrase and make it bold. Nothing off the shelf does this
   (`@codemirror/lang-markdown` ships only list-continuation commands), so it is
@@ -84,12 +84,13 @@ full, plus Zotero integration that was not in the original sketch:
   step and gets multi-cursor support for free. Detection is hybrid: the syntax
   tree reliably identifies fenced code — guarding the case where formatting
   inside a `vega-lite` block would corrupt the chart — but it misreads
-  frontmatter as a setext heading, sees citations as links, and cannot see math
-  at all, so those need explicit guards. Design:
+  frontmatter as a setext heading, so that needs an explicit line-based guard.
+  Citations needed no guard: wrapping one in `**…**` still resolves. Design:
   [docs/superpowers/specs/2026-07-31-formatting-commands-design.md](docs/superpowers/specs/2026-07-31-formatting-commands-design.md).
-  Open decisions before planning: toggle semantics, shortcut ownership (a
-  `menu.go` accelerator is intercepted by AppKit before a CodeMirror keymap can
-  see it — one owner only), and UI surface.
+  Shortcut ownership turned out to be split, not exclusive: `menu.go` owns the
+  accelerators, but CodeMirror's `defaultKeymap` claims ⌘I (`selectParentSyntax`)
+  and ⌘⇧K (`deleteLine`) inside the webview before AppKit's menu ever sees them,
+  so `Editor.svelte` re-binds those two at `Prec.highest`.
 
 - New documents start from a template: File → New pre-populates the document
   with a frontmatter block and short comments explaining how to point it at a

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Editor formatting commands, available from a new Format menu: headings 1–6
+  and Paragraph (⌘1–⌘6, ⌘0), bold (⌘B), italic (⌘I), inline code (⌘⇧K),
+  strikethrough (⌘⇧X), bulleted and numbered lists (⌘⇧8, ⌘⇧7), and blockquote.
+  Each command is a single transaction, so one ⌘Z undoes the whole action, and
+  multi-cursor selections are supported.
+- Formatting toggles uniformly across a selection: applying a format that every
+  target line or range already has removes it, and a mixed selection resolves
+  toward the requested format instead of flipping line by line. Heading and
+  list markers replace one another rather than stacking.
+- Formatting commands never rewrite fenced code, inline code, or the YAML
+  frontmatter block, so a `vega-lite` chart spec and the `bibliography:` key
+  cannot be corrupted by a stray ⌘B.
+
 ## [0.3.0] - 2026-07-30
 
 Citations and bibliography: the headline academic feature. Cite with Pandoc
