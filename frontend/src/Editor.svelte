@@ -3,9 +3,40 @@
   import { EditorView, basicSetup } from 'codemirror'
   import { markdown } from '@codemirror/lang-markdown'
   import { languages } from '@codemirror/language-data'
-  import type { StateCommand } from '@codemirror/state'
+  import { keymap } from '@codemirror/view'
+  import { Prec, type StateCommand } from '@codemirror/state'
 
-  let { onchange }: { onchange: (text: string) => void } = $props()
+  let {
+    onchange,
+    onformat,
+  }: { onchange: (text: string) => void; onformat?: (name: string) => void } = $props()
+
+  // Menu accelerators normally win, because AppKit dispatches them before the
+  // webview — but not for chords CodeMirror's defaultKeymap already claims with
+  // preventDefault. basicSetup binds Mod-i (selectParentSyntax) and Shift-Mod-k
+  // (deleteLine), so those two never reach menu.go and must be caught here.
+  // Routed through onformat rather than the commands directly, so the welcome
+  // screen guard in App.svelte stays the single decision point.
+  const stolenChords = Prec.highest(
+    keymap.of([
+      {
+        key: 'Mod-i',
+        run: () => {
+          if (!onformat) return false
+          onformat('italic')
+          return true
+        },
+      },
+      {
+        key: 'Mod-Shift-k',
+        run: () => {
+          if (!onformat) return false
+          onformat('code')
+          return true
+        },
+      },
+    ]),
+  )
 
   let host: HTMLElement
   let view: EditorView
@@ -30,6 +61,7 @@
     view = new EditorView({
       parent: host,
       extensions: [
+        stolenChords,
         basicSetup,
         markdown({ codeLanguages: languages }),
         EditorView.lineWrapping,

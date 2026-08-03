@@ -178,6 +178,9 @@ These must refuse to change:
 - Any line inside the vega-lite block in section 7.
 - The contents of an inline code span like `[@smith2020]`.
 
+Select a word and press ⌘⇧K — it must become `` `code` ``. It must NOT delete
+the line: CodeMirror binds ⌘⇧K to deleteLine, and the editor re-binds it.
+
 With a cursor but no selection, ⌘B inserts an empty `****` pair and leaves the
 cursor between the markers — that is intended, not a bug. ⌘I does the same with
 `**`. Type inside the pair and the text picks up the format.

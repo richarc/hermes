@@ -349,7 +349,7 @@
 
   <main class="panes">
     <section class="editor-pane" style="width: {editorWidth}%">
-      <Editor bind:this={editor} onchange={onEditorChange} />
+      <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} />
     </section>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- WAI-ARIA "window splitter" pattern: a focusable separator with arrow-key resizing is the recommended markup -->
     <div
