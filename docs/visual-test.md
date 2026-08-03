@@ -178,7 +178,12 @@ These must refuse to change:
 - Any line inside the vega-lite block in section 7.
 - The contents of an inline code span like `[@smith2020]`.
 
-On the welcome screen (⌘N with no document open), ⌘B must do nothing at all.
+With a cursor but no selection, ⌘B inserts an empty `****` pair and leaves the
+cursor between the markers — that is intended, not a bug. ⌘I does the same with
+`**`. Type inside the pair and the text picks up the format.
+
+While the welcome pane is showing (relaunch the app and do *not* press ⌘N, which
+dismisses it), ⌘B must do nothing at all — no markers in the hidden document.
 
 ## 11. Intentional errors — these SHOULD look broken
 

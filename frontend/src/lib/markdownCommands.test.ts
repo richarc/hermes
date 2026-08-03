@@ -174,6 +174,18 @@ describe('inline commands', () => {
     expect(run(toggleItalic, doc, 4, 8)).toBe('a ***word*** here')
   })
 
+  it('adds italic to a fully selected bold word instead of stripping the bold', () => {
+    // Selecting the marks as well as the word must not read as "already
+    // italic": ** is bold, and unwrapping one * per side would downgrade it.
+    const doc = 'a **word** here'
+    expect(run(toggleItalic, doc, 2, 10)).toBe('a ***word*** here')
+  })
+
+  it('removes only the italic layer from fully selected bold-italic text', () => {
+    const doc = 'a ***word*** here'
+    expect(run(toggleItalic, doc, 2, 12)).toBe('a **word** here')
+  })
+
   it('handles inline code and strikethrough', () => {
     expect(run(toggleInlineCode, 'a word', 2, 6)).toBe('a `word`')
     expect(run(toggleStrikethrough, 'a word', 2, 6)).toBe('a ~~word~~')

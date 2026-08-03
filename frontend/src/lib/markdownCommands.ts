@@ -172,8 +172,24 @@ function wrappedOutside(state: EditorState, from: number, to: number, mark: stri
   )
 }
 
+function runLength(text: string, ch: string, fromEnd: boolean): number {
+  let n = 0
+  while (n < text.length && text[fromEnd ? text.length - 1 - n : n] === ch) n++
+  return n
+}
+
 function wrappedInside(text: string, mark: string): boolean {
-  return text.length >= mark.length * 2 && text.startsWith(mark) && text.endsWith(mark)
+  if (text.length < mark.length * 2) return false
+  if (!text.startsWith(mark) || !text.endsWith(mark)) return false
+  // The outside-the-selection path has isDoubled for this; the inside path
+  // needs its own check. A run of single-char marks encodes a different format
+  // per length — * is italic, ** is bold, *** is both — so only an odd run
+  // carries the italic layer. Without this, selecting **word** whole and
+  // asking for italic would strip one * per side and downgrade the bold.
+  if (mark.length === 1) {
+    return runLength(text, mark, false) % 2 === 1 && runLength(text, mark, true) % 2 === 1
+  }
+  return true
 }
 
 function toggleInline(mark: string): StateCommand {
