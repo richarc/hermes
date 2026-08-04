@@ -44,6 +44,9 @@
   export function setContent(text: string): void {
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },
+      // Land the cursor at the end so typing after File → New continues below
+      // the frontmatter instead of above it.
+      selection: { anchor: text.length },
     })
   }
 
