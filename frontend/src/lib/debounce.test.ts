@@ -25,4 +25,22 @@ describe('debounce', () => {
     vi.advanceTimersByTime(50)
     expect(fn).toHaveBeenCalledExactlyOnceWith('b')
   })
+
+  it('cancel drops a pending call', () => {
+    const fn = vi.fn()
+    const d = debounce(fn, 250)
+    d('a')
+    d.cancel()
+    vi.advanceTimersByTime(1000)
+    expect(fn).not.toHaveBeenCalled()
+  })
+
+  it('cancel on an idle debounce is harmless, and it still works afterwards', () => {
+    const fn = vi.fn()
+    const d = debounce(fn, 250)
+    d.cancel()
+    d('a')
+    vi.advanceTimersByTime(250)
+    expect(fn).toHaveBeenCalledExactlyOnceWith('a')
+  })
 })

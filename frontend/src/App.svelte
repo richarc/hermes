@@ -182,8 +182,11 @@
     path = docPath
     content = docContent
     welcomeDismissed = true
-    editor.setContent(docContent) // fires onEditorChange
+    editor.setContent(docContent) // fires onEditorChange, queueing a render
     savedContent = docContent
+    // Render now rather than 250 ms from now, and drop the queued pass: it
+    // would only re-render this same text.
+    updatePreview.cancel()
     html = render(docContent, { formatter })
     void refreshRecents()
   }
@@ -202,9 +205,10 @@
 
   function doNew() {
     path = null
-    editor.setContent('') // fires onEditorChange
+    editor.setContent('') // fires onEditorChange, queueing a render
     content = ''
     savedContent = ''
+    updatePreview.cancel() // the empty preview below supersedes it
     html = ''
     welcomeDismissed = true
   }

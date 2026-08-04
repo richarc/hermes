@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,7 +44,7 @@ func TestRecentsOrderDedupeAndCap(t *testing.T) {
 	dir := t.TempDir()
 
 	var paths []string
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		p := filepath.Join(dir, string(rune('a'+i))+".md")
 		if err := s.Save(p, "x"); err != nil {
 			t.Fatalf("Save: %v", err)
@@ -233,4 +235,35 @@ func TestWatchBibliographySelfHealsMissingFile(t *testing.T) {
 		t.Fatal("no emit when file appeared")
 	}
 	s.WatchBibliography("", docPath)
+}
+
+func TestAddRecentSurvivesConcurrentSaves(t *testing.T) {
+	// Wails runs each binding call on its own goroutine, so two saves can
+	// overlap. addRecent reads the file, edits the list, and writes it back;
+	// without serialisation the later write clobbers the earlier one and
+	// entries go missing.
+	s := newTestService(t)
+	dir := t.TempDir()
+
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Go(func() {
+			if err := s.Save(filepath.Join(dir, fmt.Sprintf("f%02d.md", i)), "x"); err != nil {
+				t.Errorf("Save: %v", err)
+			}
+		})
+	}
+	wg.Wait()
+
+	recents := s.RecentFiles()
+	if len(recents) != maxRecents {
+		t.Errorf("want a full list of %d recents, got %d: %v", maxRecents, len(recents), recents)
+	}
+	seen := map[string]bool{}
+	for _, r := range recents {
+		if seen[r] {
+			t.Errorf("duplicate entry %q in %v", r, recents)
+		}
+		seen[r] = true
+	}
 }

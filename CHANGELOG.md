@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Recent files no longer go missing when documents are saved or opened in
+  quick succession. Each call read the list, edited it, and wrote it back with
+  no serialisation, so overlapping calls discarded each other's entries — a
+  test firing twenty concurrent saves ended up with two entries instead of ten.
+- Opening a document, or starting a new one, no longer renders the preview a
+  second time 250 ms later with the same content.
 - `<` and `>` in a bibliography entry no longer turn into `¡` and `¿`. A title
   such as "Behaviour of alloys at <5 degrees" appeared in the References list
   as "at ¡5 degrees", because the BibTeX parser emulates LaTeX's OT1 text

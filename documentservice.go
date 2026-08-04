@@ -28,11 +28,13 @@ type DocumentService struct {
 	// Notified whenever the recents list changes (add or clear), so the
 	// native Open Recent menu can be rebuilt. Set once during startup.
 	onRecentsChanged func()
-	watchTick        time.Duration
-	emitBibChanged   func()
-	watchMu          sync.Mutex
-	watchCancel      context.CancelFunc
-	caywBase         string
+	// Serialises the read-modify-write of the recents file.
+	recentsMu      sync.Mutex
+	watchTick      time.Duration
+	emitBibChanged func()
+	watchMu        sync.Mutex
+	watchCancel    context.CancelFunc
+	caywBase       string
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
@@ -62,7 +64,15 @@ func (s *DocumentService) Save(path, content string) error {
 	return nil
 }
 
+// RecentFiles takes no lock: the list is written atomically, so a concurrent
+// update is either fully visible or not visible at all — there is no partial
+// state on disk to read. Only the read-modify-write in addRecent needs
+// serialising, and it uses readRecents directly to avoid re-entering the lock.
 func (s *DocumentService) RecentFiles() []string {
+	return s.readRecents()
+}
+
+func (s *DocumentService) readRecents() []string {
 	data, err := os.ReadFile(s.recentsPath)
 	if err != nil {
 		return []string{}
@@ -136,26 +146,39 @@ func (s *DocumentService) Quit() {
 }
 
 func (s *DocumentService) ClearRecents() {
+	s.recentsMu.Lock()
 	_ = os.Remove(s.recentsPath)
+	s.recentsMu.Unlock()
 	s.notifyRecentsChanged()
 }
 
+// addRecent moves path to the front of the list. The read-modify-write is
+// serialised because Wails runs each binding call on its own goroutine: two
+// overlapping saves would otherwise both read the old list and the second
+// write would discard the first one's entry.
 func (s *DocumentService) addRecent(path string) {
-	recents := s.RecentFiles()
-	recents = slices.DeleteFunc(recents, func(p string) bool { return p == path })
-	recents = append([]string{path}, recents...)
-	if len(recents) > maxRecents {
-		recents = recents[:maxRecents]
-	}
-	if err := os.MkdirAll(filepath.Dir(s.recentsPath), 0o755); err != nil {
-		return
-	}
-	data, err := json.Marshal(recents)
+	s.recentsMu.Lock()
+	err := s.storeRecentLocked(path)
+	s.recentsMu.Unlock()
 	if err != nil {
 		return
 	}
-	_ = writeFileAtomic(s.recentsPath, data, 0o644)
 	s.notifyRecentsChanged()
+}
+
+func (s *DocumentService) storeRecentLocked(path string) error {
+	recents := slices.DeleteFunc(s.readRecents(), func(p string) bool { return p == path })
+	recents = slices.Insert(recents, 0, path)
+	recents = recents[:min(len(recents), maxRecents)]
+
+	if err := os.MkdirAll(filepath.Dir(s.recentsPath), 0o755); err != nil {
+		return err
+	}
+	data, err := json.Marshal(recents)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(s.recentsPath, data, 0o644)
 }
 
 func (s *DocumentService) notifyRecentsChanged() {
