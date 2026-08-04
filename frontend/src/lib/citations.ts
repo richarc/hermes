@@ -1,18 +1,7 @@
 import type MarkdownIt from 'markdown-it'
 import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs'
 import type Token from 'markdown-it/lib/token.mjs'
-import citeprocModule from 'citeproc'
 import type { CSLEntry } from './bibliography'
-import apa from '../assets/csl/apa.csl?raw'
-import chicago from '../assets/csl/chicago-author-date.csl?raw'
-import ieee from '../assets/csl/ieee.csl?raw'
-import vancouver from '../assets/csl/vancouver.csl?raw'
-import harvard from '../assets/csl/harvard-cite-them-right.csl?raw'
-import localeEnUS from '../assets/csl/locales-en-US.xml?raw'
-
-// CJS/ESM interop differs between Vitest and Vite's browser pre-bundle.
-const CSL = ((citeprocModule as { default?: unknown }).default ??
-  citeprocModule) as { Engine: new (sys: unknown, style: string) => CiteprocEngine }
 
 interface CiteprocEngine {
   /**
@@ -27,14 +16,23 @@ interface CiteprocEngine {
   makeBibliography(): [{ bibstart: string; bibend: string }, string[]] | false
 }
 
-const STYLES: Record<string, string> = {
-  apa,
-  'chicago-author-date': chicago,
-  ieee,
-  vancouver,
-  harvard,
+// citeproc, the locale, and the CSL styles are fetched on demand rather than
+// imported at the top of the module. Together they are the second-largest
+// thing Hermes bundles — the styles alone are 300 KB of XML, of which one
+// document uses at most one — and a document with no `bibliography:` key never
+// formats a citation at all. The markdown-it citation *rules* further down
+// stay static, so parsing `[@key]` still costs nothing extra.
+const STYLE_LOADERS: Record<string, () => Promise<{ default: string }>> = {
+  apa: () => import('../assets/csl/apa.csl?raw'),
+  'chicago-author-date': () => import('../assets/csl/chicago-author-date.csl?raw'),
+  ieee: () => import('../assets/csl/ieee.csl?raw'),
+  vancouver: () => import('../assets/csl/vancouver.csl?raw'),
+  harvard: () => import('../assets/csl/harvard-cite-them-right.csl?raw'),
 }
-export const STYLE_IDS = Object.keys(STYLES) as readonly string[]
+
+// Static, so a caller can validate a document's `csl:` value without loading
+// anything at all.
+export const STYLE_IDS = Object.keys(STYLE_LOADERS) as readonly string[]
 
 export interface CitationItem {
   key: string
@@ -55,11 +53,32 @@ export interface CitationFormatter {
   has(key: string): boolean
 }
 
-export function createCitationFormatter(
+/**
+ * Loads the engine and the requested style, then returns a formatter whose
+ * format() is synchronous — the render path calls it on every keystroke, so
+ * the awaiting is done once, here, rather than per render. An unknown style id
+ * falls back to APA.
+ */
+export async function createCitationFormatter(
   entries: CSLEntry[],
   styleId: string,
-): CitationFormatter {
-  const style = STYLES[styleId] ?? STYLES.apa
+): Promise<CitationFormatter> {
+  const [styleModule, localeModule, citeprocModule] = await Promise.all([
+    (STYLE_LOADERS[styleId] ?? STYLE_LOADERS.apa)(),
+    import('../assets/csl/locales-en-US.xml?raw'),
+    import('citeproc'),
+  ])
+  const style = styleModule.default
+  const localeEnUS = localeModule.default
+  // CJS/ESM interop differs between Vitest and Vite's browser pre-bundle: the
+  // CommonJS exports arrive on the namespace's `default`, which under one of
+  // the two is itself wrapped in another `default`.
+  const namespace = citeprocModule as { default?: unknown }
+  const exports = namespace.default ?? namespace
+  const CSL = ((exports as { default?: unknown }).default ?? exports) as {
+    Engine: new (sys: unknown, style: string) => CiteprocEngine
+  }
+
   const byId = new Map(entries.map((e) => [e.id, e]))
   const sys = {
     retrieveItem: (id: string) => byId.get(id),

@@ -18,8 +18,8 @@ const ENTRIES: CSLEntry[] = [
 ]
 
 describe('createCitationFormatter (apa)', () => {
-  it('formats a simple cluster and a multi-cite cluster', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('formats a simple cluster and a multi-cite cluster', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const { texts, bibliographyHtml } = f.format([
       { items: [{ key: 'smith2020' }] },
       { items: [{ key: 'smith2020' }, { key: 'doe2021' }] },
@@ -30,8 +30,8 @@ describe('createCitationFormatter (apa)', () => {
     expect(bibliographyHtml).toContain('csl-bib-body')
   })
 
-  it('renders narrative, suppressed, and locator forms', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('renders narrative, suppressed, and locator forms', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const { texts } = f.format([
       { items: [{ key: 'smith2020' }], mode: 'composite' },
       { items: [{ key: 'smith2020', suppressAuthor: true }] },
@@ -43,8 +43,8 @@ describe('createCitationFormatter (apa)', () => {
     expect(texts[2]).toContain('p. 33')
   })
 
-  it('disambiguates two same-author-same-year entries', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('disambiguates two same-author-same-year entries', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const { texts } = f.format([
       { items: [{ key: 'smith2020' }] },
       { items: [{ key: 'smith2020x' }] },
@@ -52,26 +52,27 @@ describe('createCitationFormatter (apa)', () => {
     expect(texts[0]).not.toBe(texts[1]) // 2020a vs 2020b
   })
 
-  it('returns empty bibliography for zero clusters', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('returns empty bibliography for zero clusters', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     expect(f.format([]).bibliographyHtml).toBe('')
   })
 
-  it('every bundled style formats without throwing', () => {
+  it('every bundled style formats without throwing', async () => {
     for (const id of STYLE_IDS) {
-      const f = createCitationFormatter(ENTRIES, id)
+      const f = await createCitationFormatter(ENTRIES, id)
       expect(f.format([{ items: [{ key: 'doe2021' }] }]).texts[0].length).toBeGreaterThan(0)
     }
   })
 
-  it('unknown style id falls back to apa output', () => {
-    const apa = createCitationFormatter(ENTRIES, 'apa').format([{ items: [{ key: 'doe2021' }] }])
-    const fb = createCitationFormatter(ENTRIES, 'nope').format([{ items: [{ key: 'doe2021' }] }])
+  it('unknown style id falls back to apa output', async () => {
+    const cluster = [{ items: [{ key: 'doe2021' }] }]
+    const apa = (await createCitationFormatter(ENTRIES, 'apa')).format(cluster)
+    const fb = (await createCitationFormatter(ENTRIES, 'nope')).format(cluster)
     expect(fb.texts[0]).toBe(apa.texts[0])
   })
 
-  it('keeps index alignment when an empty-items cluster precedes a real one', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('keeps index alignment when an empty-items cluster precedes a real one', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const { texts, bibliographyHtml } = f.format([
       { items: [{ key: 'smith2020' }] },
       { items: [] },
@@ -87,8 +88,8 @@ describe('createCitationFormatter (apa)', () => {
   // A formatter is reused across every preview render, so each format() call
   // must see a processor with no memory of the last one. These pin the two
   // ways leaked state would surface.
-  it('returns identical output when the same clusters are formatted twice', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('returns identical output when the same clusters are formatted twice', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const clusters: CitationCluster[] = [
       { items: [{ key: 'smith2020' }] },
       { items: [{ key: 'smith2020' }, { key: 'doe2021' }] },
@@ -97,8 +98,8 @@ describe('createCitationFormatter (apa)', () => {
     expect(f.format(clusters)).toEqual(f.format(clusters))
   })
 
-  it('drops an entry from the bibliography once its citation is gone', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('drops an entry from the bibliography once its citation is gone', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     f.format([{ items: [{ key: 'smith2020' }] }, { items: [{ key: 'doe2021' }] }])
     // The user deleted the Doe citation: the reference must go with it.
     const after = f.format([{ items: [{ key: 'smith2020' }] }])
@@ -106,8 +107,8 @@ describe('createCitationFormatter (apa)', () => {
     expect(after.bibliographyHtml).not.toContain('Doe')
   })
 
-  it('re-disambiguates when a colliding citation is added and removed', () => {
-    const f = createCitationFormatter(ENTRIES, 'apa')
+  it('re-disambiguates when a colliding citation is added and removed', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
     const alone = f.format([{ items: [{ key: 'smith2020' }] }]).texts[0]
     const collided = f.format([
       { items: [{ key: 'smith2020' }] },

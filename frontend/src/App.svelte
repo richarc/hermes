@@ -98,7 +98,9 @@
       const { entries, warnings } = parseBib(text)
       if (warnings.length)
         toast(`Bibliography: ${warnings.length} entr${warnings.length === 1 ? 'y' : 'ies'} could not be parsed`)
-      formatter = createCitationFormatter(entries, fmCsl ?? 'apa')
+      const next = await createCitationFormatter(entries, fmCsl ?? 'apa')
+      if (gen !== reloadGeneration) return // superseded while the style loaded
+      formatter = next
       if (fmCsl && !STYLE_IDS.includes(fmCsl)) toast(`Unknown citation style "${fmCsl}" — using APA`)
     } catch {
       if (gen !== reloadGeneration) return // superseded by a newer request

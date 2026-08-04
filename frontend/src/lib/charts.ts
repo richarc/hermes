@@ -1,4 +1,7 @@
-import vegaEmbed from 'vega-embed'
+// Type-only, so importing it costs nothing at runtime: vega and vega-lite are
+// the largest thing Hermes bundles, and a document with no charts should never
+// load them. embedChart imports the real module on first use.
+import type vegaEmbedFn from 'vega-embed'
 
 /** The slice of a Vega view the hydrator needs for cleanup. */
 export interface ChartView {
@@ -110,7 +113,10 @@ export async function embedChart(
     return null
   }
   try {
-    const result = await vegaEmbed(el, spec as Parameters<typeof vegaEmbed>[1], {
+    // Inside the try: a chart that cannot load its renderer reports the same
+    // way as a chart that cannot render.
+    const { default: vegaEmbed } = await import('vega-embed')
+    const result = await vegaEmbed(el, spec as Parameters<typeof vegaEmbedFn>[1], {
       actions: false,
     })
     return result.view

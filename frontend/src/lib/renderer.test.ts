@@ -76,7 +76,9 @@ const ENTRIES: CSLEntry[] = [
     author: [{ family: 'Smith', given: 'John A.' }],
     issued: { 'date-parts': [[2020]] }, 'container-title': 'Nature' },
 ]
-const FORMATTER = createCitationFormatter(ENTRIES, 'apa')
+// Top-level await: the formatter now loads its style and engine on demand, and
+// every test below wants the same ready-made one.
+const FORMATTER = await createCitationFormatter(ENTRIES, 'apa')
 
 describe('render: citations', () => {
   it('strips frontmatter with or without a formatter', () => {

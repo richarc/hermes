@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The app starts with about half as much JavaScript to parse. Vega, citeproc,
+  the CSL locale, and each of the five citation styles were all loaded up front
+  regardless of the document, so a paper with no charts still paid for the
+  chart engine and a paper using APA still carried Chicago. They now load on
+  demand: the startup bundle drops from 3,104,526 to 1,529,872 bytes, with the
+  rest arriving only when a chart is drawn or a bibliography is loaded.
 - Persisted preferences now live in a single `Settings` value behind one
   `Settings` / `UpdateSettings` binding pair, replacing the per-preference
   getter, validating setter, and change callback that PDF orientation had to
