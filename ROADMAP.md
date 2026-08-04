@@ -111,8 +111,22 @@ full, plus Zotero integration that was not in the original sketch:
       `savedContent` should be seeded with the template instead. Keep the
       template short enough to delete in one motion for users who do not want
       citations.
+## v0.5.0 — Dark theme
+
 - [ ] Dark theme (theme-aware app chrome, preview, and CodeMirror theme) —
-      v0.1 deliberately pins a light scheme. Moved up from the backlog.
+      v0.1 deliberately pins a light scheme. Moved up from the backlog, then
+      out of v0.4 on 2026-08-04 to keep that release to the startup route,
+      the new-document template, and scroll sync. Scoping notes from the
+      pre-v0.4 review (finding A4,
+      [docs/superpowers/reviews/2026-08-04-pre-v0.4-review.md](docs/superpowers/reviews/2026-08-04-pre-v0.4-review.md)):
+      it touches four layers, and the least obvious one is the print
+      stylesheet, which must keep rendering light or exported PDFs come out
+      dark. `public/style.css` hardcodes ~20 colours and pins
+      `:root { color-scheme: light }`; `Editor.svelte` adds no CodeMirror
+      theme at all, so the editor stays light unless one is added; and
+      `main.go` hardcodes `BackgroundColour: NewRGB(255, 255, 255)`, which
+      flashes white on launch in dark mode. The System/Light/Dark choice
+      itself is now cheap: `Settings` takes a field, a default, and a clamp.
 
 ## Backlog (unscheduled)
 
