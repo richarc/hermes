@@ -152,52 +152,6 @@ func TestRecentsChangedCallback(t *testing.T) {
 	}
 }
 
-func TestPrintOrientationDefaultsToPortrait(t *testing.T) {
-	s := newTestService(t)
-	if got := s.PrintOrientation(); got != "portrait" {
-		t.Errorf("want portrait default, got %q", got)
-	}
-}
-
-func TestSetPrintOrientationPersists(t *testing.T) {
-	recentsPath := filepath.Join(t.TempDir(), "recents.json")
-	s := NewDocumentService(recentsPath)
-
-	s.SetPrintOrientation("landscape")
-	if got := s.PrintOrientation(); got != "landscape" {
-		t.Errorf("want landscape after set, got %q", got)
-	}
-
-	// a fresh service over the same paths reads the persisted value
-	s2 := NewDocumentService(recentsPath)
-	if got := s2.PrintOrientation(); got != "landscape" {
-		t.Errorf("want persisted landscape in new service, got %q", got)
-	}
-}
-
-func TestSetPrintOrientationRejectsInvalid(t *testing.T) {
-	s := newTestService(t)
-	s.SetPrintOrientation("diagonal")
-	if got := s.PrintOrientation(); got != "portrait" {
-		t.Errorf("invalid value must not stick, got %q", got)
-	}
-}
-
-func TestSetPrintOrientationNotifies(t *testing.T) {
-	s := newTestService(t)
-	fired := 0
-	s.onOrientationChanged = func() { fired++ }
-
-	s.SetPrintOrientation("landscape")
-	if fired != 1 {
-		t.Errorf("want notification on change, fired=%d", fired)
-	}
-	s.SetPrintOrientation("bogus")
-	if fired != 1 {
-		t.Errorf("invalid value must not notify, fired=%d", fired)
-	}
-}
-
 func TestReadBibliographyResolvesRelativeToDocument(t *testing.T) {
 	s := newTestService(t)
 	dir := t.TempDir()

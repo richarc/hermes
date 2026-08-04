@@ -39,13 +39,6 @@ export function PickCitations(): $CancellablePromise<string> {
     return $Call.ByID(873413501);
 }
 
-/**
- * PrintOrientation returns "portrait" or "landscape"; portrait is the default.
- */
-export function PrintOrientation(): $CancellablePromise<string> {
-    return $Call.ByID(1186847191);
-}
-
 export function Quit(): $CancellablePromise<void> {
     return $Call.ByID(2527160883);
 }
@@ -70,8 +63,22 @@ export function SetDirty(dirty: boolean): $CancellablePromise<void> {
     return $Call.ByID(2193338676, dirty);
 }
 
-export function SetPrintOrientation(orientation: string): $CancellablePromise<void> {
-    return $Call.ByID(360162911, orientation);
+/**
+ * Settings returns every persisted preference. Values are always valid: a
+ * missing or malformed file, and any field outside its allowed set, read back
+ * as that field's default.
+ */
+export function Settings(): $CancellablePromise<$models.Settings> {
+    return $Call.ByID(3490222329);
+}
+
+/**
+ * UpdateSettings persists the given preferences and returns an error if they
+ * could not be written, so a caller can tell the user the choice did not
+ * stick. Out-of-range values are normalised rather than rejected.
+ */
+export function UpdateSettings(next: $models.Settings): $CancellablePromise<void> {
+    return $Call.ByID(2788627576, next);
 }
 
 /**

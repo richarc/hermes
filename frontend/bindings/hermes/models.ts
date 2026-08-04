@@ -5,3 +5,14 @@ export interface Document {
     "path": string;
     "content": string;
 }
+
+/**
+ * Settings holds every persisted user preference in one value. Adding a
+ * preference means adding a field with a json tag, a default in
+ * defaultSettings, and a clamp in normalise — persistence, change
+ * notification, the menu rebuild, and the frontend binding all follow with no
+ * further wiring.
+ */
+export interface Settings {
+    "printOrientation": string;
+}

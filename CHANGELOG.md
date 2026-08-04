@@ -22,6 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frontmatter block, so a `vega-lite` chart spec and the `bibliography:` key
   cannot be corrupted by a stray ⌘B.
 
+### Changed
+
+- Persisted preferences now live in a single `Settings` value behind one
+  `Settings` / `UpdateSettings` binding pair, replacing the per-preference
+  getter, validating setter, and change callback that PDF orientation had to
+  itself. Adding a preference is now a struct field, a default, and a clamp —
+  which is what the dark theme and scroll-sync toggle will need. The settings
+  file is read once and rewritten only when a value actually changes, instead
+  of being re-read and re-parsed on every access including each menu rebuild,
+  and re-picking the menu item that is already selected no longer rebuilds the
+  menu. A single `settings:changed` event replaces the orientation-specific
+  callback.
+- Saving a preference reports failures instead of discarding them, so a
+  choice that could not be written no longer looks like it was applied.
+
 ### Fixed
 
 - Typing in a document with citations no longer stalls. The citeproc engine

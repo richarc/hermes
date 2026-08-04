@@ -21,32 +21,26 @@ type Document struct {
 }
 
 type DocumentService struct {
-	recentsPath  string
-	settingsPath string
-	dirty        atomic.Bool
-	window       *application.WebviewWindow
+	recentsPath string
+	settings    *settingsStore
+	dirty       atomic.Bool
+	window      *application.WebviewWindow
 	// Notified whenever the recents list changes (add or clear), so the
 	// native Open Recent menu can be rebuilt. Set once during startup.
 	onRecentsChanged func()
-	// Notified when the PDF orientation setting changes (menu rebuild).
-	onOrientationChanged func()
-	watchTick            time.Duration
-	emitBibChanged       func()
-	watchMu              sync.Mutex
-	watchCancel          context.CancelFunc
-	caywBase             string
-}
-
-type settings struct {
-	PrintOrientation string `json:"printOrientation"`
+	watchTick        time.Duration
+	emitBibChanged   func()
+	watchMu          sync.Mutex
+	watchCancel      context.CancelFunc
+	caywBase         string
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
 	return &DocumentService{
-		recentsPath:  recentsPath,
-		settingsPath: filepath.Join(filepath.Dir(recentsPath), "settings.json"),
-		watchTick:    2 * time.Second,
-		caywBase:     "http://127.0.0.1:23119",
+		recentsPath: recentsPath,
+		settings:    newSettingsStore(filepath.Join(filepath.Dir(recentsPath), "settings.json")),
+		watchTick:   2 * time.Second,
+		caywBase:    "http://127.0.0.1:23119",
 	}
 }
 
@@ -113,46 +107,25 @@ func (s *DocumentService) SaveAs(content string) (string, error) {
 	return path, nil
 }
 
-// PrintOrientation returns "portrait" or "landscape"; portrait is the default.
-func (s *DocumentService) PrintOrientation() string {
-	data, err := os.ReadFile(s.settingsPath)
-	if err != nil {
-		return "portrait"
-	}
-	var cfg settings
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "portrait"
-	}
-	if cfg.PrintOrientation == "landscape" {
-		return "landscape"
-	}
-	return "portrait"
+// Settings returns every persisted preference. Values are always valid: a
+// missing or malformed file, and any field outside its allowed set, read back
+// as that field's default.
+func (s *DocumentService) Settings() Settings {
+	return s.settings.get()
 }
 
-func (s *DocumentService) SetPrintOrientation(orientation string) {
-	if orientation != "portrait" && orientation != "landscape" {
-		return
-	}
-	if err := os.MkdirAll(filepath.Dir(s.settingsPath), 0o755); err != nil {
-		return
-	}
-	data, err := json.Marshal(settings{PrintOrientation: orientation})
-	if err != nil {
-		return
-	}
-	if err := writeFileAtomic(s.settingsPath, data, 0o644); err != nil {
-		return
-	}
-	if s.onOrientationChanged != nil {
-		s.onOrientationChanged()
-	}
+// UpdateSettings persists the given preferences and returns an error if they
+// could not be written, so a caller can tell the user the choice did not
+// stick. Out-of-range values are normalised rather than rejected.
+func (s *DocumentService) UpdateSettings(next Settings) error {
+	return s.settings.set(next)
 }
 
 func (s *DocumentService) ExportPDF() {
 	if s.window == nil {
 		return
 	}
-	if !printWithOrientation(s.PrintOrientation() == "landscape") {
+	if !printWithOrientation(s.settings.get().PrintOrientation == "landscape") {
 		// Fallback: Wails' built-in print (hardcodes landscape upstream).
 		_ = s.window.Print()
 	}

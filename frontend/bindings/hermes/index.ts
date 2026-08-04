@@ -7,5 +7,6 @@ export {
 };
 
 export type {
-    Document
+    Document,
+    Settings
 } from "./models.js";

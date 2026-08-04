@@ -84,10 +84,14 @@ func main() {
 		})
 		app.Event.Emit("recents:changed")
 	}
-	docs.onOrientationChanged = func() {
+	// One notification for every preference: the menu re-reads whichever ones
+	// it renders, and the frontend is told so it can pick up the rest. Adding
+	// a setting needs no new wiring here.
+	docs.settings.onChanged = func() {
 		application.InvokeAsync(func() {
 			installMenu(app, win, docs)
 		})
+		app.Event.Emit("settings:changed")
 	}
 
 	installMenu(app, win, docs)

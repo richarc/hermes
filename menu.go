@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -51,13 +52,26 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	})
 	file.AddSeparator()
 	orientation := file.AddSubmenu("PDF Orientation")
-	current := docs.PrintOrientation()
-	orientation.AddRadio("Portrait", current == "portrait").OnClick(func(*application.Context) {
-		docs.SetPrintOrientation("portrait")
-	})
-	orientation.AddRadio("Landscape", current == "landscape").OnClick(func(*application.Context) {
-		docs.SetPrintOrientation("landscape")
-	})
+	current := docs.Settings()
+	orientations := []struct {
+		label string
+		value string
+	}{
+		{"Portrait", "portrait"},
+		{"Landscape", "landscape"},
+	}
+	for _, o := range orientations {
+		value := o.value
+		orientation.AddRadio(o.label, current.PrintOrientation == value).OnClick(func(*application.Context) {
+			// Read-modify-write the whole settings value, so this menu only
+			// ever changes the one field it owns.
+			next := docs.Settings()
+			next.PrintOrientation = value
+			if err := docs.UpdateSettings(next); err != nil {
+				log.Printf("could not save PDF orientation: %v", err)
+			}
+		})
+	}
 	file.Add("Export PDF…").SetAccelerator("cmdorctrl+e").OnClick(func(*application.Context) {
 		docs.ExportPDF()
 	})
