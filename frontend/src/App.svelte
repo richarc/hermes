@@ -345,7 +345,13 @@
     Events.On('menu:format', (ev: { data: unknown }) => {
       if (typeof ev.data === 'string') applyFormat(ev.data)
     })
-    void refreshRecents()
+    void (async () => {
+      await refreshRecents()
+      // A first launch has nothing to put in the welcome pane, so go straight
+      // into a templated document rather than an empty one — the user who has
+      // never seen Hermes is exactly the one the template is for.
+      if (recents.length === 0) doNew()
+    })()
   })
 </script>
 

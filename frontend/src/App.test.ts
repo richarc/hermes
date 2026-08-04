@@ -124,3 +124,30 @@ describe('new documents', () => {
     cleanup()
   })
 })
+
+describe('first launch', () => {
+  it('templates the document when there are no recents', async () => {
+    recents.current = []
+    const { target, cleanup } = mountApp()
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('.editor-pane')?.textContent).toContain(
+        'bibliography: references.bib',
+      )
+    })
+    expect(target.querySelector('.welcome')).toBeNull()
+    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
+
+    cleanup()
+  })
+
+  it('shows the welcome pane and leaves the document empty when recents exist', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target, cleanup } = mountApp()
+
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    expect(target.querySelector('.editor-pane')?.textContent).not.toContain('bibliography')
+
+    cleanup()
+  })
+})
