@@ -51,6 +51,57 @@ describe('parseBib', () => {
     expect(r.warnings.length).toBeGreaterThan(0)
   })
 
+  // The parser emulates LaTeX's OT1 text encoding, where a bare `<` typesets
+  // as `¡` and `>` as `¿`. That is faithful to LaTeX and wrong for a title
+  // someone wrote meaning less-than.
+  describe('angle brackets in field values', () => {
+    const title = (bib: string) => parseBib(bib).entries[0]?.title
+
+    it('keeps < and > written literally in a title', () => {
+      expect(
+        title('@article{k, title = {Alloys at <5 and >100 degrees}, year={2021}}'),
+      ).toBe('Alloys at <5 and >100 degrees')
+    })
+
+    it('keeps them in every other extracted field', () => {
+      const e = parseBib(
+        '@article{k, journal = {J. of <Things>}, publisher = {A<B>C}, year={2021}}',
+      ).entries[0]
+      expect(e['container-title']).toBe('J. of <Things>')
+      expect(e.publisher).toBe('A<B>C')
+    })
+
+    it('keeps them in a literal author name', () => {
+      expect(
+        parseBib('@article{k, author = {{<Institute> of Things}}, year={2021}}')
+          .entries[0]?.author,
+      ).toEqual([{ literal: '<Institute> of Things' }])
+    })
+
+    it('leaves genuine inverted marks alone', () => {
+      // The naive fix — mapping ¡ and ¿ back afterwards — would corrupt this.
+      expect(title('@article{k, title = {¿Qué pasa? ¡Vaya!}, year={2021}}')).toBe(
+        '¿Qué pasa? ¡Vaya!',
+      )
+    })
+
+    it('still handles comparisons written the LaTeX way, in math mode', () => {
+      expect(title('@article{k, title = {Alloys at $<5$ degrees}, year={2021}}')).toBe(
+        'Alloys at <5 degrees',
+      )
+    })
+
+    it('still converts LaTeX markup and accents', () => {
+      expect(title('@article{k, title = {A \\textbf{bold} claim}, year={2021}}')).toContain(
+        '<b>bold</b>',
+      )
+      // Normalised: the parser emits combining accents, not precomposed ones.
+      expect(title('@article{k, title = {Caf\\\'e r\\^ole}, year={2021}}')?.normalize('NFC')).toBe(
+        'Café rôle'.normalize('NFC'),
+      )
+    })
+  })
+
   it('filters out phantom entries with empty keys from parser recovery', () => {
     const r = parseBib('@article{ok, title={Fine}, year={2020}}\n@article{broken')
     expect(r.entries.length).toBe(1)

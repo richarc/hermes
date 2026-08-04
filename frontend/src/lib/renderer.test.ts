@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render } from './renderer'
 import { createCitationFormatter } from './citations'
-import type { CSLEntry } from './bibliography'
+import { parseBib, type CSLEntry } from './bibliography'
 
 describe('render: markdown', () => {
   it('renders headings', () => {
@@ -143,5 +143,36 @@ describe('render: citations', () => {
   it('renders documents without citations identically to the plain pipeline', () => {
     const doc = '# H\n\nSome *text* with $x^2$ and\n\n```vega-lite\n{"mark": "bar"}\n```\n'
     expect(render(doc, { formatter: FORMATTER })).toBe(render(doc))
+  })
+})
+
+// A .bib is third-party content: it can arrive with a downloaded paper, and
+// its fields are interpolated into HTML that Preview.svelte assigns straight
+// to innerHTML. Angle brackets now reach citeproc intact (they used to be
+// mangled into ¡ and ¿ before ever getting there), so these pin the escaping
+// that keeps that safe.
+describe('render: bibliography content never becomes live markup', () => {
+  const bib = (title: string) =>
+    `@article{k, title = {${title}}, author = {Frost, Ann}, year = {2021}}`
+
+  it('escapes tags and comparison operators from a field', async () => {
+    const { entries } = parseBib(bib('Pwned <img src=x onerror=alert(1)> at <5 degrees'))
+    const html = render('Text [@k].', {
+      formatter: await createCitationFormatter(entries, 'apa'),
+    })
+    expect(html).not.toContain('<img')
+    expect(html).toContain('&#60;img')
+    expect(html).toContain('&#60;5 degrees')
+  })
+
+  it('drops event-handler attributes from markup CSL does recognise', async () => {
+    const { entries } = parseBib(
+      bib('A <span class="nocase" onmouseover="alert(1)">tricky</span> title'),
+    )
+    const html = render('Text [@k].', {
+      formatter: await createCitationFormatter(entries, 'apa'),
+    })
+    expect(html).not.toContain('onmouseover')
+    expect(html).toContain('tricky')
   })
 })

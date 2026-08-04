@@ -47,7 +47,13 @@ interface BBTCreator {
 
 function mapNames(creators: BBTCreator[] | undefined): CSLName[] | undefined {
   if (!creators?.length) return undefined
-  return creators.map((c) => {
+  return creators.map((raw) => {
+    const c: BBTCreator = {
+      lastName: raw.lastName && restoreAngles(raw.lastName),
+      firstName: raw.firstName && restoreAngles(raw.firstName),
+      name: raw.name && restoreAngles(raw.name),
+      literal: raw.literal && restoreAngles(raw.literal),
+    }
     const literal = c.literal ?? c.name
     if (literal) return { literal }
     if (c.lastName && !c.firstName) return c.lastName.includes(' ')
@@ -57,16 +63,35 @@ function mapNames(creators: BBTCreator[] | undefined): CSLName[] | undefined {
   })
 }
 
+// The parser emulates LaTeX's OT1 text encoding, in which a bare `<` typesets
+// as `¡` and `>` as `¿`. That is faithful to LaTeX but wrong for a title
+// someone wrote meaning less-than, and the parser exposes no way to turn it
+// off. Mapping the inverted marks back afterwards is not an option — Spanish
+// titles contain them legitimately — so the brackets are swapped for private-
+// use characters before parsing and swapped back after, which converts only
+// what we ourselves substituted. Any of these characters already present in
+// the source are dropped first, so the round trip cannot invent a bracket.
+const LT = ''
+const GT = ''
+
+function protectAngles(text: string): string {
+  return text.replace(/[]/g, '').replace(/</g, LT).replace(/>/g, GT)
+}
+
+function restoreAngles(text: string): string {
+  return text.replaceAll(LT, '<').replaceAll(GT, '>')
+}
+
 function extractString(value: unknown): string | undefined {
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') return restoreAngles(value)
   if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
-    return value[0]
+    return restoreAngles(value[0])
   }
   return undefined
 }
 
 export function parseBib(text: string): { entries: CSLEntry[]; warnings: string[] } {
-  const parsed = parse(text)
+  const parsed = parse(protectAngles(text))
   const warnings = parsed.errors.map((e: string | { error?: string }) =>
     typeof e === 'string' ? e : (e.error ?? JSON.stringify(e)),
   )

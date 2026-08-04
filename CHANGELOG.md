@@ -45,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `<` and `>` in a bibliography entry no longer turn into `¡` and `¿`. A title
+  such as "Behaviour of alloys at <5 degrees" appeared in the References list
+  as "at ¡5 degrees", because the BibTeX parser emulates LaTeX's OT1 text
+  encoding, where a bare `<` really does typeset that way. Comparison operators
+  are common in medical and physical-science titles, and there was no way to
+  turn the behaviour off, so the brackets are now protected across parsing.
+  Titles that genuinely contain `¡` or `¿` are untouched, and LaTeX markup,
+  accents, and math still convert as before.
 - Typing in a document with citations no longer stalls. The citeproc engine
   was rebuilt on every preview render, and constructing one parses the whole
   CSL style — 239 ms for APA, 503 ms for Chicago, against 0.2 ms to actually
