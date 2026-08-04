@@ -83,6 +83,40 @@ describe('createCitationFormatter (apa)', () => {
     expect(bibliographyHtml).toContain('Smith')
     expect(bibliographyHtml).toContain('Doe')
   })
+
+  // A formatter is reused across every preview render, so each format() call
+  // must see a processor with no memory of the last one. These pin the two
+  // ways leaked state would surface.
+  it('returns identical output when the same clusters are formatted twice', () => {
+    const f = createCitationFormatter(ENTRIES, 'apa')
+    const clusters: CitationCluster[] = [
+      { items: [{ key: 'smith2020' }] },
+      { items: [{ key: 'smith2020' }, { key: 'doe2021' }] },
+      { items: [{ key: 'smith2020' }], mode: 'composite' },
+    ]
+    expect(f.format(clusters)).toEqual(f.format(clusters))
+  })
+
+  it('drops an entry from the bibliography once its citation is gone', () => {
+    const f = createCitationFormatter(ENTRIES, 'apa')
+    f.format([{ items: [{ key: 'smith2020' }] }, { items: [{ key: 'doe2021' }] }])
+    // The user deleted the Doe citation: the reference must go with it.
+    const after = f.format([{ items: [{ key: 'smith2020' }] }])
+    expect(after.bibliographyHtml).toContain('Smith')
+    expect(after.bibliographyHtml).not.toContain('Doe')
+  })
+
+  it('re-disambiguates when a colliding citation is added and removed', () => {
+    const f = createCitationFormatter(ENTRIES, 'apa')
+    const alone = f.format([{ items: [{ key: 'smith2020' }] }]).texts[0]
+    const collided = f.format([
+      { items: [{ key: 'smith2020' }] },
+      { items: [{ key: 'smith2020x' }] },
+    ]).texts[0]
+    expect(collided).not.toBe(alone) // gains the 2020a suffix
+    // ...and loses it again when the colliding entry is no longer cited.
+    expect(f.format([{ items: [{ key: 'smith2020' }] }]).texts[0]).toBe(alone)
+  })
 })
 
 function parseDoc(src: string): { html: string; clusters: CitationCluster[] } {

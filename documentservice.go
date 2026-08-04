@@ -60,7 +60,7 @@ func (s *DocumentService) OpenPath(path string) (Document, error) {
 }
 
 func (s *DocumentService) Save(path, content string) error {
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := writeFileAtomic(path, []byte(content), 0o644); err != nil {
 		return err
 	}
 	s.addRecent(path)
@@ -140,7 +140,7 @@ func (s *DocumentService) SetPrintOrientation(orientation string) {
 	if err != nil {
 		return
 	}
-	if err := os.WriteFile(s.settingsPath, data, 0o644); err != nil {
+	if err := writeFileAtomic(s.settingsPath, data, 0o644); err != nil {
 		return
 	}
 	if s.onOrientationChanged != nil {
@@ -181,7 +181,7 @@ func (s *DocumentService) addRecent(path string) {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(s.recentsPath, data, 0o644)
+	_ = writeFileAtomic(s.recentsPath, data, 0o644)
 	s.notifyRecentsChanged()
 }
 

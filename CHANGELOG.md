@@ -22,6 +22,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frontmatter block, so a `vega-lite` chart spec and the `bibliography:` key
   cannot be corrupted by a stray ⌘B.
 
+### Fixed
+
+- Typing in a document with citations no longer stalls. The citeproc engine
+  was rebuilt on every preview render, and constructing one parses the whole
+  CSL style — 239 ms for APA, 503 ms for Chicago, against 0.2 ms to actually
+  format a citation. With the preview rendering every 250 ms, that blocked the
+  editor almost continuously. The engine is now built once per bibliography
+  (lazily, so a document that cites nothing never pays) and rebuilt from the
+  cluster list each pass: APA renders drop to 3.2 ms and Chicago to 3.6 ms.
+- Saving a document is now atomic. `Save` truncated the target file before
+  writing, so an interrupted write — a full disk, a crash, a lost power supply
+  — could leave a paper empty or half-written with no copy to fall back on.
+  Writes now go to a temp file alongside the destination, which is fsynced and
+  renamed into place, so the file on disk is only ever the old version or the
+  complete new one. An existing file keeps its own permissions. The recents
+  and settings files are written the same way.
+
+### Notes
+
+- Because an atomic save replaces the file rather than rewriting it in place,
+  saving now needs write permission on the containing *directory*, not just on
+  the file. A document in a directory the user cannot write to reports a save
+  error instead of silently taking the unsafe path.
+
 ## [0.3.0] - 2026-07-30
 
 Citations and bibliography: the headline academic feature. Cite with Pandoc

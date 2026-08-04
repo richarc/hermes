@@ -15,11 +15,15 @@ const CSL = ((citeprocModule as { default?: unknown }).default ??
   citeprocModule) as { Engine: new (sys: unknown, style: string) => CiteprocEngine }
 
 interface CiteprocEngine {
-  processCitationCluster(
-    citation: unknown,
-    pre: [string, number][],
-    post: [string, number][],
-  ): [unknown, [number, string, string][]]
+  /**
+   * Rebuilds the processor from a document-ordered cluster list and returns
+   * `[citationID, noteIndex, html]` per cluster, in that same order.
+   */
+  rebuildProcessorState(
+    citations: unknown[],
+    mode?: string,
+    uncitedItemIDs?: string[],
+  ): [string, number, string][]
   makeBibliography(): [{ bibstart: string; bibend: string }, string[]] | false
 }
 
@@ -61,39 +65,49 @@ export function createCitationFormatter(
     retrieveItem: (id: string) => byId.get(id),
     retrieveLocale: () => localeEnUS,
   }
+  // Constructing an engine parses the entire CSL style, which costs ~230 ms for
+  // APA and ~500 ms for Chicago — against ~0.2 ms to actually format a cluster.
+  // format() runs on every preview render, so the engine is built once and
+  // reused. It is built lazily so a document that cites nothing never pays at
+  // all. rebuildProcessorState re-derives the item registry and citation state
+  // from the cluster list it is handed, so a reused engine carries nothing over
+  // from the previous render — see the reuse tests in citations.test.ts.
+  let engine: CiteprocEngine | undefined
   return {
     has: (key) => byId.has(key),
     format(clusters) {
-      const engine = new CSL.Engine(sys, style)
       const texts: string[] = new Array(clusters.length).fill('')
-      const pre: [string, number][] = []
-      // citeproc's update indices are positions among SUBMITTED clusters, not
+      // citeproc's result indices are positions among SUBMITTED clusters, not
       // original cluster positions. Since empty clusters are never submitted,
       // map submitted index -> original index to keep texts[] aligned with
       // the caller's cluster array.
       const submittedToOriginal: number[] = []
-      let processed = 0
-      clusters.forEach((cluster, i) => {
-        if (cluster.items.length === 0) return // caller-blanked cluster: keep '' at index i
-        processed++
+      const citations = clusters.flatMap((cluster, i) => {
+        if (cluster.items.length === 0) return [] // caller-blanked: keep '' at index i
         submittedToOriginal.push(i)
-        const citation = {
-          citationID: `cite-${i}`,
-          citationItems: cluster.items.map((item) => ({
-            id: item.key,
-            prefix: item.prefix,
-            suffix: item.suffix,
-            locator: item.locator,
-            label: item.label,
-            'suppress-author': item.suppressAuthor || undefined,
-          })),
-          properties: { noteIndex: 0, ...(cluster.mode ? { mode: cluster.mode } : {}) },
-        }
-        const [, updates] = engine.processCitationCluster(citation, [...pre], [])
-        for (const [index, html] of updates) texts[submittedToOriginal[index]] = html
-        pre.push([`cite-${i}`, 0])
+        return [
+          {
+            citationID: `cite-${i}`,
+            citationItems: cluster.items.map((item) => ({
+              id: item.key,
+              prefix: item.prefix,
+              suffix: item.suffix,
+              locator: item.locator,
+              label: item.label,
+              'suppress-author': item.suppressAuthor || undefined,
+            })),
+            properties: { noteIndex: 0, ...(cluster.mode ? { mode: cluster.mode } : {}) },
+          },
+        ]
       })
-      if (processed === 0) return { texts, bibliographyHtml: '' }
+      if (citations.length === 0) return { texts, bibliographyHtml: '' }
+
+      engine ??= new CSL.Engine(sys, style)
+      for (const [submitted, entry] of engine.rebuildProcessorState(citations, 'html').entries()) {
+        // A sparse slot would mean citeproc reported no text for a cluster it
+        // was given; leave the '' rather than throwing off the alignment.
+        if (entry) texts[submittedToOriginal[submitted]] = entry[2]
+      }
       const bib = engine.makeBibliography()
       const bibliographyHtml = bib
         ? bib[0].bibstart + bib[1].join('') + bib[0].bibend
