@@ -6,6 +6,7 @@
   import Preview from './Preview.svelte'
   import { render } from './lib/renderer'
   import { debounce } from './lib/debounce'
+  import { NEW_DOCUMENT_TEMPLATE } from './lib/documentTemplate'
   import { parseFrontmatter } from './lib/frontmatter'
   import { parseBib } from './lib/bibliography'
   import { createCitationFormatter, STYLE_IDS, type CitationFormatter } from './lib/citations'
@@ -205,11 +206,14 @@
 
   function doNew() {
     path = null
-    editor.setContent('') // fires onEditorChange, queueing a render
-    content = ''
-    savedContent = ''
-    updatePreview.cancel() // the empty preview below supersedes it
-    html = ''
+    editor.setContent(NEW_DOCUMENT_TEMPLATE) // fires onEditorChange, queueing a render
+    content = NEW_DOCUMENT_TEMPLATE
+    // savedContent is seeded too: dirty is derived as content !== savedContent,
+    // so seeding only content would make every new document dirty on creation
+    // and prompt on close despite the user never touching it.
+    savedContent = NEW_DOCUMENT_TEMPLATE
+    updatePreview.cancel() // the render below supersedes it
+    html = render(NEW_DOCUMENT_TEMPLATE, { formatter })
     welcomeDismissed = true
   }
 
@@ -386,7 +390,7 @@
         {/each}
       </ul>
       <div class="welcome-actions">
-        <button class="welcome-action" onclick={() => (welcomeDismissed = true)}>New document</button>
+        <button class="welcome-action" onclick={requestNew}>New document</button>
         <button class="welcome-action" onclick={requestOpen}>Open…</button>
       </div>
     </div>

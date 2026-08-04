@@ -77,3 +77,50 @@ describe('welcome pane', () => {
     cleanup()
   })
 })
+
+describe('new documents', () => {
+  const templated = (target: HTMLElement) =>
+    target.querySelector('.editor-pane')?.textContent ?? ''
+
+  it('seeds the template and is not dirty', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target, cleanup } = mountApp()
+    await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
+
+    buttonByText(target, 'New document')!.click()
+    flushSync()
+
+    expect(templated(target)).toContain('bibliography: references.bib')
+    // The status bar appends " •" only while dirty. A template the user never
+    // touched must not prompt on close.
+    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
+
+    cleanup()
+  })
+
+  it('produces the same document from File → New as from the button', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target, cleanup } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+
+    listeners['menu:new']({ data: null })
+    flushSync()
+
+    expect(templated(target)).toContain('bibliography: references.bib')
+    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
+
+    cleanup()
+  })
+
+  it('dismisses the welcome pane', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target, cleanup } = mountApp()
+    await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
+
+    buttonByText(target, 'New document')!.click()
+    flushSync()
+
+    expect(target.querySelector('.welcome')).toBeNull()
+    cleanup()
+  })
+})
