@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 
 const { DocumentService, listeners, recents } = vi.hoisted(() => {
@@ -36,12 +36,19 @@ vi.mock('../bindings/hermes', () => ({ DocumentService }))
 
 import App from './App.svelte'
 
+// Tracked so afterEach can always unmount, even when a test body throws
+// partway through — otherwise a failing assertion leaves App mounted with a
+// live $effect still calling DocumentService.SetDirty, which pollutes later
+// tests' mock call counts and turns one real failure into a cascade.
+let mounted: ReturnType<typeof mount> | undefined
+
 function mountApp() {
   const target = document.createElement('div')
   document.body.appendChild(target)
   const cmp = mount(App, { target })
+  mounted = cmp
   flushSync() // Svelte 5 runs onMount in a microtask
-  return { target, cleanup: () => unmount(cmp) }
+  return { target }
 }
 
 function buttonByText(root: HTMLElement, text: string): HTMLButtonElement | undefined {
@@ -53,28 +60,33 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+afterEach(() => {
+  if (mounted) {
+    unmount(mounted)
+    mounted = undefined
+  }
+  document.body.innerHTML = ''
+})
+
 describe('welcome pane', () => {
   it('offers both New document and Open… when recents exist', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
 
     await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
     expect(buttonByText(target, 'New document')).toBeDefined()
     expect(buttonByText(target, 'Open…')).toBeDefined()
-
-    cleanup()
   })
 
   it('routes Open… through the same file dialog as the toolbar', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'Open…')).toBeDefined())
 
     buttonByText(target, 'Open…')!.click()
     flushSync()
 
     expect(DocumentService.Open).toHaveBeenCalled()
-    cleanup()
   })
 })
 
@@ -84,7 +96,7 @@ describe('new documents', () => {
 
   it('seeds the template and is not dirty', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
 
     buttonByText(target, 'New document')!.click()
@@ -94,13 +106,11 @@ describe('new documents', () => {
     // The status bar appends " •" only while dirty. A template the user never
     // touched must not prompt on close.
     expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
-
-    cleanup()
   })
 
-  it('produces the same document from File → New as from the button', async () => {
+  it('templates the document from File → New', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
     await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
 
     listeners['menu:new']({ data: null })
@@ -108,27 +118,24 @@ describe('new documents', () => {
 
     expect(templated(target)).toContain('bibliography: references.bib')
     expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
-
-    cleanup()
   })
 
   it('dismisses the welcome pane', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
 
     buttonByText(target, 'New document')!.click()
     flushSync()
 
     expect(target.querySelector('.welcome')).toBeNull()
-    cleanup()
   })
 })
 
 describe('first launch', () => {
   it('templates the document when there are no recents', async () => {
     recents.current = []
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
 
     await vi.waitFor(() => {
       expect(target.querySelector('.editor-pane')?.textContent).toContain(
@@ -137,17 +144,13 @@ describe('first launch', () => {
     })
     expect(target.querySelector('.welcome')).toBeNull()
     expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
-
-    cleanup()
   })
 
   it('shows the welcome pane and leaves the document empty when recents exist', async () => {
     recents.current = ['/papers/thesis.md']
-    const { target, cleanup } = mountApp()
+    const { target } = mountApp()
 
     await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
     expect(target.querySelector('.editor-pane')?.textContent).not.toContain('bibliography')
-
-    cleanup()
   })
 })

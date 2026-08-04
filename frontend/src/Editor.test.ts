@@ -4,7 +4,7 @@ import { mount, unmount, flushSync } from 'svelte'
 import Editor from './Editor.svelte'
 
 interface EditorApi {
-  setContent(text: string): void
+  setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
 }
 
@@ -30,9 +30,21 @@ function mountEditor() {
 }
 
 describe('Editor.setContent', () => {
-  it('leaves the cursor at the end, so typing continues below the text', () => {
+  it('defaults the cursor to the start, so opening a file does not relocate it', () => {
     const { editor, text, cleanup } = mountEditor()
     editor.setContent('---\n# csl: apa\n---\n')
+    flushSync()
+
+    editor.insertAtCursor('BODY')
+    flushSync()
+
+    expect(text()).toBe('BODY---\n# csl: apa\n---\n')
+    cleanup()
+  })
+
+  it("leaves the cursor at the end when asked, so typing after File → New continues below the text", () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('---\n# csl: apa\n---\n', 'end')
     flushSync()
 
     editor.insertAtCursor('BODY')

@@ -111,6 +111,7 @@ full, plus Zotero integration that was not in the original sketch:
       `savedContent` should be seeded with the template instead. Keep the
       template short enough to delete in one motion for users who do not want
       citations.
+
 ## v0.5.0 — Dark theme
 
 - [ ] Dark theme (theme-aware app chrome, preview, and CodeMirror theme) —

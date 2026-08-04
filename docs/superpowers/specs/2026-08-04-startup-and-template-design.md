@@ -151,12 +151,23 @@ No Go changes. `menu:new` already exists and the template is frontend-only.
 
 ## Decisions worth revisiting
 
-**`setContent` moves the cursor to the end for every caller, including opening
-an existing file.** Approved deliberately. The consequence is that opening a
-long paper lands the cursor — and the viewport — at the bottom rather than the
-top. If that reads wrong in use, the fix is to give `setContent` a cursor
-argument and pass `end` from `doNew()` and `start` from `loadDocument()`; the
-call sites are already distinct.
+**`setContent` originally moved the cursor to the end for every caller,
+including opening an existing file.** Approved deliberately at first, on the
+assumption that the worst case was cosmetic — landing the cursor, and the
+viewport, at the bottom of a long paper. Both halves of that assumption were
+wrong: no `scrollIntoView` is set, so the viewport never moved and the caret
+simply sat off-screen. The real consequence was that `insertAtCursor` and
+`runCommand` both call `view.focus()`, so opening a file silently relocated
+where ⌘⇧C (Zotero citation insert) and the Format-menu commands act — from
+wherever the cursor belonged to the very end of the document, on every file
+open.
+
+A final review caught this and the decision was reversed: `setContent` now
+takes a `cursor: 'start' | 'end' = 'start'` parameter. `doNew()` passes
+`'end'` (and focuses the view), so File → New still lands the user below the
+frontmatter ready to type; `loadDocument()` relies on the `'start'` default,
+restoring the pre-branch behaviour where opening a file leaves the insertion
+point exactly where it was.
 
 ## Error handling
 

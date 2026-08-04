@@ -206,11 +206,23 @@
 
   function doNew() {
     path = null
-    editor.setContent(NEW_DOCUMENT_TEMPLATE) // fires onEditorChange, queueing a render
+    // 'end' lands the cursor (and focus) below the frontmatter so the user
+    // can start typing immediately; loadDocument() below relies on the
+    // 'start' default instead, since opening a file must not relocate where
+    // ⌘⇧C and the Format-menu commands act.
+    editor.setContent(NEW_DOCUMENT_TEMPLATE, 'end') // fires onEditorChange, queueing a render
     content = NEW_DOCUMENT_TEMPLATE
     // savedContent is seeded too: dirty is derived as content !== savedContent,
     // so seeding only content would make every new document dirty on creation
-    // and prompt on close despite the user never touching it.
+    // and prompt on close despite the user never touching it. The two
+    // assignments must stay in the same synchronous block (no `await` or
+    // `flushSync()` between them): Svelte defers effects to a microtask, so
+    // as long as both run before the next tick, the Go side's SetDirty(dirty)
+    // effect only ever observes the settled, non-dirty state. Splitting them
+    // across a suspension point would let that effect fire on the transient
+    // content !== savedContent gap and send SetDirty(true) for a fresh,
+    // untouched template — prompting to save on close for a document the
+    // user never edited.
     savedContent = NEW_DOCUMENT_TEMPLATE
     updatePreview.cancel() // the render below supersedes it
     html = render(NEW_DOCUMENT_TEMPLATE, { formatter })

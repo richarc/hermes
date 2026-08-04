@@ -41,13 +41,23 @@
   let host: HTMLElement
   let view: EditorView
 
-  export function setContent(text: string): void {
+  // The two callers need different cursor placement, not one compromise:
+  // File → New wants the cursor at the end so typing continues below the
+  // frontmatter, but opening an existing file must leave it at the start —
+  // anywhere else silently relocates where ⌘⇧C and the Format-menu commands
+  // act on a freshly opened document. Do not "simplify" this back to one
+  // behaviour; 'start' is also the default so every other/future caller gets
+  // the safe behaviour without having to know about this distinction.
+  export function setContent(text: string, cursor: 'start' | 'end' = 'start'): void {
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },
-      // Land the cursor at the end so typing after File → New continues below
-      // the frontmatter instead of above it.
-      selection: { anchor: text.length },
+      selection: { anchor: cursor === 'end' ? text.length : 0 },
     })
+    // Only the end-of-document placement (File → New) should steal focus:
+    // that is the path where the user is about to type. Opening a file must
+    // not steal focus, since that is not current behaviour and was not asked
+    // for.
+    if (cursor === 'end') view.focus()
   }
 
   export function insertAtCursor(text: string): void {
