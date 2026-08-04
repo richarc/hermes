@@ -56,7 +56,7 @@ full, plus Zotero integration that was not in the original sketch:
 
 ## v0.4.0 — Navigation and reading comfort
 
-- [ ] Bug: there is no discoverable way to open a document that is not already
+- [x] Bug: there is no discoverable way to open a document that is not already
       in the recents list. The startup pane offers recent files and a "New
       document" button only. The toolbar's Open button does exist, but
       `.welcome` is an opaque full-window overlay (`position: absolute;
@@ -95,7 +95,7 @@ full, plus Zotero integration that was not in the original sketch:
       (`selectParentSyntax`) and ⌘⇧K (`deleteLine`) inside the webview before
       AppKit's menu ever sees them, so `Editor.svelte` re-binds those two at
       `Prec.highest`.
-- [ ] New documents start from a template: File → New pre-populates the
+- [x] New documents start from a template: File → New pre-populates the
       document with a frontmatter block and short comments explaining how to
       point it at a `.bib` file and choose a citation style, so the
       bibliography feature is discoverable without reading the README. Two

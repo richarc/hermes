@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   strikethrough (⌘⇧X), bulleted and numbered lists (⌘⇧8, ⌘⇧7), and blockquote.
   Each command is a single transaction, so one ⌘Z undoes the whole action, and
   multi-cursor selections are supported.
+- New documents start from a short frontmatter template that shows how to
+  point at a `.bib` file and names all five citation styles, so the
+  bibliography feature is discoverable without reading the README. It applies
+  to File → New, the welcome pane's New document button, and a first launch
+  with no recent files. An untouched template does not count as unsaved work,
+  so closing straight away does not prompt.
 - Formatting toggles uniformly across a selection: applying a format that every
   target line or range already has removes it, and a mixed selection resolves
   toward the requested format instead of flipping line by line. Heading and
@@ -45,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The welcome pane now offers an Open… button. It is a full-window overlay, so
+  it covered the toolbar's Open button, leaving ⌘O as the only way to reach a
+  file that was not already in the recents list — and nothing on that screen
+  said so.
+- The welcome pane's New document button now creates a new document rather
+  than just dismissing the pane.
 - Recent files no longer go missing when documents are saved or opened in
   quick succession. Each call read the list, edited it, and wrote it back with
   no serialisation, so overlapping calls discarded each other's entries — a
