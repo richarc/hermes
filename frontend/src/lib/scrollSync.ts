@@ -56,3 +56,55 @@ export function previewOffsetForLine(
   const ratio = (line - beforeLine) / span
   return clamp(beforeTop + ratio * (afterTop - beforeTop), scrollHeight)
 }
+
+/**
+ * Reads anchors out of rendered preview content.
+ *
+ * Measured with `getBoundingClientRect` deltas rather than `offsetTop`, so the
+ * result does not depend on any ancestor being positioned.
+ *
+ * Untested by design: jsdom has no layout engine and reports every rectangle
+ * as zero. Keeping this to three lines is what makes that acceptable — the
+ * logic worth testing lives in createScrollSync and previewOffsetForLine.
+ */
+export function collectAnchors(container: HTMLElement): Anchor[] {
+  const containerTop = container.getBoundingClientRect().top
+  const anchors: Anchor[] = []
+  for (const el of container.querySelectorAll<HTMLElement>('[data-source-line]')) {
+    const line = Number(el.dataset.sourceLine)
+    if (!Number.isFinite(line) || line < 1) continue
+    anchors.push({
+      line,
+      top: el.getBoundingClientRect().top - containerTop + container.scrollTop,
+    })
+  }
+  return anchors.sort((a, b) => a.line - b.line)
+}
+
+export interface ScrollSyncTarget {
+  getAnchors(): Anchor[]
+  getScrollHeight(): number
+  setScrollTop(y: number): void
+}
+
+/**
+ * Holds measured anchors between syncs, since measuring forces layout and a
+ * scroll produces a burst of events. The cache is invalidated by the caller on
+ * re-render, on chart hydration completing, and on resize; it is rebuilt
+ * lazily on the next sync that needs it rather than eagerly on invalidation.
+ */
+export function createScrollSync(target: ScrollSyncTarget) {
+  let anchors: Anchor[] | null = null
+  return {
+    invalidate(): void {
+      anchors = null
+    },
+    sync(line: number, docLines: number): void {
+      anchors ??= target.getAnchors()
+      if (anchors.length === 0) return
+      target.setScrollTop(
+        previewOffsetForLine(anchors, line, docLines, target.getScrollHeight()),
+      )
+    },
+  }
+}

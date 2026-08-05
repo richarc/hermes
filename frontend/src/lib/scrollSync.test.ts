@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { previewOffsetForLine, type Anchor } from './scrollSync'
+import { previewOffsetForLine, createScrollSync, type Anchor, type ScrollSyncTarget } from './scrollSync'
 
 // line 10 → 500px, line 20 → 1500px. 10 source lines spanning 1000 rendered px.
 const ANCHORS: Anchor[] = [
@@ -63,5 +63,61 @@ describe('previewOffsetForLine', () => {
   it('returns anchor when query line matches an anchor line exactly', () => {
     // Sanity check: exact match is a common case and should short-circuit.
     expect(previewOffsetForLine([{ line: 1, top: 0 }], 1, 1, 0)).toBe(0)
+  })
+})
+
+function fakeTarget(anchors: Anchor[], scrollHeight = 4000) {
+  const calls: number[] = []
+  let measured = 0
+  const target: ScrollSyncTarget = {
+    getAnchors: () => {
+      measured++
+      return anchors
+    },
+    getScrollHeight: () => scrollHeight,
+    setScrollTop: (y) => calls.push(y),
+  }
+  return { target, calls, measurements: () => measured }
+}
+
+describe('createScrollSync', () => {
+  it('scrolls the target to the mapped offset', () => {
+    const { target, calls } = fakeTarget(ANCHORS)
+    createScrollSync(target).sync(15, DOC_LINES)
+    expect(calls).toEqual([1000])
+  })
+
+  it('measures anchors once and reuses them across syncs', () => {
+    const { target, measurements } = fakeTarget(ANCHORS)
+    const sync = createScrollSync(target)
+    sync.sync(12, DOC_LINES)
+    sync.sync(14, DOC_LINES)
+    sync.sync(16, DOC_LINES)
+    expect(measurements()).toBe(1)
+  })
+
+  it('re-measures after invalidate', () => {
+    const { target, measurements } = fakeTarget(ANCHORS)
+    const sync = createScrollSync(target)
+    sync.sync(12, DOC_LINES)
+    sync.invalidate()
+    sync.sync(12, DOC_LINES)
+    expect(measurements()).toBe(2)
+  })
+
+  it('does not scroll when the document has no anchors', () => {
+    const { target, calls } = fakeTarget([])
+    createScrollSync(target).sync(12, DOC_LINES)
+    expect(calls).toEqual([])
+  })
+
+  it('re-measures on the next sync, not eagerly on invalidate', () => {
+    const { target, measurements } = fakeTarget(ANCHORS)
+    const sync = createScrollSync(target)
+    sync.sync(12, DOC_LINES)
+    sync.invalidate()
+    expect(measurements()).toBe(1) // nothing measured yet
+    sync.sync(12, DOC_LINES)
+    expect(measurements()).toBe(2)
   })
 })
