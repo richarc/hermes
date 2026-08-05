@@ -55,6 +55,13 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
         const cached = cache.get(specText)
 
         if (cached && !placedThisPass.has(cached)) {
+          // The cached node still carries the source line it was rendered at.
+          // Editing above the chart moves it, so adopt the fresh placeholder's
+          // line — otherwise scroll sync desynchronises from here down while
+          // the chart itself still looks perfectly correct.
+          if (el.dataset.sourceLine !== undefined) {
+            cached.dataset.sourceLine = el.dataset.sourceLine
+          }
           el.replaceWith(cached)
           placedThisPass.add(cached)
           continue

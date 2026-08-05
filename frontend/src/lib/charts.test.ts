@@ -144,6 +144,29 @@ describe('createChartHydrator: overlapping passes', () => {
   })
 })
 
+describe('cached charts keep their source line fresh', () => {
+  it('adopts the new placeholder line when a cached node is reused', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+    const specAttr = SPEC.replace(/"/g, '&quot;')
+
+    const first = containerWith(
+      `<div class="vega-lite-chart" data-source-line="5" data-spec="${specAttr}"></div>`,
+    )
+    await h.hydrate(first)
+
+    // The user inserted text above the chart: same spec, later line.
+    const second = containerWith(
+      `<div class="vega-lite-chart" data-source-line="30" data-spec="${specAttr}"></div>`,
+    )
+    await h.hydrate(second)
+
+    const chart = second.querySelector<HTMLElement>('.vega-lite-chart')
+    expect(chart).not.toBeNull()
+    expect(chart!.dataset.sourceLine).toBe('30')
+  })
+})
+
 describe('embedChart', () => {
   it('renders an error card and returns null for invalid JSON', async () => {
     const el = document.createElement('div')
