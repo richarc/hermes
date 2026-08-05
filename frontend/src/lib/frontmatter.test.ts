@@ -63,3 +63,23 @@ describe('parseFrontmatter', () => {
     expect(parseFrontmatter(doc).body).toBe(doc)
   })
 })
+
+describe('bodyStartLine', () => {
+  it('is 1 when there is no frontmatter', () => {
+    expect(parseFrontmatter('# Title\n').bodyStartLine).toBe(1)
+  })
+
+  it('is the first line after the closing fence', () => {
+    // ---(1) bibliography(2) ---(3) → body starts on line 4
+    expect(parseFrontmatter('---\nbibliography: r.bib\n---\n# Title\n').bodyStartLine).toBe(4)
+  })
+
+  it('counts a multi-line block', () => {
+    const src = '---\na: 1\nb: 2\nc: 3\n---\nbody\n'
+    expect(parseFrontmatter(src).bodyStartLine).toBe(6)
+  })
+
+  it('is 1 for an unterminated block, which is not frontmatter', () => {
+    expect(parseFrontmatter('---\nnot closed\n# Title\n').bodyStartLine).toBe(1)
+  })
+})

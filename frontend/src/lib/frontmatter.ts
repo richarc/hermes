@@ -2,6 +2,12 @@ export interface Frontmatter {
   body: string
   bibliography?: string
   csl?: string
+  /**
+   * 1-based line of the original document on which `body` starts. The renderer
+   * passes markdown-it only the body, so its line numbers are body-relative;
+   * scroll-sync anchors must be document-absolute to line up with the editor.
+   */
+  bodyStartLine: number
 }
 
 const KNOWN_KEYS = ['bibliography', 'csl'] as const
@@ -15,9 +21,14 @@ const BLOCK_RE = /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/
 
 export function parseFrontmatter(markdown: string): Frontmatter {
   const match = BLOCK_RE.exec(markdown)
-  if (!match) return { body: markdown }
+  if (!match) return { body: markdown, bodyStartLine: 1 }
 
-  const result: Frontmatter = { body: markdown.slice(match[0].length) }
+  const result: Frontmatter = {
+    body: markdown.slice(match[0].length),
+    // match[0] ends with the newline after the closing fence, so the number of
+    // complete lines it consumes is its newline count.
+    bodyStartLine: match[0].split('\n').length,
+  }
   for (const line of (match[1] ?? '').split(/\r?\n/)) {
     const m = line.match(/^([A-Za-z][\w-]*)\s*:\s*(.+?)\s*$/)
     if (!m) continue

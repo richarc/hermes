@@ -13,11 +13,33 @@ const md = new MarkdownIt({ html: false, linkify: true })
 
 md.use(katexPlugin, { throwOnError: false, errorColor: '#cc0000' })
 
+// Stamp every top-level block with the document line it starts on, for scroll
+// sync to anchor against. Only level-0 tokens carry a `map`; inline tokens do
+// not, which is what keeps this off spans and emphasis.
+//
+// `env.sourceLineOffset` corrects for the frontmatter that render() strips
+// before markdown-it ever sees the text — without it every anchor in a
+// document with frontmatter is short by that block's length.
+md.core.ruler.push('source_line', (state) => {
+  const offset = (state.env as { sourceLineOffset?: number }).sourceLineOffset ?? 0
+  for (const token of state.tokens) {
+    if (token.level === 0 && token.map) {
+      token.attrSet('data-source-line', String(token.map[0] + 1 + offset))
+    }
+  }
+  return true
+})
+
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
   if (token.info.trim() === 'vega-lite') {
-    return `<div class="vega-lite-chart" data-spec="${md.utils.escapeHtml(token.content.trim())}"></div>\n`
+    // This branch builds its own HTML and never calls renderAttrs, so the
+    // anchor the core rule set on the token has to be written out by hand.
+    // Charts are the largest source of height divergence — the very reason
+    // anchors beat a scroll ratio — so losing theirs would gut the feature.
+    const line = token.attrGet('data-source-line') ?? ''
+    return `<div class="vega-lite-chart" data-source-line="${md.utils.escapeHtml(line)}" data-spec="${md.utils.escapeHtml(token.content.trim())}"></div>\n`
   }
   return defaultFence(tokens, idx, options, env, self)
 }
@@ -29,8 +51,10 @@ export interface RenderOptions {
 }
 
 export function render(markdown: string, opts?: RenderOptions): string {
-  const { body } = parseFrontmatter(markdown)
-  const env: { citations?: CitationCluster[] } = {}
+  const { body, bodyStartLine } = parseFrontmatter(markdown)
+  const env: { citations?: CitationCluster[]; sourceLineOffset: number } = {
+    sourceLineOffset: bodyStartLine - 1,
+  }
   let html = md.render(body, env)
   const clusters = env.citations ?? []
   const formatter = opts?.formatter

@@ -5,12 +5,12 @@ import { parseBib, type CSLEntry } from './bibliography'
 
 describe('render: markdown', () => {
   it('renders headings', () => {
-    expect(render('# Introduction')).toContain('<h1>Introduction</h1>')
+    expect(render('# Introduction')).toMatch(/<h1[^>]*>Introduction<\/h1>/)
   })
 
   it('renders emphasis and paragraphs', () => {
     const html = render('Some *emphasised* text')
-    expect(html).toContain('<p>')
+    expect(html).toMatch(/<p[^>]*>/)
     expect(html).toContain('<em>emphasised</em>')
   })
 
@@ -83,7 +83,7 @@ const FORMATTER = await createCitationFormatter(ENTRIES, 'apa')
 describe('render: citations', () => {
   it('strips frontmatter with or without a formatter', () => {
     const doc = '---\nbibliography: refs.bib\n---\n# Title'
-    expect(render(doc)).toContain('<h1>Title</h1>')
+    expect(render(doc)).toMatch(/<h1[^>]*>Title<\/h1>/)
     expect(render(doc)).not.toContain('bibliography')
   })
 
@@ -118,7 +118,7 @@ describe('render: citations', () => {
   it('strips CRLF frontmatter and still resolves citations', () => {
     const doc = '---\r\nbibliography: refs.bib\r\n---\r\n# Title\r\n\r\nBlah [@smith2020].'
     const html = render(doc, { formatter: FORMATTER })
-    expect(html).toContain('<h1>Title</h1>')
+    expect(html).toMatch(/<h1[^>]*>Title<\/h1>/)
     expect(html).not.toContain('bibliography')
     expect(html).toContain('Smith')
   })
@@ -174,5 +174,32 @@ describe('render: bibliography content never becomes live markup', () => {
     })
     expect(html).not.toContain('onmouseover')
     expect(html).toContain('tricky')
+  })
+})
+
+describe('render: source-line anchors', () => {
+  it('stamps every top-level block with its 1-based source line', () => {
+    const html = render('# Title\n\nPara.\n\n| a |\n|---|\n| 1 |\n')
+    expect(html).toContain('<h1 data-source-line="1"')
+    expect(html).toContain('<p data-source-line="3"')
+    expect(html).toContain('<table data-source-line="5"')
+  })
+
+  it('stamps vega-lite chart placeholders, which build their own HTML', () => {
+    const html = render('Intro.\n\n```vega-lite\n{"mark":"bar"}\n```\n')
+    expect(html).toContain('class="vega-lite-chart"')
+    expect(html).toMatch(/<div class="vega-lite-chart" data-source-line="3"/)
+  })
+
+  it('offsets anchors past the frontmatter, so they match editor lines', () => {
+    // ---(1) csl(2) ---(3) blank(4) # Title(5)
+    const html = render('---\ncsl: apa\n---\n\n# Title\n')
+    expect(html).toContain('<h1 data-source-line="5"')
+  })
+
+  it('keeps anchors out of inline content', () => {
+    const html = render('Some *emphasis* here.\n')
+    expect(html).toContain('<p data-source-line="1"')
+    expect(html).not.toContain('<em data-source-line')
   })
 })
