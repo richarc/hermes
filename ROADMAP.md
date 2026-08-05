@@ -144,5 +144,10 @@ Ideas noted along the way, not yet committed to a release:
   macOS-focused).
 - Security hardening for third-party documents (Vega-Lite specs can trigger
   remote `data.url` fetches).
-- Create a new button style, one that is more readable and more promenant but compatible with botth the light and dark modes.
-- Investigate having two document types: A single file document type where all content is in a single file (no bibliography), a multi-part document type that lives in a director and has a main .md file, a .bib file and in future other files, for example we might pull out the Vega-lite digrams into seperate files.
+- Create a new button style, one that is more readable and more prominent but
+  compatible with both the light and dark modes.
+- Investigate having two document types: a single-file document type where all
+  content is in one file (no bibliography), and a multi-part document type that
+  lives in a directory and has a main `.md` file, a `.bib` file and in future
+  other files — for example we might pull the Vega-Lite diagrams out into
+  separate files.
