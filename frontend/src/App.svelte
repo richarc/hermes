@@ -379,7 +379,12 @@
     })
     Events.On('settings:changed', () => void refreshSettings())
     void (async () => {
-      await Promise.all([refreshRecents(), refreshSettings()])
+      // allSettled, not all: these two reads are independent, and a rejection
+      // from either must not stop the other's effect from applying, nor skip
+      // the templating check below. Promise.all would let one rejection sink
+      // both — turning a settings-load failure into a blank, template-less
+      // editor on top of the settings failure itself.
+      await Promise.allSettled([refreshRecents(), refreshSettings()])
       // A first launch has nothing to put in the welcome pane, so go straight
       // into a templated document rather than an empty one — the user who has
       // never seen Hermes is exactly the one the template is for.

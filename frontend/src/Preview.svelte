@@ -35,9 +35,23 @@
   })
 
   onMount(() => {
-    const onResize = () => sync.invalidate()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    // A ResizeObserver on the container's own box subsumes a window resize
+    // listener: it fires on an actual window resize (which resizes the
+    // container too), on the pane divider being dragged or arrow-key-resized
+    // (which changes .editor-pane's width and, via the flex row, reflows
+    // .preview-pane to a new width with no window resize event at all), and
+    // on late-settling content — async <img> loads and KaTeX web fonts —
+    // that changes block heights after the render pass already measured them.
+    //
+    // jsdom (used by this component's tests) has no ResizeObserver at all, so
+    // this guard is load-bearing for tests, not just defensive: without it,
+    // mounting Preview under jsdom throws. It also means the observer's
+    // firing can't be exercised by a test — verified by reading instead, per
+    // the fix-wave notes.
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => sync.invalidate())
+    observer.observe(container)
+    return () => observer.disconnect()
   })
 
   onDestroy(() => hydrator.destroy())

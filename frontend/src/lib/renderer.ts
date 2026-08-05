@@ -44,6 +44,21 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   return defaultFence(tokens, idx, options, env, self)
 }
 
+// Same problem, same fix, for display math (`$$…$$`): @vscode/markdown-it-katex
+// installs its own `math_block` renderer that builds a `<p class="katex-block">`
+// from tokens[idx].content by hand and never calls renderAttrs, so the anchor
+// the core rule set above is silently dropped. Captured after md.use(katexPlugin)
+// so this wraps whatever renderer the plugin actually installed, not a guess at
+// its name — this project doesn't pass enableFencedBlocks or enableBareBlocks,
+// so math_block is the only katex renderer that ever emits block-level output.
+const defaultMathBlock = md.renderer.rules.math_block!
+md.renderer.rules.math_block = (tokens, idx, options, env, self) => {
+  const line = tokens[idx].attrGet('data-source-line')
+  const rendered = defaultMathBlock(tokens, idx, options, env, self)
+  if (!line) return rendered
+  return rendered.replace(/^<p /, `<p data-source-line="${md.utils.escapeHtml(line)}" `)
+}
+
 md.use(citationPlugin)
 
 export interface RenderOptions {
@@ -85,7 +100,11 @@ export function render(markdown: string, opts?: RenderOptions): string {
     },
   )
   if (clusters.some((c) => resolvable(formatter, c))) {
-    html += `<h2>References</h2>\n${bibliographyHtml}\n`
+    // Anchor the appended heading to the document's last line, so the
+    // bibliography's height (often substantial) doesn't collapse into a
+    // single interpolated interval hanging off the last real anchor.
+    const docLines = markdown.split(/\r\n?|\n/).length
+    html += `<h2 data-source-line="${docLines}">References</h2>\n${bibliographyHtml}\n`
   }
   return html
 }

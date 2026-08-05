@@ -157,6 +157,19 @@ describe('first launch', () => {
     await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
     expect(target.querySelector('.editor-pane')?.textContent).not.toContain('bibliography')
   })
+
+  it('still templates the document when Settings() rejects', async () => {
+    recents.current = []
+    DocumentService.Settings.mockRejectedValueOnce(new Error('boom'))
+    const { target } = mountApp()
+
+    await vi.waitFor(() => {
+      expect(target.querySelector('.editor-pane')?.textContent).toContain(
+        'bibliography: references.bib',
+      )
+    })
+    expect(target.querySelector('.welcome')).toBeNull()
+  })
 })
 
 describe('scroll sync', () => {

@@ -135,9 +135,13 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	})
 
 	view := menu.AddSubmenu("View")
+	// Read locally rather than reusing the `current` from the File-menu block
+	// above: the two are built 85 lines apart, and a future reorder could
+	// separate the read from this use without anything catching it.
+	viewCurrent := docs.Settings()
 	// No accelerator: the obvious chords are taken, and this is not a frequent
 	// action — the same reasoning as Blockquote in the Format menu.
-	view.AddCheckbox("Sync Scrolling", current.SyncScrolling).OnClick(func(*application.Context) {
+	view.AddCheckbox("Sync Scrolling", viewCurrent.SyncScrolling).OnClick(func(*application.Context) {
 		next := docs.Settings()
 		next.SyncScrolling = !next.SyncScrolling
 		if err := docs.UpdateSettings(next); err != nil {

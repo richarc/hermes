@@ -91,7 +91,7 @@ describe('render: citations', () => {
     const html = render('Blah [@smith2020].', { formatter: FORMATTER })
     expect(html).toContain('Smith')
     expect(html).toContain('2020')
-    expect(html).toContain('<h2>References</h2>')
+    expect(html).toMatch(/<h2 data-source-line="\d+">References<\/h2>/)
     expect(html).toContain('csl-entry')
   })
 
@@ -201,5 +201,17 @@ describe('render: source-line anchors', () => {
     const html = render('Some *emphasis* here.\n')
     expect(html).toContain('<p data-source-line="1"')
     expect(html).not.toContain('<em data-source-line')
+  })
+
+  it('stamps display math blocks, which the katex plugin renders by hand', () => {
+    const html = render('Intro.\n\n$$\\int_0^1 x\\,dx$$\n')
+    expect(html).toMatch(/<p data-source-line="3"[^>]*class="katex-block"/)
+  })
+
+  it('stamps the References heading with the document line count', () => {
+    const doc = 'Blah [@smith2020].\n'
+    const html = render(doc, { formatter: FORMATTER })
+    const lines = doc.split(/\r\n?|\n/).length
+    expect(html).toContain(`<h2 data-source-line="${lines}">References</h2>`)
   })
 })
