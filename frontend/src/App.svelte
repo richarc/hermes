@@ -2,6 +2,7 @@
   import { onMount, untrack } from 'svelte'
   import { Events } from '@wailsio/runtime'
   import { DocumentService } from '../bindings/hermes'
+  import type { Settings } from '../bindings/hermes/models'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
   import { render } from './lib/renderer'
@@ -37,6 +38,9 @@
   let toastMsg = $state('')
   let editorWidth = $state(50)
   let editor: ReturnType<typeof Editor>
+  let preview: ReturnType<typeof Preview>
+  let syncScrolling = $state(false)
+  let scrollFrame: number | null = null
   let toastTimer: ReturnType<typeof setTimeout>
   let formatter = $state<CitationFormatter | undefined>(undefined)
   // Guards against a stale ReadBibliography response landing after a newer
@@ -194,6 +198,22 @@
 
   async function refreshRecents() {
     recents = (await DocumentService.RecentFiles()) ?? []
+  }
+
+  async function refreshSettings() {
+    const s: Settings = await DocumentService.Settings()
+    syncScrolling = s.syncScrolling
+  }
+
+  // Scroll fires in bursts; one measurement per frame is plenty, and coalescing
+  // keeps a fast scroll from forcing layout dozens of times.
+  function onEditorScroll() {
+    if (!syncScrolling || scrollFrame !== null) return
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null
+      if (!syncScrolling) return
+      preview.syncToLine(editor.topVisibleLine(), editor.lineCount())
+    })
   }
 
   function requestNew() {
@@ -357,8 +377,9 @@
     Events.On('menu:format', (ev: { data: unknown }) => {
       if (typeof ev.data === 'string') applyFormat(ev.data)
     })
+    Events.On('settings:changed', () => void refreshSettings())
     void (async () => {
-      await refreshRecents()
+      await Promise.all([refreshRecents(), refreshSettings()])
       // A first launch has nothing to put in the welcome pane, so go straight
       // into a templated document rather than an empty one — the user who has
       // never seen Hermes is exactly the one the template is for.
@@ -377,7 +398,7 @@
 
   <main class="panes">
     <section class="editor-pane" style="width: {editorWidth}%">
-      <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} />
+      <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} onscroll={onEditorScroll} />
     </section>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- WAI-ARIA "window splitter" pattern: a focusable separator with arrow-key resizing is the recommended markup -->
     <div
@@ -392,7 +413,7 @@
       aria-valuemax={80}
       tabindex="0"
     ></div>
-    <Preview {html} />
+    <Preview bind:this={preview} {html} />
   </main>
 
   <footer class="status-bar">

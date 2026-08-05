@@ -2,12 +2,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 
-const { DocumentService, listeners, recents } = vi.hoisted(() => {
+const { DocumentService, listeners, recents, settings } = vi.hoisted(() => {
   const listeners: Record<string, (ev: { data: unknown }) => void> = {}
   const recents = { current: [] as string[] }
+  const settings = { current: { printOrientation: 'portrait', syncScrolling: false } }
   return {
     listeners,
     recents,
+    settings,
     DocumentService: {
       RecentFiles: vi.fn(async () => recents.current),
       SetDirty: vi.fn(async () => {}),
@@ -20,6 +22,8 @@ const { DocumentService, listeners, recents } = vi.hoisted(() => {
       Quit: vi.fn(async () => {}),
       PickCitations: vi.fn(async () => ''),
       ExportPDF: vi.fn(async () => {}),
+      Settings: vi.fn(async () => settings.current),
+      UpdateSettings: vi.fn(async () => {}),
     },
   }
 })
@@ -152,5 +156,43 @@ describe('first launch', () => {
 
     await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
     expect(target.querySelector('.editor-pane')?.textContent).not.toContain('bibliography')
+  })
+})
+
+describe('scroll sync', () => {
+  it('does not move the preview while sync is off', async () => {
+    settings.current = { printOrientation: 'portrait', syncScrolling: false }
+    recents.current = []
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.cm-scroller')).not.toBeNull())
+
+    const pane = target.querySelector('.preview-pane') as HTMLElement
+    Object.defineProperty(pane, 'scrollHeight', { value: 4000, configurable: true })
+    const scroller = target.querySelector('.cm-scroller') as HTMLElement
+    scroller.dispatchEvent(new Event('scroll'))
+    await new Promise((r) => requestAnimationFrame(() => r(null)))
+
+    expect(pane.scrollTop).toBe(0)
+  })
+
+  it('reads the persisted setting at startup', async () => {
+    settings.current = { printOrientation: 'portrait', syncScrolling: true }
+    recents.current = []
+    mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+  })
+
+  it('re-reads the setting when the menu changes it', async () => {
+    settings.current = { printOrientation: 'portrait', syncScrolling: false }
+    recents.current = []
+    mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+
+    const before = DocumentService.Settings.mock.calls.length
+    settings.current = { printOrientation: 'portrait', syncScrolling: true }
+    listeners['settings:changed']({ data: null })
+    await vi.waitFor(() =>
+      expect(DocumentService.Settings.mock.calls.length).toBeGreaterThan(before),
+    )
   })
 })
