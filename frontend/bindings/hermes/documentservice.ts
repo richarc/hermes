@@ -47,6 +47,12 @@ export function ReadBibliography(path: string, docPath: string): $CancellablePro
     return $Call.ByID(3582225424, path, docPath);
 }
 
+/**
+ * RecentFiles takes no lock: the list is written atomically, so a concurrent
+ * update is either fully visible or not visible at all — there is no partial
+ * state on disk to read. Only the read-modify-write in addRecent needs
+ * serialising, and it uses readRecents directly to avoid re-entering the lock.
+ */
 export function RecentFiles(): $CancellablePromise<string[] | null> {
     return $Call.ByID(3158636934);
 }
