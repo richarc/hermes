@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formatting commands never rewrite fenced code, inline code, or the YAML
   frontmatter block, so a `vega-lite` chart spec and the `bibliography:` key
   cannot be corrupted by a stray ⌘B.
+- Optional scroll sync: with View → Sync Scrolling enabled, the preview
+  follows the editor as it scrolls. Off by default and remembered between
+  sessions. Rendered position is derived by interpolating between the source
+  lines of the surrounding blocks, so a chart or table that occupies a few
+  lines of markdown and a great deal of rendered height stays aligned instead
+  of drifting the rest of the document out of step.
 
 ### Changed
 

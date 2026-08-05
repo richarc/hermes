@@ -65,7 +65,7 @@ full, plus Zotero integration that was not in the original sketch:
       startup but invisible from that screen. Fix by adding an Open button
       beside "New document", or by letting the welcome pane sit below the
       toolbar instead of over it.
-- [ ] Optional scroll sync between the editor and preview panes, so the
+- [x] Optional scroll sync between the editor and preview panes, so the
       preview follows the editor as it scrolls. Off by default, with a
       user-visible toggle. Open design questions to settle first: where the
       toggle lives (a View menu, or the toolbar); whether the choice persists
