@@ -53,7 +53,15 @@ describe('previewOffsetForLine', () => {
     expect(previewOffsetForLine(ANCHORS, 9999, DOC_LINES, SCROLL_HEIGHT)).toBe(SCROLL_HEIGHT)
   })
 
-  it('does not divide by zero in a single-line document', () => {
+  it('does not divide by zero when span <= 0', () => {
+    // Single anchor at line 1, query at line 2 (beyond anchor) in 1-line document.
+    // The loop leaves before at the real anchor (1, 0) and after at the virtual
+    // default (also line 1 when docLines: 1), so span = 0 and the guard must return.
+    expect(previewOffsetForLine([{ line: 1, top: 0 }], 2, 1, 0)).toBe(0)
+  })
+
+  it('returns anchor when query line matches an anchor line exactly', () => {
+    // Sanity check: exact match is a common case and should short-circuit.
     expect(previewOffsetForLine([{ line: 1, top: 0 }], 1, 1, 0)).toBe(0)
   })
 })
