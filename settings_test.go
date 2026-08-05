@@ -145,3 +145,46 @@ func TestSettingsAreReadWithoutTouchingDiskTwice(t *testing.T) {
 		t.Errorf("want the in-memory value, got %q", got)
 	}
 }
+
+func TestSyncScrollingDefaultsToOff(t *testing.T) {
+	s := newTestService(t)
+	if s.Settings().SyncScrolling {
+		t.Error("want sync scrolling off by default")
+	}
+}
+
+func TestSyncScrollingPersists(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+
+	next := s.Settings()
+	next.SyncScrolling = true
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if !NewDocumentService(recentsPath).Settings().SyncScrolling {
+		t.Error("want sync scrolling persisted across instances")
+	}
+}
+
+func TestSyncScrollingIsIndependentOfOrientation(t *testing.T) {
+	// The two settings share one struct and one file; changing either must not
+	// disturb the other.
+	s := newTestService(t)
+	if err := s.UpdateSettings(Settings{PrintOrientation: "landscape", SyncScrolling: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := s.Settings()
+	if got.PrintOrientation != "landscape" || !got.SyncScrolling {
+		t.Errorf("got %+v", got)
+	}
+
+	next := got
+	next.SyncScrolling = false
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	if s.Settings().PrintOrientation != "landscape" {
+		t.Error("toggling sync scrolling disturbed the orientation")
+	}
+}

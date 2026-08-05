@@ -14,10 +14,11 @@ import (
 // further wiring.
 type Settings struct {
 	PrintOrientation string `json:"printOrientation"`
+	SyncScrolling    bool   `json:"syncScrolling"`
 }
 
 func defaultSettings() Settings {
-	return Settings{PrintOrientation: "portrait"}
+	return Settings{PrintOrientation: "portrait", SyncScrolling: false}
 }
 
 // normalise replaces any value outside a field's allowed set with that field's
@@ -25,6 +26,8 @@ func defaultSettings() Settings {
 // so neither a hand-edited settings file nor a bad binding call can leave the
 // app holding a preference it cannot act on.
 func (s Settings) normalise() Settings {
+	// SyncScrolling needs no clause: every value a bool can hold is valid.
+	// Only fields with a restricted set of legal values are clamped here.
 	if s.PrintOrientation != "portrait" && s.PrintOrientation != "landscape" {
 		s.PrintOrientation = defaultSettings().PrintOrientation
 	}

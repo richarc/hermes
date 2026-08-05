@@ -134,6 +134,17 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		app.Event.Emit("menu:format", "quote")
 	})
 
+	view := menu.AddSubmenu("View")
+	// No accelerator: the obvious chords are taken, and this is not a frequent
+	// action — the same reasoning as Blockquote in the Format menu.
+	view.AddCheckbox("Sync Scrolling", current.SyncScrolling).OnClick(func(*application.Context) {
+		next := docs.Settings()
+		next.SyncScrolling = !next.SyncScrolling
+		if err := docs.UpdateSettings(next); err != nil {
+			log.Printf("could not save sync scrolling: %v", err)
+		}
+	})
+
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)
