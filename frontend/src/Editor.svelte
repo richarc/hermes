@@ -9,7 +9,12 @@
   let {
     onchange,
     onformat,
-  }: { onchange: (text: string) => void; onformat?: (name: string) => void } = $props()
+    onscroll,
+  }: {
+    onchange: (text: string) => void
+    onformat?: (name: string) => void
+    onscroll?: () => void
+  } = $props()
 
   // Menu accelerators normally win, because AppKit dispatches them before the
   // webview — but not for chords CodeMirror's defaultKeymap already claims with
@@ -70,6 +75,26 @@
     view.focus()
   }
 
+  /** Total lines in the document, for mapping against the preview's extent. */
+  export function lineCount(): number {
+    return view.state.doc.lines
+  }
+
+  /**
+   * The 1-based line at the top of the visible editor area.
+   *
+   * Resolved through posAtCoords at the scroller's top-left corner rather than
+   * arithmetic on scrollTop, which keeps everything in one coordinate space
+   * instead of reconciling documentTop against documentPadding. A null result
+   * means the point is outside the content — treat that as the top.
+   */
+  export function topVisibleLine(): number {
+    const rect = view.scrollDOM.getBoundingClientRect()
+    const pos = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 })
+    if (pos == null) return 1
+    return view.state.doc.lineAt(pos).number
+  }
+
   onMount(() => {
     view = new EditorView({
       parent: host,
@@ -83,7 +108,12 @@
         }),
       ],
     })
-    return () => view.destroy()
+    const onScrollDOM = () => onscroll?.()
+    view.scrollDOM.addEventListener('scroll', onScrollDOM, { passive: true })
+    return () => {
+      view.scrollDOM.removeEventListener('scroll', onScrollDOM)
+      view.destroy()
+    }
   })
 </script>
 

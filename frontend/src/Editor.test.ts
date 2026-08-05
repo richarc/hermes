@@ -6,6 +6,8 @@ import Editor from './Editor.svelte'
 interface EditorApi {
   setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
+  lineCount(): number
+  topVisibleLine(): number
 }
 
 /**
@@ -63,5 +65,32 @@ describe('Editor.setContent', () => {
 
     expect(text()).toBe('second')
     cleanup()
+  })
+})
+
+describe('Editor scroll reporting', () => {
+  it('reports the document line count', () => {
+    const { editor, cleanup } = mountEditor()
+    editor.setContent('a\nb\nc\nd\n')
+    flushSync()
+    expect(editor.lineCount()).toBe(5) // four lines plus the trailing empty one
+    cleanup()
+  })
+
+  it('calls onscroll when the editor scroller scrolls', () => {
+    const scrolls: number[] = []
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(Editor, {
+      target,
+      props: { onchange: () => {}, onscroll: () => scrolls.push(1) },
+    }) as unknown as { setContent(t: string): void }
+    flushSync()
+
+    const scroller = target.querySelector('.cm-scroller') as HTMLElement
+    scroller.dispatchEvent(new Event('scroll'))
+    expect(scrolls.length).toBe(1)
+
+    unmount(cmp as never)
   })
 })
