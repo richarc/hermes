@@ -1,5 +1,12 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
-import { previewOffsetForLine, createScrollSync, type Anchor, type ScrollSyncTarget } from './scrollSync'
+import {
+  previewOffsetForLine,
+  createScrollSync,
+  collectAnchors,
+  type Anchor,
+  type ScrollSyncTarget,
+} from './scrollSync'
 
 // line 10 → 500px, line 20 → 1500px. 10 source lines spanning 1000 rendered px.
 const ANCHORS: Anchor[] = [
@@ -119,5 +126,33 @@ describe('createScrollSync', () => {
     expect(measurements()).toBe(1) // nothing measured yet
     sync.sync(12, DOC_LINES)
     expect(measurements()).toBe(2)
+  })
+})
+
+describe('collectAnchors', () => {
+  it('drops elements whose data-source-line is malformed', () => {
+    const container = document.createElement('div')
+    container.innerHTML = `
+      <div data-source-line="abc"></div>
+      <div data-source-line="0"></div>
+      <div data-source-line=""></div>
+    `
+    expect(collectAnchors(container)).toEqual([])
+  })
+
+  it('keeps a valid element and reports the line it was tagged with', () => {
+    const container = document.createElement('div')
+    container.innerHTML = `<div data-source-line="7"></div>`
+    expect(collectAnchors(container).map((a) => a.line)).toEqual([7])
+  })
+
+  it('returns anchors sorted ascending by line, regardless of DOM order', () => {
+    const container = document.createElement('div')
+    container.innerHTML = `
+      <div data-source-line="30"></div>
+      <div data-source-line="5"></div>
+      <div data-source-line="12"></div>
+    `
+    expect(collectAnchors(container).map((a) => a.line)).toEqual([5, 12, 30])
   })
 })
