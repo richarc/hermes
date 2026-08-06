@@ -5,7 +5,9 @@ import { mount, unmount, flushSync } from 'svelte'
 const { DocumentService, listeners, recents, settings } = vi.hoisted(() => {
   const listeners: Record<string, (ev: { data: unknown }) => void> = {}
   const recents = { current: [] as string[] }
-  const settings = { current: { printOrientation: 'portrait', syncScrolling: false } }
+  const settings = {
+    current: { printOrientation: 'portrait', syncScrolling: false, theme: 'system' },
+  }
   return {
     listeners,
     recents,
@@ -59,9 +61,29 @@ function buttonByText(root: HTMLElement, text: string): HTMLButtonElement | unde
   return [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
 }
 
+// jsdom does not implement matchMedia at all (not a stub — simply absent), and
+// App's onMount calls it unconditionally. Install a default fake before every
+// test so mounts outside the theme suite don't crash; theme tests overwrite
+// it with their own value before mounting.
+function stubMatchMedia(prefersDark: boolean) {
+  const listeners: Array<(e: { matches: boolean }) => void> = []
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: () => ({
+      matches: prefersDark,
+      addEventListener: (_: string, cb: (e: { matches: boolean }) => void) =>
+        listeners.push(cb),
+      removeEventListener: () => {},
+    }),
+  })
+  return { fire: (matches: boolean) => listeners.forEach((cb) => cb({ matches })) }
+}
+
 beforeEach(() => {
   recents.current = []
   vi.clearAllMocks()
+  stubMatchMedia(false)
 })
 
 afterEach(() => {
@@ -174,7 +196,7 @@ describe('first launch', () => {
 
 describe('scroll sync', () => {
   it('does not move the preview while sync is off', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false }
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
     recents.current = []
     const { target } = mountApp()
     await vi.waitFor(() => expect(target.querySelector('.cm-scroller')).not.toBeNull())
@@ -189,23 +211,64 @@ describe('scroll sync', () => {
   })
 
   it('reads the persisted setting at startup', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: true }
+    settings.current = { printOrientation: 'portrait', syncScrolling: true, theme: 'system' }
     recents.current = []
     mountApp()
     await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
   })
 
   it('re-reads the setting when the menu changes it', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false }
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
     recents.current = []
     mountApp()
     await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
 
     const before = DocumentService.Settings.mock.calls.length
-    settings.current = { printOrientation: 'portrait', syncScrolling: true }
+    settings.current = { printOrientation: 'portrait', syncScrolling: true, theme: 'system' }
     listeners['settings:changed']({ data: null })
     await vi.waitFor(() =>
       expect(DocumentService.Settings.mock.calls.length).toBeGreaterThan(before),
     )
+  })
+})
+
+describe('theme', () => {
+  it('applies the persisted explicit theme', async () => {
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'dark' }
+    recents.current = []
+    stubMatchMedia(false)
+    mountApp()
+
+    await vi.waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe('dark'),
+    )
+  })
+
+  it('follows the system preference when the setting is system', async () => {
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    recents.current = []
+    stubMatchMedia(true)
+    mountApp()
+
+    await vi.waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe('dark'),
+    )
+  })
+
+  it('ignores the system preference when the setting is explicit', async () => {
+    // The case most likely to regress: a system change must not override an
+    // explicit choice.
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'light' }
+    recents.current = []
+    const media = stubMatchMedia(false)
+    mountApp()
+    await vi.waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe('light'),
+    )
+
+    media.fire(true)
+    flushSync()
+
+    expect(document.documentElement.dataset.theme).toBe('light')
   })
 })

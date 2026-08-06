@@ -10,6 +10,7 @@
   import { NEW_DOCUMENT_TEMPLATE } from './lib/documentTemplate'
   import { parseFrontmatter } from './lib/frontmatter'
   import { parseBib } from './lib/bibliography'
+  import { resolveTheme, applyTheme, type ThemeSetting } from './lib/theme'
   import { createCitationFormatter, STYLE_IDS, type CitationFormatter } from './lib/citations'
   import {
     unresolvedInsertionMessage,
@@ -40,6 +41,8 @@
   let editor: ReturnType<typeof Editor>
   let preview: ReturnType<typeof Preview>
   let syncScrolling = $state(false)
+  let themeSetting = $state<ThemeSetting>('system')
+  let systemPrefersDark = $state(false)
   let scrollFrame: number | null = null
   let toastTimer: ReturnType<typeof setTimeout>
   let formatter = $state<CitationFormatter | undefined>(undefined)
@@ -203,6 +206,8 @@
   async function refreshSettings() {
     const s: Settings = await DocumentService.Settings()
     syncScrolling = s.syncScrolling
+    themeSetting = s.theme as ThemeSetting
+    applyTheme(resolveTheme(themeSetting, systemPrefersDark))
   }
 
   // Scroll fires in bursts; one measurement per frame is plenty, and coalescing
@@ -378,6 +383,15 @@
       if (typeof ev.data === 'string') applyFormat(ev.data)
     })
     Events.On('settings:changed', () => void refreshSettings())
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    systemPrefersDark = media.matches
+    const onSchemeChange = (e: MediaQueryListEvent | { matches: boolean }) => {
+      systemPrefersDark = e.matches
+      applyTheme(resolveTheme(themeSetting, systemPrefersDark))
+    }
+    media.addEventListener('change', onSchemeChange)
+
     void (async () => {
       // allSettled, not all: these two reads are independent, and a rejection
       // from either must not stop the other's effect from applying, nor skip
@@ -390,6 +404,8 @@
       // never seen Hermes is exactly the one the template is for.
       if (recents.length === 0) doNew()
     })()
+
+    return () => media.removeEventListener('change', onSchemeChange)
   })
 </script>
 
