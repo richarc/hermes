@@ -1,14 +1,60 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* Light document editor by design: opt out of the OS dark scheme and the
-   translucent window backdrop so colors don't invert under macOS dark mode. */
-:root { color-scheme: light; }
+/* The single place a colour is decided. Rules below reference these only —
+   styleContract.test.ts fails the build if a literal colour appears in a rule.
+   The dark block must define exactly the same names; that is also enforced. */
+:root {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --fg: #000000;
+  --border: #ddd;
+  --border-strong: #ccc;
+  --muted: #666;
+  --muted-strong: #555;
+  --surface: #f5f5f5;
+  --surface-code-block: #f6f6f6;
+  --surface-code-inline: #f2f2f2;
+  --divider: #eee;
+  --link: #0b62d6;
+  --overlay-bg: #ffffff;
+  --backdrop: rgba(0, 0, 0, 0.4);
+  --toast-bg: #333333;
+  --toast-fg: #ffffff;
+  --chart-error-fg: #cc0000;
+  --chart-error-bg: #fff5f5;
+  --cite-error-fg: #cc0000;
+  --cite-error-bg: #fff5f5;
+
+  /* Figures are cards only in dark mode; light mode keeps today's layout
+     exactly, which is why these are transparent and zero here. */
+  --figure-bg: transparent;
+  --figure-pad: 0;
+  --figure-radius: 0;
+
+  /* CodeMirror reads these through var() in its generated stylesheet, so
+     switching themes needs no reconfiguration. See Editor.svelte. */
+  --editor-bg: #ffffff;
+  --editor-fg: #000000;
+  --editor-caret: #000000;
+  --editor-selection: #d7d4f0;
+  --editor-gutter-bg: #f5f5f5;
+  --editor-gutter-fg: #6c6c6c;
+  --editor-active-line: #cceeff44;
+
+  --syn-heading: #0b3d91;
+  --syn-emphasis: #6a4a00;
+  --syn-code: #7a1f7a;
+  --syn-link: #0b62d6;
+  --syn-quote: #555555;
+  --syn-meta: #888888;
+}
 
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #ffffff;
-  color: #000000;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 .app { display: flex; flex-direction: column; height: 100vh; }
@@ -20,12 +66,12 @@ html, body {
      the buttons on the same midline; left padding clears them. */
   height: 52px;
   padding: 0 12px 0 85px;
-  border-bottom: 1px solid #ddd; -webkit-app-region: drag;
+  border-bottom: 1px solid var(--border); -webkit-app-region: drag;
 }
 .toolbar button { -webkit-app-region: no-drag; }
 
 .panes { flex: 1; display: flex; min-height: 0; }
-.editor-pane { border-right: 1px solid #ddd; overflow: auto; }
+.editor-pane { border-right: 1px solid var(--border); overflow: auto; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
 .preview-pane { flex: 1; overflow: auto; padding: 24px 32px; line-height: 1.6; }
 
@@ -47,32 +93,32 @@ html, body {
 .preview-pane li { margin: 0.25em 0; }
 .preview-pane li > ul, .preview-pane li > ol { margin-bottom: 0; }
 .preview-pane blockquote {
-  padding-left: 1em; border-left: 3px solid #ddd; color: #555;
+  padding-left: 1em; border-left: 3px solid var(--border); color: var(--muted-strong);
 }
 .preview-pane pre {
-  background: #f6f6f6; padding: 12px; border-radius: 6px; overflow-x: auto;
+  background: var(--surface-code-block); padding: 12px; border-radius: 6px; overflow-x: auto;
 }
 .preview-pane code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
 }
 .preview-pane :not(pre) > code {
-  background: #f2f2f2; padding: 0.1em 0.3em; border-radius: 4px;
+  background: var(--surface-code-inline); padding: 0.1em 0.3em; border-radius: 4px;
 }
 .preview-pane table { border-collapse: collapse; }
-.preview-pane th, .preview-pane td { border: 1px solid #ddd; padding: 6px 10px; }
-.preview-pane hr { border: 0; border-top: 1px solid #ddd; margin: 1.5em 0; }
+.preview-pane th, .preview-pane td { border: 1px solid var(--border); padding: 6px 10px; }
+.preview-pane hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
 .preview-pane img { max-width: 100%; }
-.preview-pane a { color: #0b62d6; }
+.preview-pane a { color: var(--link); }
 
-.divider { width: 4px; cursor: col-resize; background: #eee; flex-shrink: 0; }
+.divider { width: 4px; cursor: col-resize; background: var(--divider); flex-shrink: 0; }
 
 .status-bar {
-  padding: 4px 12px; border-top: 1px solid #ddd;
-  font-size: 12px; color: #666;
+  padding: 4px 12px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
 }
 
 .welcome {
-  position: absolute; inset: 0; background: white;
+  position: absolute; inset: 0; background: var(--overlay-bg);
   padding: 48px; overflow: auto;
 }
 .welcome ul { list-style: none; margin-top: 12px; }
@@ -80,28 +126,28 @@ html, body {
 .welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
 .welcome-actions button.welcome-action {
   display: inline-block; padding: 8px 16px;
-  border: 1px solid #ccc; border-radius: 6px; background: #f5f5f5;
+  border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface);
 }
 
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+  position: fixed; inset: 0; background: var(--backdrop);
   display: grid; place-items: center;
 }
-.modal { background: white; border-radius: 8px; padding: 24px; max-width: 400px; }
+.modal { background: var(--overlay-bg); border-radius: 8px; padding: 24px; max-width: 400px; }
 .modal-buttons { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 
 .toast {
   position: fixed; bottom: 16px; right: 16px;
-  background: #333; color: white; padding: 10px 16px; border-radius: 6px;
+  background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
 }
 
 .chart-error {
-  border: 1px solid #cc0000; background: #fff5f5; color: #cc0000;
+  border: 1px solid var(--chart-error-fg); background: var(--chart-error-bg); color: var(--chart-error-fg);
   padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;
 }
 
 .cite-error {
-  color: #cc0000; background: #fff5f5; border-radius: 3px; padding: 0 3px;
+  color: var(--cite-error-fg); background: var(--cite-error-bg); border-radius: 3px; padding: 0 3px;
 }
 .preview-pane .csl-bib-body { line-height: 1.7; }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
