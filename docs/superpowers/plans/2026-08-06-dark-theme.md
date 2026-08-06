@@ -875,7 +875,7 @@ EOF
 
 **The two-places problem.** `main.go` needs the dark background colour but Go
 cannot read the CSS. `#1e1e1e` is therefore written in both `style.css` (as the
-dark `--bg`) and here as `NewRGB(30, 30, 30)`. Both sites carry a comment
+dark `--bg`) and here as `NewRGB(31, 31, 31)`. Both sites carry a comment
 naming the other. They are in this one task so they are chosen together.
 
 - [ ] **Step 1: Write the failing test**
@@ -1021,15 +1021,15 @@ exists above this call, so the setting is readable:
 
 ```go
 	// The window background is what shows for the moment before the webview
-	// paints. #1e1e1e here is the same value as the dark --bg in
+	// paints. #1f1f1f here is the same value as the dark --bg in
 	// frontend/public/style.css; Go cannot read that file, so if you change one
 	// change the other.
 	//
-	// "system" keeps white: resolving it would mean reading the OS appearance
-	// through cgo, which is disproportionate for a flash at launch.
-	windowBg := application.NewRGB(255, 255, 255)
+	// "system" keeps the light value: resolving it would mean reading the OS
+	// appearance through cgo, which is disproportionate for a flash at launch.
+	windowBg := application.NewRGB(252, 252, 252) // #fcfcfc, the light --bg
 	if docs.Settings().Theme == "dark" {
-		windowBg = application.NewRGB(30, 30, 30)
+		windowBg = application.NewRGB(31, 31, 31) // #1f1f1f, the dark --bg
 	}
 ```
 
