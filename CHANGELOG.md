@@ -5,6 +5,20 @@ All notable changes to Hermes are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Block folding is now visible in the View menu: Fold Block and Unfold Block
+  (⌘⌥[ and ⌘⌥], which already worked but were undiscoverable), plus Fold All
+  Code Blocks and Unfold All. Folding a `vega-lite` or code block keeps its
+  opening fence line and hides the body, so a long chart spec stops crowding
+  the prose around it. Fold All Code Blocks leaves headings and tables alone.
+
+### Fixed
+
+- A folded block no longer shows a light-grey placeholder in dark mode.
+
 ## [0.5.0] - 2026-08-06
 
 A dark theme across the whole app — chrome, preview, editor, window, and the
