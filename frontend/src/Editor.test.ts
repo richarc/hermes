@@ -146,3 +146,18 @@ describe('Editor theme', () => {
     cleanup()
   })
 })
+
+describe('Editor folding', () => {
+  it('themes the folded placeholder from the palette', () => {
+    const { cleanup } = mountEditor()
+
+    const css = [...document.querySelectorAll('style')]
+      .map((s) => s.textContent ?? '')
+      .join('\n')
+    // CodeMirror's base theme hardcodes #eee/#ddd/#888 here, which is a light
+    // pill on a dark page. Ours must come from the palette instead.
+    expect(css).toMatch(/\.cm-foldPlaceholder[^}]*var\(--/)
+
+    cleanup()
+  })
+})

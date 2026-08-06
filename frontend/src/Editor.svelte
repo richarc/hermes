@@ -3,8 +3,8 @@
   import { EditorView, basicSetup } from 'codemirror'
   import { markdown } from '@codemirror/lang-markdown'
   import { languages } from '@codemirror/language-data'
-  import { keymap } from '@codemirror/view'
-  import { Prec, type StateCommand } from '@codemirror/state'
+  import { keymap, type Command } from '@codemirror/view'
+  import { Prec } from '@codemirror/state'
   import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
   import { tags } from '@lezer/highlight'
 
@@ -103,6 +103,14 @@
       border: '1px solid var(--border)',
     },
     '.cm-specialChar': { color: 'var(--editor-gutter-fg)' },
+    // CodeMirror's base theme hardcodes this pill as #eee on #ddd with #888
+    // text — a light chip on a dark page. Same class of gap as the search
+    // panel: a base rule the theme has to override to follow the palette.
+    '.cm-foldPlaceholder': {
+      backgroundColor: 'var(--surface)',
+      border: '1px solid var(--border)',
+      color: 'var(--muted)',
+    },
   })
 
   // Markdown highlighting is modest by design — this is a writing tool.
@@ -144,8 +152,13 @@
     view.focus()
   }
 
-  export function runCommand(cmd: StateCommand): void {
-    cmd({ state: view.state, dispatch: (tr) => view.dispatch(tr) })
+  /**
+   * Runs an editor command. Typed `Command` rather than `StateCommand` because
+   * CodeMirror's fold commands need the view — and a `StateCommand` works when
+   * handed a view too, so this one signature serves both kinds.
+   */
+  export function runCommand(cmd: Command): void {
+    cmd(view)
     view.focus()
   }
 
