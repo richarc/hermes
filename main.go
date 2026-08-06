@@ -45,6 +45,18 @@ func main() {
 		},
 	})
 
+	// The window background is what shows for the moment before the webview
+	// paints. #1f1f1f here is the same value as the dark --bg in
+	// frontend/public/style.css; Go cannot read that file, so if you change one
+	// change the other.
+	//
+	// "system" keeps the light value: resolving it would mean reading the OS
+	// appearance through cgo, which is disproportionate for a flash at launch.
+	windowBg := application.NewRGB(252, 252, 252) // #fcfcfc, the light --bg
+	if docs.Settings().Theme == "dark" {
+		windowBg = application.NewRGB(31, 31, 31) // #1f1f1f, the dark --bg
+	}
+
 	// Create a new window with the necessary options.
 	// 'Title' is the title of the window.
 	// 'Mac' options tailor the window when running on macOS.
@@ -62,7 +74,7 @@ func main() {
 			Backdrop: application.MacBackdropNormal,
 			TitleBar: application.MacTitleBarHiddenInset,
 		},
-		BackgroundColour: application.NewRGB(255, 255, 255),
+		BackgroundColour: windowBg,
 		URL:              "/",
 	})
 

@@ -16,4 +16,5 @@ export interface Document {
 export interface Settings {
     "printOrientation": string;
     "syncScrolling": boolean;
+    "theme": string;
 }

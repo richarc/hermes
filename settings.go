@@ -15,10 +15,11 @@ import (
 type Settings struct {
 	PrintOrientation string `json:"printOrientation"`
 	SyncScrolling    bool   `json:"syncScrolling"`
+	Theme            string `json:"theme"`
 }
 
 func defaultSettings() Settings {
-	return Settings{PrintOrientation: "portrait", SyncScrolling: false}
+	return Settings{PrintOrientation: "portrait", SyncScrolling: false, Theme: "system"}
 }
 
 // normalise replaces any value outside a field's allowed set with that field's
@@ -30,6 +31,9 @@ func (s Settings) normalise() Settings {
 	// Only fields with a restricted set of legal values are clamped here.
 	if s.PrintOrientation != "portrait" && s.PrintOrientation != "landscape" {
 		s.PrintOrientation = defaultSettings().PrintOrientation
+	}
+	if s.Theme != "system" && s.Theme != "light" && s.Theme != "dark" {
+		s.Theme = defaultSettings().Theme
 	}
 	return s
 }

@@ -149,6 +149,29 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		}
 	})
 
+	view.AddSeparator()
+	appearance := view.AddSubmenu("Appearance")
+	themes := []struct {
+		label string
+		value string
+	}{
+		{"System", "system"},
+		{"Light", "light"},
+		{"Dark", "dark"},
+	}
+	for _, t := range themes {
+		value := t.value
+		appearance.AddRadio(t.label, viewCurrent.Theme == value).OnClick(func(*application.Context) {
+			// Read-modify-write the whole settings value, so this menu only
+			// ever changes the field it owns.
+			next := docs.Settings()
+			next.Theme = value
+			if err := docs.UpdateSettings(next); err != nil {
+				log.Printf("could not save theme: %v", err)
+			}
+		})
+	}
+
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)

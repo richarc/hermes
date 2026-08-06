@@ -188,3 +188,68 @@ func TestSyncScrollingIsIndependentOfOrientation(t *testing.T) {
 		t.Error("toggling sync scrolling disturbed the orientation")
 	}
 }
+
+func TestThemeDefaultsToSystem(t *testing.T) {
+	s := newTestService(t)
+	if got := s.Settings().Theme; got != "system" {
+		t.Errorf("want system default, got %q", got)
+	}
+}
+
+func TestThemePersists(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+
+	next := s.Settings()
+	next.Theme = "dark"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if got := NewDocumentService(recentsPath).Settings().Theme; got != "dark" {
+		t.Errorf("want dark persisted, got %q", got)
+	}
+}
+
+func TestThemeNormalisesUnknownValues(t *testing.T) {
+	s := newTestService(t)
+	for _, bad := range []string{"", "solarized", "DARK", "auto"} {
+		if err := s.UpdateSettings(Settings{Theme: bad}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", bad, err)
+		}
+		if got := s.Settings().Theme; got != "system" {
+			t.Errorf("want %q normalised to system, got %q", bad, got)
+		}
+	}
+}
+
+func TestThemeAcceptsAllThreeLegalValues(t *testing.T) {
+	s := newTestService(t)
+	for _, want := range []string{"system", "light", "dark"} {
+		if err := s.UpdateSettings(Settings{Theme: want}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", want, err)
+		}
+		if got := s.Settings().Theme; got != want {
+			t.Errorf("want %q preserved, got %q", want, got)
+		}
+	}
+}
+
+func TestThemeIsIndependentOfTheOtherSettings(t *testing.T) {
+	s := newTestService(t)
+	if err := s.UpdateSettings(Settings{
+		PrintOrientation: "landscape",
+		SyncScrolling:    true,
+		Theme:            "dark",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	next := s.Settings()
+	next.Theme = "light"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	got := s.Settings()
+	if got.PrintOrientation != "landscape" || !got.SyncScrolling {
+		t.Errorf("changing the theme disturbed the other settings: %+v", got)
+	}
+}
