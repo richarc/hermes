@@ -142,8 +142,24 @@ Ideas noted along the way, not yet committed to a release:
   clunky.
 - Windows/Linux support (paths, menus, and print behavior are currently
   macOS-focused).
-- Security hardening for third-party documents (Vega-Lite specs can trigger
-  remote `data.url` fetches).
+- Security hardening for third-party documents. A `.md` file can cause the app
+  to make a network request on open, with no click and no prompt: a
+  `vega-lite` block whose spec carries `data.url` is fetched by `vega-loader`
+  the moment the preview renders, and `embedChart` passes no loader
+  restriction. A URL alone leaks that the document was opened, and from which
+  IP. The webview also sets **no Content-Security-Policy**, so the same is true
+  of any other remote reference a document can express — a remote `<img>`, for
+  instance. A `default-src 'self'` policy, with an explicit allowance for the
+  Zotero picker on `127.0.0.1:23119`, would close the whole class in one
+  change. It needs a decision first, though: it would also block remote chart
+  data and remote images, which some users legitimately want, so the useful
+  version is probably a setting — off by default for safety, or on by default
+  with a per-document prompt.
+  Audited 2026-08-06: this is the *only* way Hermes reaches the network beyond
+  the Zotero picker. No `fetch`, `XMLHttpRequest` or `WebSocket` anywhere in
+  `frontend/src`; one `http.Client` in Go, pointed at localhost. The ~60 URLs
+  in the bundle are identifiers (XML namespaces, CSL style IDs, ORCIDs), not
+  endpoints, and are never fetched.
 - Create a new button style, one that is more readable and more prominent but
   compatible with both the light and dark modes.
 - Investigate having two document types: a single-file document type where all
