@@ -2,7 +2,8 @@
 
 /* The single place a colour is decided. Rules below reference these only —
    styleContract.test.ts fails the build if a literal colour appears in a rule.
-   The dark block must define exactly the same names; that is also enforced. */
+   A later task adds a dark block here and enforces that it defines the same
+   names; this file does not check that yet. */
 :root {
   color-scheme: light;
 

@@ -24,11 +24,50 @@ function ruleBody(css: string): string {
     .join('\n')
 }
 
+// The CSS Color Module Level 4 named colours. A contributor reaching for a
+// quick colour is just as likely to type `white` or `firebrick` as `#fff` —
+// this list closes that gap so bare keywords are caught too.
+//
+// `transparent` and `currentColor` are deliberately NOT in this list: they
+// are not colour choices, they're keywords that defer to context (paint
+// nothing, or inherit whatever foreground the theme already picked). Do not
+// add them back in.
+const NAMED_COLOURS = [
+  'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black',
+  'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse',
+  'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue',
+  'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki',
+  'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon',
+  'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise',
+  'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick',
+  'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod',
+  'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo',
+  'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue',
+  'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey',
+  'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray',
+  'lightslategrey', 'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen',
+  'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple',
+  'mediumseagreen', 'mediumslateblue', 'mediumspringgreen', 'mediumturquoise',
+  'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose', 'moccasin', 'navajowhite',
+  'navy', 'oldlace', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegoldenrod',
+  'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink',
+  'plum', 'powderblue', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue',
+  'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver',
+  'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue',
+  'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke',
+  'yellow', 'yellowgreen',
+]
+
+const LITERAL_COLOUR = new RegExp(
+  `#[0-9a-fA-F]{3,8}\\b|rgba?\\([^)]*\\)|\\b(?:${NAMED_COLOURS.join('|')})\\b`,
+  'gi',
+)
+
 describe('style.css palette contract', () => {
   it('declares no literal colours outside the palette', () => {
     // Colours are decided in one place. A literal here means a rule that
     // cannot follow the theme — the exact way a half-dark UI ships.
-    const literals = ruleBody(CSS).match(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g) ?? []
+    const literals = ruleBody(CSS).match(LITERAL_COLOUR) ?? []
     expect(literals).toEqual([])
   })
 
