@@ -162,11 +162,18 @@ Ideas noted along the way, not yet committed to a release:
   endpoints, and are never fetched.
 - Create a new button style, one that is more readable and more prominent but
   compatible with both the light and dark modes.
-- Investigate having two document types: a single-file document type where all
-  content is in one file (no bibliography), and a multi-part document type that
-  lives in a directory and has a main `.md` file, a `.bib` file and in future
-  other files — for example we might pull the Vega-Lite diagrams out into
-  separate files.
+- ~~Two document types: single-file, and a multi-part type living in a
+  directory.~~ **Dropped 2026-08-06.** Hermes stays single-file. The research
+  found the deciding question was not "one file or many" but what the preview
+  shows while you edit one part, and that the honest cost was not the
+  rendering: scroll sync's anchors are a flat integer line space that would
+  need a second dimension, `dirty` is one buffer against one saved copy, the
+  bibliography watcher is explicitly a single watcher, and picking a part needs
+  a file-tree pane that is probably larger than all the rendering work
+  combined. Two document types also means two code paths through save, dirty,
+  watch, sync and export, tested twice, forever. The organisational problem it
+  was meant to solve is being approached instead by making long blocks
+  collapsible in the editor.
 - Implement a Vega-Lite builder for importing data and creating the chart
   graphically.
 
