@@ -5,6 +5,8 @@
   import { languages } from '@codemirror/language-data'
   import { keymap } from '@codemirror/view'
   import { Prec, type StateCommand } from '@codemirror/state'
+  import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+  import { tags } from '@lezer/highlight'
 
   let {
     onchange,
@@ -42,6 +44,42 @@
       },
     ]),
   )
+
+  // Every colour is a CSS variable, so switching the app theme restyles the
+  // editor with no reconfiguration — no Compartment, no dispatch, nothing to
+  // get out of step. Verified: var() survives into the stylesheet CodeMirror
+  // generates, and our rules are emitted after the base theme's, which is what
+  // wins the specificity tie. `dark: true` is deliberately omitted; it only
+  // adds a class for base `&dark` rules, all of which we override below.
+  //
+  // If a future CodeMirror raises base-theme specificity this stops working,
+  // and the symptom is a light selection highlight in dark mode, not an error.
+  const hermesTheme = EditorView.theme({
+    '&': { backgroundColor: 'var(--editor-bg)', color: 'var(--editor-fg)' },
+    '.cm-content': { caretColor: 'var(--editor-caret)' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--editor-caret)' },
+    '.cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground':
+      { backgroundColor: 'var(--editor-selection)' },
+    '.cm-activeLine': { backgroundColor: 'var(--editor-active-line)' },
+    '.cm-gutters': {
+      backgroundColor: 'var(--editor-gutter-bg)',
+      color: 'var(--editor-gutter-fg)',
+      border: 'none',
+    },
+    '.cm-activeLineGutter': { backgroundColor: 'var(--editor-active-line)' },
+  })
+
+  // Markdown highlighting is modest by design — this is a writing tool.
+  const hermesHighlight = HighlightStyle.define([
+    { tag: tags.heading, color: 'var(--syn-heading)', fontWeight: 'bold' },
+    { tag: tags.emphasis, color: 'var(--syn-emphasis)', fontStyle: 'italic' },
+    { tag: tags.strong, color: 'var(--syn-emphasis)', fontWeight: 'bold' },
+    { tag: tags.monospace, color: 'var(--syn-code)' },
+    { tag: tags.link, color: 'var(--syn-link)' },
+    { tag: tags.url, color: 'var(--syn-link)' },
+    { tag: tags.quote, color: 'var(--syn-quote)' },
+    { tag: tags.meta, color: 'var(--syn-meta)' },
+  ])
 
   let host: HTMLElement
   let view: EditorView
@@ -101,6 +139,8 @@
       extensions: [
         stolenChords,
         basicSetup,
+        hermesTheme,
+        syntaxHighlighting(hermesHighlight),
         markdown({ codeLanguages: languages }),
         EditorView.lineWrapping,
         EditorView.updateListener.of((u) => {

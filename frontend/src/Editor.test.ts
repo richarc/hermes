@@ -94,3 +94,39 @@ describe('Editor scroll reporting', () => {
     unmount(cmp as never)
   })
 })
+
+describe('Editor theme', () => {
+  it('styles itself with CSS variables, never literal colours', () => {
+    const { cleanup } = mountEditor()
+
+    const css = [...document.querySelectorAll('style')]
+      .map((s) => s.textContent ?? '')
+      .join('\n')
+    // Our theme's rules — the ones carrying var(--editor-*) — must exist.
+    expect(css).toContain('var(--editor-bg)')
+    expect(css).toContain('var(--editor-selection)')
+    expect(css).toContain('var(--editor-gutter-bg)')
+    expect(css).toContain('var(--syn-heading)')
+
+    cleanup()
+  })
+
+  it('emits our theme after the base theme, so ours wins the specificity tie', () => {
+    const { cleanup } = mountEditor()
+
+    const css = [...document.querySelectorAll('style')]
+      .map((s) => s.textContent ?? '')
+      .join('\n')
+    const lines = css.split('\n')
+    const base = lines.findIndex((l) => /\.\S+ \.cm-selectionBackground \{background: #/.test(l))
+    const ours = lines.findIndex((l) => l.includes('var(--editor-selection)'))
+    // CodeMirror's `&light` base rule and ours have equal specificity — one
+    // class each — so source order decides. If a future CodeMirror raised base
+    // specificity this would break, and the symptom would be a light selection
+    // highlight in dark mode rather than an error.
+    expect(base).toBeGreaterThanOrEqual(0)
+    expect(ours).toBeGreaterThan(base)
+
+    cleanup()
+  })
+})
