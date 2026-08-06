@@ -8,7 +8,10 @@ import type { StateCommand, StateEffect } from '@codemirror/state'
  * including headings — collapsing a paper into an outline. That is a different
  * feature; this one hides the long blocks a reader skips past.
  *
- * One transaction, so a single undo restores the whole document's view.
+ * One transaction, so the fold lands atomically rather than block by block.
+ * Note folds are state effects and are NOT in the undo history — CodeMirror
+ * does not register foldEffect with invertedEffects — so undo will not
+ * restore them. Unfold All is the reverse operation.
  */
 export const foldAllCodeBlocks: StateCommand = ({ state, dispatch }) => {
   const already = foldedRanges(state)

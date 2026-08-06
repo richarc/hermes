@@ -595,4 +595,8 @@ cd /Users/richarc/Development/hermes && wails3 task run
    line; headings and tables stay open.
 3. Switch Appearance → Dark with a block folded. **The placeholder pill must
    follow the theme**, not stay light grey — this is the check no test covers.
-4. **Unfold All** restores everything, and one ⌘Z after Fold All does too.
+4. **Unfold All** restores everything. ⌘Z after Fold All does **not** — folds
+   are state effects, not document changes, and CodeMirror never registers
+   `foldEffect` with `invertedEffects`, so they sit outside the undo history.
+   Undo instead reverts whatever text change preceded the fold. Unfold All is
+   the only way back.

@@ -30,8 +30,12 @@ list. Measured on a representative document:
 
 On macOS, `foldKeymap` already binds **⌘⌥[** to fold the block at the cursor
 and **⌘⌥]** to unfold it. Both work today. `foldAll` and `unfoldAll` are bound
-only on `Ctrl-Alt-[` / `Ctrl-Alt-]`, which have no Mac equivalent — so on macOS
-there is currently no way to fold everything at once.
+on `Ctrl-Alt-[` / `Ctrl-Alt-]`; those two entries carry no `mac:` override, and
+CodeMirror's keymap normalisation falls back to the base `key` when a binding
+has none (`b[platform] || b.key`), so Control-Option-[ and Control-Option-]
+already fold and unfold everything on macOS too — including headings, since
+they go through `foldAll`, not `foldAllCodeBlocks`. That chord already exists;
+it is just as undiscoverable as ⌘⌥[.
 
 So what is missing is not the mechanism. It is that nothing announces the
 mechanism exists, and that folding looks wrong in the dark theme.
@@ -77,8 +81,11 @@ export const foldAllCodeBlocks: StateCommand
 ```
 
 It walks the syntax tree for `FencedCode` nodes, asks `foldable()` for each
-fence's range, and dispatches a single transaction of `foldEffect`s — one undo
-step, and testable without a DOM.
+fence's range, and dispatches a single transaction of `foldEffect`s — the fold
+lands atomically rather than block by block, and it is testable without a DOM.
+Note this is not an undo step: CodeMirror never registers `foldEffect` with
+`invertedEffects`, so folds sit outside the undo history entirely and undo
+will not reverse them. Unfold All is the way back.
 
 **Unfold All reuses CodeMirror's built-in `unfoldAll` unchanged.** The
 asymmetry is deliberate: folding is selective because the user is choosing what
@@ -176,7 +183,10 @@ fences, a heading and a table:
   this command from the built-in `foldAll`, and the one that would catch a
   future refactor reaching for `foldAll` as a simplification;
 - running it twice changes nothing the second time;
-- it is a single undo step;
+- it folds every block in a single transaction;
+- folds are not undone by undo — folds are state effects, not document
+  changes, and CodeMirror never registers `foldEffect` with `invertedEffects`,
+  so undo reverts the last text change and leaves the folds in place;
 - an empty document is a no-op.
 
 Editor component tests assert the generated stylesheet carries `var(…)` rules

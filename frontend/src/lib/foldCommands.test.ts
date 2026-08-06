@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { EditorState, type Transaction } from '@codemirror/state'
+import { history, undo, undoDepth } from '@codemirror/commands'
 import { codeFolding, foldedRanges, foldGutter } from '@codemirror/language'
 import { markdown } from '@codemirror/lang-markdown'
 import { foldAllCodeBlocks } from './foldCommands'
@@ -77,11 +78,39 @@ describe('foldAllCodeBlocks', () => {
     expect(foldedStartLines(state)).toEqual([])
   })
 
-  it('folds in a single transaction, so one undo restores everything', () => {
+  it('folds every block in a single transaction', () => {
     let count = 0
     const state = makeState()
     foldAllCodeBlocks({ state, dispatch: () => count++ })
     expect(count).toBe(1)
+  })
+
+  it('leaves folds untouched by undo, because folds are not in the history', () => {
+    // Folds are state effects, not document changes, and CodeMirror never
+    // registers foldEffect/unfoldEffect with @codemirror/commands'
+    // invertedEffects facet — so they sit outside the undo history entirely.
+    // Verified empirically: after a text edit followed by foldAllCodeBlocks,
+    // pressing undo leaves the blocks folded and reverts the text edit
+    // instead. Unfold All, not undo, is the way back.
+    let state = EditorState.create({
+      doc: DOC,
+      extensions: [codeFolding(), foldGutter(), markdown(), history()],
+    })
+    state = state.update({ changes: { from: 0, insert: '// edit\n' } }).state
+    expect(undoDepth(state)).toBe(1)
+
+    const { state: folded, handled } = run(state)
+    expect(handled).toBe(true)
+    expect(foldedStartLines(folded).length).toBeGreaterThan(0)
+
+    // Undo consumes the text edit — the only thing actually in the history —
+    // not the fold. If folds were in the undo history, this single undo
+    // would instead unfold everything and leave "// edit" in place.
+    let afterUndo = folded
+    undo({ state: folded, dispatch: (tr) => (afterUndo = tr.state) })
+
+    expect(afterUndo.doc.toString()).toBe(DOC)
+    expect(foldedStartLines(afterUndo).length).toBeGreaterThan(0)
   })
 
   it('folds a block past the synchronous parse prefix on a long document', () => {

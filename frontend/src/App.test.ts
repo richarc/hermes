@@ -297,7 +297,8 @@ describe('theme', () => {
 })
 
 describe('fold menu', () => {
-  const WITH_CODE = '# Results\n\n```js\nconst x = 1\nconst y = 2\n```\n'
+  const WITH_CODE =
+    '# Results\n\nSome prose that explains the numbers.\n\n```js\nconst x = 1\nconst y = 2\n```\n'
 
   async function mountWithCodeBlock() {
     recents.current = ['/tmp/paper.md']
@@ -322,6 +323,15 @@ describe('fold menu', () => {
     // The placeholder pill is what replaces the hidden lines.
     await vi.waitFor(() =>
       expect(target.querySelector('.cm-foldPlaceholder')).not.toBeNull(),
+    )
+    // The discriminator from CodeMirror's built-in foldAll: that command
+    // would also fold the heading, swallowing this prose along with it.
+    // Only the custom fold-all-code command leaves prose outside a fence
+    // visible while folding the code block. Scoped to .editor-pane because
+    // .preview-pane renders the raw markdown independently of CodeMirror's
+    // fold state and would contain the prose regardless of which command ran.
+    expect(target.querySelector('.editor-pane')?.textContent).toContain(
+      'Some prose that explains the numbers.',
     )
   })
 
