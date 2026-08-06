@@ -5,7 +5,32 @@ All notable changes to Hermes are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-08-06
+
+A dark theme across the whole app — chrome, preview, editor, window, and the
+exported PDF — chosen from View → Appearance.
+
+### Added
+
+- Dark theme, chosen from View → Appearance: System, Light, or Dark. System
+  follows the OS appearance and changes with it. The choice is remembered
+  between sessions. Charts and images keep a light background so figures stay
+  readable and match the exported PDF, and PDF export is always light
+  regardless of the app's appearance.
+
+### Notes
+
+- Both screen palettes are chosen against contrast targets — body text at or
+  above 7:1, all other text at or above 4.5:1 — and a test recomputes every
+  pair from the stylesheet, so a change that drops one below its target fails
+  the build. Print deliberately differs from both: ink does not glare the way
+  a backlit screen does, so exported PDFs keep pure black on white.
+
+## [0.4.0] - 2026-08-05
+
+Navigation and reading comfort: a discoverable Open, templated new documents,
+and optional scroll sync — together with the fixes from a review of the whole
+codebase carried out before the release.
 
 ### Added
 
@@ -33,11 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lines of the surrounding blocks, so a chart or table that occupies a few
   lines of markdown and a great deal of rendered height stays aligned instead
   of drifting the rest of the document out of step.
-- Dark theme, chosen from View → Appearance: System, Light, or Dark. System
-  follows the OS appearance and changes with it. The choice is remembered
-  between sessions. Charts and images keep a light background so figures stay
-  readable and match the exported PDF, and PDF export is always light
-  regardless of the app's appearance.
 
 ### Changed
 
