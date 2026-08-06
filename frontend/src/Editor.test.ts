@@ -111,6 +111,22 @@ describe('Editor theme', () => {
     cleanup()
   })
 
+  it('themes the search/replace panel that ⌘F opens, not just the document', () => {
+    // basicSetup's searchKeymap self-installs a panel (.cm-panels, with a
+    // .cm-textfield and .cm-button inside it) that nothing else intercepts,
+    // so it must follow the palette like every other editor rule instead of
+    // staying on CodeMirror's light base theme.
+    const { cleanup } = mountEditor()
+
+    const css = [...document.querySelectorAll('style')]
+      .map((s) => s.textContent ?? '')
+      .join('\n')
+    expect(css).toMatch(/\.cm-panels\s*\{[^}]*var\(--/)
+    expect(css).toMatch(/\.cm-textfield\s*\{[^}]*var\(--/)
+
+    cleanup()
+  })
+
   it('emits our theme after the base theme, so ours wins the specificity tie', () => {
     const { cleanup } = mountEditor()
 

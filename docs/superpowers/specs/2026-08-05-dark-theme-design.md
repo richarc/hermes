@@ -176,17 +176,22 @@ Two things the spike established, both of which had to hold:
   `&light` base rules permanently, which is fine because our own theme
   overrides every one that matters: `.cm-content`, `.cm-selectionBackground`,
   `.cm-cursor`, `.cm-activeLine`, `.cm-gutters`, `.cm-activeLineGutter`.
-- **Our rules actually win.** `&light` compiles to a *single* class (`.ͼ2`),
-  not two, so a base rule and ours have equal specificity — and ours is emitted
-  later (line 123 against line 11 in the spike), so source order decides in our
+- **Our rules actually win, and it is a precedence guarantee, not accidental
+  order.** `EditorView.baseTheme` wraps its style module in `Prec.lowest`, and
+  `mountStyles` mounts base themes first by contract, so an ordinary
+  `EditorView.theme()` like ours always lands after it. `&light` does *not*
+  compile to a single class — it compiles to `.ͼ2 .cm-selectionBackground`,
+  two classes, the same as ours — so the two have equal specificity and this
+  precedence guarantee, not source order, is what decides the tie in our
   favour.
 
-**Recorded risk:** that second point is an *ordering* dependency, not a
-specificity guarantee. It is CodeMirror's documented design — themes are meant
-to override base themes — but a future version that raised base-theme
-specificity would break it, and the symptom would be a light selection
-highlight in dark mode rather than any error. This warrants a comment at the
-theme definition so the failure is diagnosable.
+**Recorded risk:** the live residual risk is not a future CodeMirror raising
+base-theme specificity — the precedence guarantee makes that a non-issue. It
+is a future extension listed *after* `hermesTheme` in the extensions array
+that itself calls `EditorView.theme()`; that would land after ours at equal
+precedence and win. The symptom would be a light selection highlight in dark
+mode rather than any error. This warrants a comment at the theme definition so
+the failure is diagnosable.
 
 ### Charts
 

@@ -165,7 +165,14 @@ html, body {
 .preview-pane img { max-width: 100%; }
 .preview-pane a { color: var(--link); }
 
-.preview-pane .vega-lite-chart {
+/* A figure exported with a transparent background (matplotlib, R,
+   Illustrator) is dark ink on a transparent ground, same as a Vega chart —
+   near-invisible in dark mode without a light mount. In light mode the three
+   variables resolve to transparent/0/0, so this is a no-op there, and print
+   collapses the same way. The accepted cost: an image that already carries
+   its own background (a photo, a screenshot) also gains the mount. */
+.preview-pane .vega-lite-chart,
+.preview-pane img {
   background: var(--figure-bg);
   padding: var(--figure-pad);
   border-radius: var(--figure-radius);
@@ -188,6 +195,7 @@ html, body {
 .welcome-actions button.welcome-action {
   display: inline-block; padding: 8px 16px;
   border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface);
+  color: var(--fg);
 }
 
 .modal-backdrop {
@@ -210,6 +218,13 @@ html, body {
 .cite-error {
   color: var(--cite-error-fg); background: var(--cite-error-bg); border-radius: 3px; padding: 0 3px;
 }
+
+/* KaTeX writes its errorColor option as an inline `color` style on the
+   element (see renderer.ts), which beats any ordinary rule here — the
+   !important is required to override an inline style and is not optional
+   decoration; do not remove it. Reusing --cite-error-fg keeps malformed math
+   and a missing citation reading as the same "something's wrong" colour. */
+.preview-pane .katex-error { color: var(--cite-error-fg) !important; }
 .preview-pane .csl-bib-body { line-height: 1.7; }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 

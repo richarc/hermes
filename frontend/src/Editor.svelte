@@ -52,8 +52,19 @@
   // wins the specificity tie. `dark: true` is deliberately omitted; it only
   // adds a class for base `&dark` rules, all of which we override below.
   //
-  // If a future CodeMirror raises base-theme specificity this stops working,
-  // and the symptom is a light selection highlight in dark mode, not an error.
+  // The win over the base theme is a precedence guarantee, not accidental
+  // source order: EditorView.baseTheme wraps its style module in Prec.lowest,
+  // and mountStyles mounts base themes first by contract, so an ordinary
+  // EditorView.theme() like this one always lands after it. `&light` also
+  // does not compile to a single class — e.g. `.ͼ2 .cm-selectionBackground`,
+  // two classes, same as ours — so the two have equal specificity and this
+  // precedence guarantee is what decides the tie, not source order per se.
+  //
+  // The live residual risk is not a future CodeMirror raising base-theme
+  // specificity; the precedence guarantee makes that a non-issue. It is a
+  // future extension listed after hermesTheme below that itself calls
+  // EditorView.theme() — that would land after ours at equal precedence and
+  // win. None of today's extensions do; watch for it if one is added.
   const hermesTheme = EditorView.theme({
     '&': { backgroundColor: 'var(--editor-bg)', color: 'var(--editor-fg)' },
     '.cm-content': { caretColor: 'var(--editor-caret)' },
@@ -67,6 +78,31 @@
       border: 'none',
     },
     '.cm-activeLineGutter': { backgroundColor: 'var(--editor-active-line)' },
+    // basicSetup's searchKeymap self-installs a find/replace panel on ⌘F, and
+    // nothing intercepts that chord ahead of CodeMirror (Wails' Edit menu role
+    // has no Find item), so the panel and its controls need the same var()
+    // treatment as the document — otherwise they stay on the base theme's
+    // `&light` rules and read as a light bar pinned to a dark editor.
+    '.cm-panels': { backgroundColor: 'var(--editor-gutter-bg)', color: 'var(--editor-fg)' },
+    '.cm-panels-top': { borderBottom: '1px solid var(--border)' },
+    '.cm-panels-bottom': { borderTop: '1px solid var(--border)' },
+    '.cm-textfield': {
+      backgroundColor: 'var(--editor-bg)',
+      color: 'var(--editor-fg)',
+      border: '1px solid var(--border-strong)',
+    },
+    '.cm-button': {
+      backgroundImage: 'none',
+      backgroundColor: 'var(--editor-gutter-bg)',
+      color: 'var(--editor-fg)',
+      border: '1px solid var(--border-strong)',
+    },
+    '.cm-tooltip': {
+      backgroundColor: 'var(--editor-gutter-bg)',
+      color: 'var(--editor-fg)',
+      border: '1px solid var(--border)',
+    },
+    '.cm-specialChar': { color: 'var(--editor-gutter-fg)' },
   })
 
   // Markdown highlighting is modest by design — this is a writing tool.

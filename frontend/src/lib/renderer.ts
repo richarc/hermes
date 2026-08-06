@@ -11,6 +11,9 @@ const katexPlugin = ((katexPluginModule as { default?: unknown }).default ??
 
 const md = new MarkdownIt({ html: false, linkify: true })
 
+// errorColor only decides the .katex-error class exists — KaTeX writes it as
+// an inline `color` style, which style.css's .preview-pane .katex-error rule
+// overrides with !important so the palette (and dark mode) still wins.
 md.use(katexPlugin, { throwOnError: false, errorColor: '#cc0000' })
 
 // Stamp every top-level block with the document line it starts on, for scroll

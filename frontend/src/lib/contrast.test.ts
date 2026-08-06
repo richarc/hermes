@@ -41,6 +41,7 @@ const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
   ['blockquote', '--muted-strong', '--bg', 4.5],
   ['link', '--link', '--bg', 4.5],
   ['toast', '--toast-fg', '--toast-bg', 4.5],
+  ['welcome button', '--fg', '--surface', 4.5],
   ['chart error', '--chart-error-fg', '--chart-error-bg', 4.5],
   ['cite error', '--cite-error-fg', '--cite-error-bg', 4.5],
   ['editor text', '--editor-fg', '--editor-bg', 7],

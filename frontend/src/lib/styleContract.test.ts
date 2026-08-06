@@ -8,6 +8,16 @@ const CSS = readFileSync(
   'utf8',
 )
 
+// Editor.svelte's hermesTheme reads palette variables through CodeMirror's
+// EditorView.theme(), never from a stylesheet rule, so it is invisible to
+// every check above that only reads style.css. A name renamed in style.css
+// but not here (or vice versa) would still pass every one of those and only
+// show up as CodeMirror silently falling back to its own base-theme colour.
+const EDITOR_SVELTE = readFileSync(
+  join(fileURLToPath(import.meta.url), '../../Editor.svelte'),
+  'utf8',
+)
+
 /** Everything between `:root {` … `}` blocks — where literal colours belong. */
 function paletteBlocks(css: string): string {
   return css
@@ -90,6 +100,22 @@ describe('style.css palette contract', () => {
     const missing = [...used].filter((v) => !defined.has(v))
     expect(missing).toEqual([])
   })
+
+  it('defines every variable Editor.svelte reads for the CodeMirror theme', () => {
+    // hermesTheme's rules live in a JS object, not a stylesheet rule, so they
+    // are outside every other check here. A variable renamed in style.css
+    // only (e.g. --editor-selection -> --editor-select) would leave this the
+    // sole place that would still notice — CodeMirror falls back to its own
+    // base-theme colour, silently, in dark mode only.
+    const used = new Set(
+      [...EDITOR_SVELTE.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]),
+    )
+    const defined = new Set(
+      [...paletteBlocks(CSS).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]),
+    )
+    const missing = [...used].filter((v) => !defined.has(v))
+    expect(missing).toEqual([])
+  })
 })
 
 function blockNames(css: string, selector: string): string[] {
@@ -114,5 +140,20 @@ describe('dark palette', () => {
     expect(print).toContain('--fg:')
     expect(print).toContain('--bg:')
     expect(print).toContain('--figure-bg:')
+  })
+
+  it('declares exactly the same variables in print as light and dark', () => {
+    // The print block is a *third* palette, not a footnote on the dark one:
+    // data-theme="dark" is still on the root when printing, so any variable
+    // the print block omits falls through to the dark block's value instead
+    // of print's. A name missing here passes every other check — parity
+    // between light and dark, no literal colours — and only shows up as a
+    // dark-mode PDF export with (for example) near-white headings on paper.
+    // The print selector is the comma-joined `:root, :root[data-theme="dark"]`
+    // inside `@media print`; match that exact selector so this reads the
+    // print block and not the standalone dark block above it.
+    const light = blockNames(CSS, ':root')
+    const print = blockNames(CSS, ':root, :root[data-theme="dark"]')
+    expect([...print].sort()).toEqual([...light].sort())
   })
 })
