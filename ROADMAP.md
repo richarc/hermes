@@ -54,7 +54,7 @@ full, plus Zotero integration that was not in the original sketch:
 - [x] Zotero / Better BibTeX integration: CAYW picker insertion (⌘⇧C) and a
       watched `.bib` that refreshes the preview on auto-export.
 
-## v0.4.0 — Navigation and reading comfort
+## v0.4.0 — Navigation and reading comfort ✅ (released 2026-08-05)
 
 - [x] Bug: there is no discoverable way to open a document that is not already
       in the recents list. The startup pane offers recent files and a "New
@@ -112,7 +112,7 @@ full, plus Zotero integration that was not in the original sketch:
       template short enough to delete in one motion for users who do not want
       citations.
 
-## v0.5.0 — Dark theme
+## v0.5.0 — Dark theme ✅ (released 2026-08-06)
 
 - [x] Dark theme (theme-aware app chrome, preview, and CodeMirror theme) —
       v0.1 deliberately pins a light scheme. Moved up from the backlog, then
@@ -128,6 +128,14 @@ full, plus Zotero integration that was not in the original sketch:
       `main.go` hardcodes `BackgroundColour: NewRGB(255, 255, 255)`, which
       flashes white on launch in dark mode. The System/Light/Dark choice
       itself is now cheap: `Settings` takes a field, a default, and a clamp.
+
+## v0.6.0 — Vega-Lite
+
+Charts get the attention citations got in v0.3: the release is entirely about
+making Vega-Lite usable without hand-writing a spec.
+
+- [ ] Implement a Vega-Lite builder for importing data and creating the chart
+      graphically.
 
 ## Backlog (unscheduled)
 
@@ -174,8 +182,6 @@ Ideas noted along the way, not yet committed to a release:
   watch, sync and export, tested twice, forever. The organisational problem it
   was meant to solve is being approached instead by making long blocks
   collapsible in the editor.
-- Implement a Vega-Lite builder for importing data and creating the chart
-  graphically.
 
 ### Deferred review findings
 
