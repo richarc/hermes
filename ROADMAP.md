@@ -114,7 +114,7 @@ full, plus Zotero integration that was not in the original sketch:
 
 ## v0.5.0 — Dark theme
 
-- [ ] Dark theme (theme-aware app chrome, preview, and CodeMirror theme) —
+- [x] Dark theme (theme-aware app chrome, preview, and CodeMirror theme) —
       v0.1 deliberately pins a light scheme. Moved up from the backlog, then
       out of v0.4 on 2026-08-04 to keep that release to the startup route,
       the new-document template, and scroll sync. Scoping notes from the

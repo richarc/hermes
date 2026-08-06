@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lines of the surrounding blocks, so a chart or table that occupies a few
   lines of markdown and a great deal of rendered height stays aligned instead
   of drifting the rest of the document out of step.
+- Dark theme, chosen from View → Appearance: System, Light, or Dark. System
+  follows the OS appearance and changes with it. The choice is remembered
+  between sessions. Charts keep a light background so figures stay readable
+  and match the exported PDF, and PDF export is always light regardless of the
+  app's appearance.
 
 ### Changed
 
