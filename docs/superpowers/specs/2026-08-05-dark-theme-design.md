@@ -72,6 +72,52 @@ immediately but its blue-grey palette is designed for a code editor and cannot
 be aligned to the app's; it would read as a code pane bolted into a writing
 app. The palette work has to happen for the other 26 colours regardless.
 
+## The palette itself
+
+The v0.1 light scheme — `#000000` on `#ffffff` — was a default rather than a
+decision, and nothing since had examined it. Both screen palettes are therefore
+chosen here against stated targets, and measured.
+
+**Screen and paper deliberately differ.** Pure black on white is 21:1, the
+theoretical maximum, and is a known source of glare over a long reading
+session; white-on-black at high contrast causes halation in the other
+direction. But ink on paper does not glare, and black-on-white is the academic
+convention — so the print palette keeps pure black on white while both screen
+palettes are softened. The design already forces a separate palette for print,
+so this costs nothing structurally.
+
+### Targets
+
+| Role | Target |
+|---|---|
+| Body text (document and editor) | ≥ 7:1 (WCAG AAA) |
+| Secondary text — status bar, blockquote, errors, links, syntax | ≥ 4.5:1 (AA) |
+| Editor gutter line numbers | ≥ 4.5:1 |
+
+Non-text values — borders, dividers, surfaces, selection tints — carry no
+contrast target; they are chosen to sit consistently against their background.
+
+### Measured result
+
+Every text pair in both palettes was computed and meets its target. The
+headline values:
+
+| | Light screen | Dark screen | Print |
+|---|---|---|---|
+| Background | `#fcfcfc` | `#1f1f1f` | `#ffffff` |
+| Body text | `#1a1a1a` (17.0:1) | `#d0d0d0` (10.7:1) | `#000000` (21.0:1) |
+| Secondary | `#5e5e5e` (6.3:1) | `#9c9c9c` (6.0:1) | `#666666` |
+| Link | `#0b57c2` (6.5:1) | `#7cb0ff` (7.5:1) | `#0b62d6` |
+| Gutter numbers | `#5c5c5c` (6.1:1) | `#8f8f8f` (4.8:1) | — |
+
+The previous draft's weakest value was the dark editor gutter at 3.1:1, below
+AA; it is now 4.8:1.
+
+The full values live in the implementation plan, and a test computes every pair
+and fails the build if one drops below its target — so the palette stays
+verified rather than becoming eyeballed again the next time a colour is
+touched.
+
 ## Architecture
 
 ### One palette, in CSS custom properties

@@ -31,6 +31,7 @@
 | `src/lib/theme.ts` (create) | `resolveTheme` (pure) and `applyTheme` (sets `data-theme`) |
 | `src/lib/theme.test.ts` (create) | The six resolve cases |
 | `src/lib/styleContract.test.ts` (create) | Guards the palette invariants by reading `style.css` as text |
+| `src/lib/contrast.test.ts` (create) | Computes every text pair's contrast ratio and fails below target |
 | `public/style.css` (modify) | Palette variables, dark overrides, chart cards, print forcing light |
 | `src/Editor.svelte` (modify) | `EditorView.theme` + `HighlightStyle`, all values `var(…)` |
 | `src/Editor.test.ts` (modify) | Asserts the emitted stylesheet uses variables, not literals |
@@ -337,56 +338,172 @@ EOF
 
 ---
 
-## Task 3: The dark palette, chart cards, and print
+## Task 3: The designed palettes, figure cards, and print
 
 **Files:**
 - Modify: `frontend/public/style.css`, `frontend/src/lib/styleContract.test.ts`
+- Create: `frontend/src/lib/contrast.test.ts`
 
 **Interfaces:**
 - Consumes: the variable names from Task 2.
-- Produces: `:root[data-theme="dark"]` overrides. Task 6 activates them by setting the attribute.
+- Produces: the final light values, the `:root[data-theme="dark"]` overrides, and the print palette. Task 4 reads the `--editor-*` and `--syn-*` names; Task 6 activates the dark block by setting the attribute.
 
-- [ ] **Step 1: Write the failing test**
+**Why the light values change here and not in Task 2.** Task 2 was a pure
+refactor — same colours, now in variables — so a reviewer could confirm the
+extraction was faithful before anything looked different. This task is where
+the colours are *decided*. Keeping the two apart means a transcription error in
+the extraction and a deliberate design change never hide in the same diff.
 
-Append to `frontend/src/lib/styleContract.test.ts`:
+**Screen and paper deliberately differ.** Pure black on white is 21:1, the
+theoretical maximum, and glares over a long reading session; the reverse
+extreme causes halation. Ink on paper does neither, and black-on-white is the
+academic convention — so print keeps pure black on white while both screen
+palettes are softened. Targets: body text ≥ 7:1, all other text ≥ 4.5:1.
+
+- [ ] **Step 1: Write the failing contrast test**
+
+Create `frontend/src/lib/contrast.test.ts`:
 
 ```ts
-function blockNames(css: string, selector: string): string[] {
-  const start = css.indexOf(selector + ' {')
-  if (start === -1) return []
-  const end = css.indexOf('\n}', start)
-  return [...css.slice(start, end).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1])
+import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const CSS = readFileSync(
+  join(fileURLToPath(import.meta.url), '../../../public/style.css'),
+  'utf8',
+)
+
+/** Pulls the custom properties out of one selector's block. */
+function palette(selector: string): Record<string, string> {
+  const start = CSS.indexOf(selector + ' {')
+  if (start === -1) throw new Error(`no block for ${selector}`)
+  const end = CSS.indexOf('\n}', start)
+  const out: Record<string, string> = {}
+  for (const m of CSS.slice(start, end).matchAll(/^\s*(--[a-z0-9-]+)\s*:\s*([^;]+);/gm)) {
+    out[m[1]] = m[2].trim()
+  }
+  return out
 }
 
-describe('dark palette', () => {
-  it('overrides exactly the variables the light palette defines', () => {
-    const light = blockNames(CSS, ':root')
-    const dark = blockNames(CSS, ':root[data-theme="dark"]')
-    // A name defined light-only is a rule that stays light in dark mode —
-    // the single most likely way this feature ships half-finished.
-    expect([...light].sort()).toEqual([...dark].sort())
+function relativeLuminance(colour: string): number {
+  let h = colour.replace('#', '')
+  if (h.length === 3) h = [...h].map((c) => c + c).join('')
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+function contrast(fg: string, bg: string): number {
+  const [hi, lo] = [relativeLuminance(fg), relativeLuminance(bg)].sort((a, b) => b - a)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+/** Every text pair, with the target its role demands. */
+const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
+  ['body text', '--fg', '--bg', 7],
+  ['status bar', '--muted', '--bg', 4.5],
+  ['blockquote', '--muted-strong', '--bg', 4.5],
+  ['link', '--link', '--bg', 4.5],
+  ['toast', '--toast-fg', '--toast-bg', 4.5],
+  ['chart error', '--chart-error-fg', '--chart-error-bg', 4.5],
+  ['cite error', '--cite-error-fg', '--cite-error-bg', 4.5],
+  ['editor text', '--editor-fg', '--editor-bg', 7],
+  ['gutter numbers', '--editor-gutter-fg', '--editor-gutter-bg', 4.5],
+  ['syntax heading', '--syn-heading', '--editor-bg', 4.5],
+  ['syntax emphasis', '--syn-emphasis', '--editor-bg', 4.5],
+  ['syntax code', '--syn-code', '--editor-bg', 4.5],
+  ['syntax link', '--syn-link', '--editor-bg', 4.5],
+  ['syntax quote', '--syn-quote', '--editor-bg', 4.5],
+  ['syntax meta', '--syn-meta', '--editor-bg', 4.5],
+]
+
+function check(selector: string) {
+  const p = palette(selector)
+  const failures: string[] = []
+  for (const [label, fgVar, bgVar, target] of PAIRS) {
+    const ratio = contrast(p[fgVar], p[bgVar])
+    if (ratio < target) {
+      failures.push(`${label}: ${ratio.toFixed(2)}:1 (needs ${target}:1)`)
+    }
+  }
+  return failures
+}
+
+describe('palette contrast', () => {
+  // Colours stay verified rather than eyeballed. A future tweak that drops a
+  // pair below its target fails here instead of shipping.
+  it('meets every target in the light palette', () => {
+    expect(check(':root')).toEqual([])
   })
 
-  it('forces the light palette back for print', () => {
-    // Browsers drop background colours when printing but honour text colour,
-    // so a dark theme would otherwise export a PDF with near-white text.
-    const print = CSS.slice(CSS.indexOf('@media print'))
-    expect(print).toContain(':root[data-theme="dark"]')
-    expect(print).toContain('--fg:')
-    expect(print).toContain('--bg:')
-    expect(print).toContain('--figure-bg:')
+  it('meets every target in the dark palette', () => {
+    expect(check(':root[data-theme="dark"]')).toEqual([])
   })
 })
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/styleContract.test.ts`
-Expected: FAIL — there is no dark block yet, so the name lists differ.
+Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/contrast.test.ts`
+Expected: FAIL — there is no dark block yet, so `palette(':root[data-theme="dark"]')` throws.
 
-- [ ] **Step 3: Add the dark palette**
+- [ ] **Step 3: Replace the light values with the designed palette**
 
-Immediately after the `:root { … }` palette block in `frontend/public/style.css`:
+In `frontend/public/style.css`, replace the *values* in the `:root` block that
+Task 2 created. The names stay identical; only the colours change.
+
+```css
+:root {
+  color-scheme: light;
+
+  --bg: #fcfcfc;
+  --fg: #1a1a1a;
+  --border: #dcdcdc;
+  --border-strong: #c4c4c4;
+  --muted: #5e5e5e;
+  --muted-strong: #4a4a4a;
+  --surface: #f0f0f0;
+  --surface-code-block: #f2f2f2;
+  --surface-code-inline: #eeeeee;
+  --divider: #e6e6e6;
+  --link: #0b57c2;
+  --overlay-bg: #fcfcfc;
+  --backdrop: rgba(0, 0, 0, 0.4);
+  --toast-bg: #2a2a2a;
+  --toast-fg: #fafafa;
+  --chart-error-fg: #b30000;
+  --chart-error-bg: #fff5f5;
+  --cite-error-fg: #b30000;
+  --cite-error-bg: #fff5f5;
+
+  /* Figures are cards only in dark mode; light keeps today's layout exactly. */
+  --figure-bg: transparent;
+  --figure-pad: 0;
+  --figure-radius: 0;
+
+  --editor-bg: #fcfcfc;
+  --editor-fg: #1a1a1a;
+  --editor-caret: #1a1a1a;
+  --editor-selection: #cfe0f7;
+  --editor-gutter-bg: #f4f4f4;
+  --editor-gutter-fg: #5c5c5c;
+  --editor-active-line: #00000008;
+
+  --syn-heading: #0b3d91;
+  --syn-emphasis: #7a5200;
+  --syn-code: #8a1a8a;
+  --syn-link: #0b57c2;
+  --syn-quote: #4a4a4a;
+  --syn-meta: #6b6b6b;
+}
+```
+
+- [ ] **Step 4: Add the dark palette**
+
+Immediately after the `:root` block:
 
 ```css
 /* Must define exactly the same names as the light palette above — enforced by
@@ -398,29 +515,29 @@ Immediately after the `:root { … }` palette block in `frontend/public/style.cs
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #1e1e1e;
-  --fg: #e4e4e4;
-  --border: #3a3a3a;
+  --bg: #1f1f1f;
+  --fg: #d0d0d0;
+  --border: #383838;
   --border-strong: #4a4a4a;
-  --muted: #9a9a9a;
-  --muted-strong: #b0b0b0;
+  --muted: #9c9c9c;
+  --muted-strong: #b4b4b4;
   --surface: #2a2a2a;
   --surface-code-block: #262626;
   --surface-code-inline: #2c2c2c;
   --divider: #333333;
-  --link: #6ea8fe;
-  --overlay-bg: #1e1e1e;
+  --link: #7cb0ff;
+  --overlay-bg: #1f1f1f;
   --backdrop: rgba(0, 0, 0, 0.6);
 
   /* Inverted deliberately: a dark toast on a dark app does not read as an
      overlay. Light-on-dark is what makes it stand out here. */
-  --toast-bg: #f0f0f0;
+  --toast-bg: #ebebeb;
   --toast-fg: #1a1a1a;
 
-  --chart-error-fg: #ff8080;
+  --chart-error-fg: #ff9a9a;
   --chart-error-bg: #3a2222;
-  --cite-error-fg: #ff8080;
-  --cite-error-bg: #4a2222;
+  --cite-error-fg: #ff9a9a;
+  --cite-error-bg: #3a2222;
 
   /* Vega draws in dark ink on a transparent ground, so a figure needs a light
      card to stay readable — and this way charts match the exported PDF and the
@@ -429,24 +546,24 @@ Immediately after the `:root { … }` palette block in `frontend/public/style.cs
   --figure-pad: 12px;
   --figure-radius: 6px;
 
-  --editor-bg: #1e1e1e;
-  --editor-fg: #e4e4e4;
-  --editor-caret: #e4e4e4;
+  --editor-bg: #1f1f1f;
+  --editor-fg: #d0d0d0;
+  --editor-caret: #d0d0d0;
   --editor-selection: #2f5d8c;
-  --editor-gutter-bg: #1e1e1e;
-  --editor-gutter-fg: #6a6a6a;
+  --editor-gutter-bg: #242424;
+  --editor-gutter-fg: #8f8f8f;
   --editor-active-line: #ffffff0d;
 
-  --syn-heading: #9dc0ff;
-  --syn-emphasis: #e0c07a;
-  --syn-code: #d7a3d7;
-  --syn-link: #6ea8fe;
-  --syn-quote: #b0b0b0;
-  --syn-meta: #8a8a8a;
+  --syn-heading: #a8c8ff;
+  --syn-emphasis: #e2c07f;
+  --syn-code: #dda6dd;
+  --syn-link: #7cb0ff;
+  --syn-quote: #b4b4b4;
+  --syn-meta: #949494;
 }
 ```
 
-- [ ] **Step 4: Add the figure card rule**
+- [ ] **Step 5: Add the figure card rule**
 
 Next to the other `.preview-pane` rules:
 
@@ -458,29 +575,33 @@ Next to the other `.preview-pane` rules:
 }
 ```
 
-In light mode these resolve to `transparent` / `0` / `0`, so light mode is unchanged.
+In light mode these resolve to `transparent` / `0` / `0`, so light mode's
+layout is unchanged.
 
-- [ ] **Step 5: Force the light palette for print**
+- [ ] **Step 6: Add the print palette**
 
-Inside the existing `@media print { … }` block, as its first rule:
+Inside the existing `@media print { … }` block, as its first rule. Note these
+are the *print* values — pure black on white, deliberately unlike either screen
+palette, because ink does not glare and this is the academic convention:
 
 ```css
-  /* Exported PDFs are always light. Browsers drop background colours when
-     printing but honour text colour, so without this a dark-theme export is
-     near-white text on white paper — invisible on screen, total on paper.
+  /* Exported PDFs are always light, and use pure black on white rather than
+     either screen palette. Browsers drop background colours when printing but
+     honour text colour, so without this a dark-theme export is near-white text
+     on white paper — invisible on screen, total on paper.
      The dark selector is listed too and comes last, so it wins the tie. */
   :root, :root[data-theme="dark"] {
     color-scheme: light;
     --bg: #ffffff;
     --fg: #000000;
-    --border: #ddd;
-    --border-strong: #ccc;
-    --muted: #666;
-    --muted-strong: #555;
+    --border: #dddddd;
+    --border-strong: #cccccc;
+    --muted: #666666;
+    --muted-strong: #555555;
     --surface: #f5f5f5;
     --surface-code-block: #f6f6f6;
     --surface-code-inline: #f2f2f2;
-    --divider: #eee;
+    --divider: #eeeeee;
     --link: #0b62d6;
     --overlay-bg: #ffffff;
     --backdrop: rgba(0, 0, 0, 0.4);
@@ -510,49 +631,84 @@ Inside the existing `@media print { … }` block, as its first rule:
 ```
 
 Specificity note: inside `@media print`, a bare `:root` is *less* specific than
-`:root[data-theme="dark"]`, so listing only `:root` would lose. Both selectors
-are listed so specificity ties and source order decides — and this block comes
-after the dark palette.
+`:root[data-theme="dark"]`, so listing only `:root` would lose. Both are listed
+so specificity ties and source order decides — and this block comes after the
+dark palette.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 7: Extend the structural test**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/styleContract.test.ts`
-Expected: PASS, 4 tests.
+Append to `frontend/src/lib/styleContract.test.ts`:
 
-Note: the first test in this file (no literal colours in rules) still passes,
-because the print block's declarations are custom properties, which that test
-excludes by design.
+```ts
+function blockNames(css: string, selector: string): string[] {
+  const start = css.indexOf(selector + ' {')
+  if (start === -1) return []
+  const end = css.indexOf('\n}', start)
+  return [...css.slice(start, end).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1])
+}
 
-- [ ] **Step 7: Full run and commit**
+describe('dark palette', () => {
+  it('overrides exactly the variables the light palette defines', () => {
+    const light = blockNames(CSS, ':root')
+    const dark = blockNames(CSS, ':root[data-theme="dark"]')
+    // A name defined light-only is a rule that stays light in dark mode —
+    // the single most likely way this feature ships half-finished.
+    expect([...light].sort()).toEqual([...dark].sort())
+  })
+
+  it('forces a light palette back for print', () => {
+    const print = CSS.slice(CSS.indexOf('@media print'))
+    expect(print).toContain(':root[data-theme="dark"]')
+    expect(print).toContain('--fg:')
+    expect(print).toContain('--bg:')
+    expect(print).toContain('--figure-bg:')
+  })
+})
+```
+
+- [ ] **Step 8: Run the tests to verify they pass**
+
+Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/contrast.test.ts src/lib/styleContract.test.ts`
+Expected: PASS — 2 contrast tests, 4 styleContract tests.
+
+If a contrast test fails, the palette above was mistyped: every pair was
+computed before this plan was written and all thirty meet their targets.
+
+- [ ] **Step 9: Full run and commit**
 
 Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build`
-Expected: 188 tests across 15 files; `0 ERRORS`; build succeeds.
+Expected: 190 tests across 16 files; `0 ERRORS`; build succeeds.
 
 ```bash
 cd /Users/richarc/Development/hermes/frontend
-git add public/style.css src/lib/styleContract.test.ts
+git add public/style.css src/lib/styleContract.test.ts src/lib/contrast.test.ts
 git commit -m "$(cat <<'EOF'
-feat: add the dark palette, figure cards, and light print output
+feat: design both screen palettes, add figure cards and light print output
 
-The dark block must define exactly the same names as the light one, which a
-test enforces — a name defined light-only is a rule that silently stays
-light in dark mode.
+The v0.1 light scheme was pure black on white — a default rather than a
+decision, and 21:1, the theoretical maximum, which glares over a long
+reading session. Both screen palettes are now chosen against stated targets
+and measured: body text at or above 7:1, all other text at or above 4.5:1.
+The previous draft's weakest value, the dark editor gutter at 3.1:1, is now
+4.8:1.
 
-Figures get a light card in dark mode only. Vega draws in dark ink on a
-transparent ground, so the card is what keeps charts readable, and it means
-charts match the exported PDF and the chart cache stays valid across a
-theme change.
+Print deliberately differs from both. Ink does not glare and black on white
+is the academic convention, so exported PDFs keep pure black on white while
+the screen is softened. The separate print palette the design already
+needed is what makes that free.
 
-Print re-declares the light palette. Browsers drop background colours when
-printing but honour text colour, so without this a dark-theme export is
-near-white text on white paper.
+contrast.test.ts computes every pair from the stylesheet and fails the
+build if one drops below its target, so the palette stays verified rather
+than becoming eyeballed again the next time a colour is touched.
+
+Figures get a light card in dark mode only, so charts stay readable, match
+the exported PDF, and leave the chart cache valid across a theme change.
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```
 
----
 
 ## Task 4: The editor theme
 
@@ -684,7 +840,7 @@ Expected: PASS.
 - [ ] **Step 5: Full run and commit**
 
 Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build`
-Expected: 190 tests across 15 files; `0 ERRORS`; build succeeds.
+Expected: 192 tests across 16 files; `0 ERRORS`; build succeeds.
 
 ```bash
 cd /Users/richarc/Development/hermes/frontend
@@ -1057,7 +1213,7 @@ Expected: PASS.
 cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build
 cd /Users/richarc/Development/hermes && go test ./. && go build -o /dev/null .
 ```
-Expected: 193 tests across 15 files; `0 ERRORS`; both builds succeed.
+Expected: 195 tests across 16 files; `0 ERRORS`; both builds succeed.
 
 - [ ] **Step 6: Commit**
 
@@ -1133,11 +1289,11 @@ EOF
 | Baseline | 181 | 13 |
 | 1 | 184 | 14 |
 | 2 | 186 | 15 |
-| 3 | 188 | 15 |
-| 4 | 190 | 15 |
-| 5 | 190 (Go +5) | 15 |
-| 6 | 193 | 15 |
-| 7 | 193 | 15 |
+| 3 | 190 | 16 |
+| 4 | 192 | 16 |
+| 5 | 192 (Go +5) | 16 |
+| 6 | 195 | 16 |
+| 7 | 195 | 16 |
 
 If a count comes out lower, a test was skipped rather than the arithmetic being
 wrong — check before continuing.
