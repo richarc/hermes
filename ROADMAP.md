@@ -152,3 +152,36 @@ Ideas noted along the way, not yet committed to a release:
   other files — for example we might pull the Vega-Lite diagrams out into
   separate files.
 - Implement a Vega Lite builder for importing data and graphically creating the chart
+
+### Deferred review findings
+
+Real findings from the v0.4 and v0.5 code reviews, judged not to block those
+releases. Recorded so they are not rediscovered from scratch:
+
+- Bug: ⌘Z immediately after File → New restores the previous document's text
+  while `path` is already `null`, so a following ⌘S runs Save As and writes the
+  old document's content to a new file. `setContent` dispatches an ordinary
+  undoable transaction and never clears CodeMirror's history. This predates
+  v0.4, but ⌘N used to leave an empty editor where undoing was obviously a
+  mistake; it now produces a template, which makes the undo look legitimate.
+  The one deferred item with real teeth.
+- Enforce the duplicated window background. The dark `--bg` is written both in
+  `frontend/public/style.css` and in `main.go` as an `NewRGB` triple, because
+  Go cannot read the CSS, and nothing checks that they agree — they have
+  already drifted twice. A Go test parsing `--bg` out of the stylesheet and
+  comparing it against both triples would close it.
+- Scroll-sync anchor density is sparser inside blockquotes and list items: the
+  markdown-it core rule stamps `data-source-line` on top-level blocks only, so
+  a long list is one anchor rather than several. Interpolation keeps this
+  near-exact for uniform content; it degrades only when a list item contains a
+  chart or a large image.
+- `App.svelte` schedules a `requestAnimationFrame` for scroll sync and never
+  cancels it on unmount. Latent only — `App` is the root component and is never
+  unmounted in production — but it becomes real the moment that component gains
+  any other teardown.
+- `Editor.topVisibleLine()` has no test, and the reviewer argued *against*
+  adding the obvious one: under jsdom `posAtCoords` returns null so the
+  function always yields 1, which is also what the happy path returns for
+  offset 0 — a test asserting 1 would pass against an implementation that
+  dropped the null check entirely. Testing it honestly needs a real layout
+  engine.
