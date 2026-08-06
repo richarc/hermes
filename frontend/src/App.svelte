@@ -27,6 +27,9 @@
     toggleInlineCode,
     toggleStrikethrough,
   } from './lib/markdownCommands'
+  import { foldCode, unfoldCode, unfoldAll } from '@codemirror/language'
+  import type { Command } from '@codemirror/view'
+  import { foldAllCodeBlocks } from './lib/foldCommands'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -177,6 +180,22 @@
     // without it, Cmd-B on the welcome screen would edit a hidden document.
     if (showWelcome) return
     const cmd = FORMAT_COMMANDS[name]
+    if (cmd) editor.runCommand(cmd)
+  }
+
+  const FOLD_COMMANDS: Record<string, Command> = {
+    'fold-block': foldCode,
+    'unfold-block': unfoldCode,
+    'fold-all-code': foldAllCodeBlocks,
+    'unfold-all': unfoldAll,
+  }
+
+  function applyFold(name: string) {
+    // Same guard as applyFormat: menu accelerators fire regardless of focus,
+    // so without it a chord on the welcome screen would act on a hidden
+    // document.
+    if (showWelcome) return
+    const cmd = FOLD_COMMANDS[name]
     if (cmd) editor.runCommand(cmd)
   }
 
@@ -381,6 +400,9 @@
     Events.On('menu:insert-citation', () => void insertCitation())
     Events.On('menu:format', (ev: { data: unknown }) => {
       if (typeof ev.data === 'string') applyFormat(ev.data)
+    })
+    Events.On('menu:fold', (ev: { data: unknown }) => {
+      if (typeof ev.data === 'string') applyFold(ev.data)
     })
     Events.On('settings:changed', () => void refreshSettings())
 

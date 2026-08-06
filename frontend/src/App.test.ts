@@ -295,3 +295,43 @@ describe('theme', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })
+
+describe('fold menu', () => {
+  const WITH_CODE = '# Results\n\n```js\nconst x = 1\nconst y = 2\n```\n'
+
+  async function mountWithCodeBlock() {
+    recents.current = ['/tmp/paper.md']
+    DocumentService.OpenPath.mockResolvedValueOnce({
+      path: '/tmp/paper.md',
+      content: WITH_CODE,
+    })
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+
+    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+    await vi.waitFor(() => expect(target.textContent).toContain('const x'))
+    return target
+  }
+
+  it('folds every code block when the menu asks', async () => {
+    const target = await mountWithCodeBlock()
+
+    listeners['menu:fold']({ data: 'fold-all-code' })
+    flushSync()
+
+    // The placeholder pill is what replaces the hidden lines.
+    await vi.waitFor(() =>
+      expect(target.querySelector('.cm-foldPlaceholder')).not.toBeNull(),
+    )
+  })
+
+  it('ignores an unknown command name', async () => {
+    const target = await mountWithCodeBlock()
+
+    // Must not throw — the same tolerance menu:format already has.
+    listeners['menu:fold']({ data: 'not-a-command' })
+    flushSync()
+
+    expect(target.querySelector('.cm-foldPlaceholder')).toBeNull()
+  })
+})

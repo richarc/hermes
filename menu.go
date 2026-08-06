@@ -172,6 +172,37 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		})
 	}
 
+	view.AddSeparator()
+	// ⌘⌥[ and ⌘⌥] already fold and unfold the block at the cursor — CodeMirror's
+	// foldKeymap binds them, and the webview sees them before AppKit does. These
+	// items exist to make that discoverable; the accelerators shown here are
+	// reflecting what already happens, not claiming it.
+	folds := []struct {
+		label string
+		key   string
+		arg   string
+	}{
+		{"Fold Block", "cmdorctrl+alt+[", "fold-block"},
+		{"Unfold Block", "cmdorctrl+alt+]", "unfold-block"},
+	}
+	for _, f := range folds {
+		arg := f.arg
+		view.Add(f.label).SetAccelerator(f.key).OnClick(func(*application.Context) {
+			app.Event.Emit("menu:fold", arg)
+		})
+	}
+
+	view.AddSeparator()
+	// No accelerators: an invented chord cannot be checked against every macOS
+	// binding, and the menu item is the discoverable route — the same reasoning
+	// as Blockquote in the Format menu.
+	view.Add("Fold All Code Blocks").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:fold", "fold-all-code")
+	})
+	view.Add("Unfold All").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:fold", "unfold-all")
+	})
+
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)
