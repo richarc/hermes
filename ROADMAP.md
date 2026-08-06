@@ -151,7 +151,8 @@ Ideas noted along the way, not yet committed to a release:
   lives in a directory and has a main `.md` file, a `.bib` file and in future
   other files — for example we might pull the Vega-Lite diagrams out into
   separate files.
-- Implement a Vega Lite builder for importing data and graphically creating the chart
+- Implement a Vega-Lite builder for importing data and creating the chart
+  graphically.
 
 ### Deferred review findings
 
