@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
+import { EditorView, type Command } from '@codemirror/view'
+import { foldCode } from '@codemirror/language'
 import Editor from './Editor.svelte'
+import { toggleBold } from './lib/markdownCommands'
 
 interface EditorApi {
   setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
+  runCommand(cmd: Command): void
   lineCount(): number
   topVisibleLine(): number
 }
@@ -158,6 +162,47 @@ describe('Editor folding', () => {
     // pill on a dark page. Ours must come from the palette instead.
     expect(css).toMatch(/\.cm-foldPlaceholder[^}]*var\(--/)
 
+    cleanup()
+  })
+})
+
+describe('Editor.runCommand', () => {
+  it('runs a StateCommand (toggleBold) through the mounted view', () => {
+    // markdownCommands.test.ts calls toggleBold with a hand-built
+    // {state, dispatch} pair, never through Editor.svelte — it proves the
+    // command works in isolation, not that runCommand's `cmd(view)` call
+    // still drives a StateCommand correctly. This exercises that path for
+    // real: EditorView.findFromDOM gets the actual view instance so we can
+    // select "hello" the way a user would, then runCommand invokes toggleBold
+    // with the view itself, exactly as App.svelte does.
+    const { target, editor, text, cleanup } = mountEditor()
+    editor.setContent('hello')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target)
+    expect(view).not.toBeNull()
+    view?.dispatch({ selection: { anchor: 0, head: 5 } })
+
+    editor.runCommand(toggleBold)
+    flushSync()
+
+    expect(text()).toBe('**hello**')
+    cleanup()
+  })
+
+  it('runs a view-taking Command (foldCode) through the same method', () => {
+    // The other half of the widening: CodeMirror's fold commands are typed
+    // Command, not StateCommand, and need the view rather than a
+    // {state, dispatch} pair. A folded block renders a .cm-foldPlaceholder
+    // element, so its presence proves runCommand drove foldCode correctly.
+    const { target, editor, cleanup } = mountEditor()
+    editor.setContent('```js\nconst x = 1\n```\n')
+    flushSync() // cursor defaults to the document start, on the fence's opening line
+
+    editor.runCommand(foldCode)
+    flushSync()
+
+    expect(target.querySelector('.cm-foldPlaceholder')).not.toBeNull()
     cleanup()
   })
 })
