@@ -84,6 +84,10 @@ beforeEach(() => {
   recents.current = []
   vi.clearAllMocks()
   stubMatchMedia(false)
+  // applyTheme writes to <html>'s dataset, which outlives unmount (afterEach
+  // only clears document.body). Left in place, a stale value from a prior
+  // test can make a later assertion pass for the wrong reason.
+  document.documentElement.removeAttribute('data-theme')
 })
 
 afterEach(() => {
@@ -270,5 +274,24 @@ describe('theme', () => {
     flushSync()
 
     expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('flips the theme when the system preference changes and the setting is system', async () => {
+    // Positive counterpart to the "ignores" test above: proves the change
+    // listener is actually wired, not merely that firing it does nothing.
+    // Without this, deleting the addEventListener call in App.svelte would
+    // leave both tests passing for the wrong reason.
+    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    recents.current = []
+    const media = stubMatchMedia(false)
+    mountApp()
+    await vi.waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe('light'),
+    )
+
+    media.fire(true)
+    flushSync()
+
+    expect(document.documentElement.dataset.theme).toBe('dark')
   })
 })
