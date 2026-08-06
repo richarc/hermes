@@ -145,8 +145,20 @@ The four command names carried by `menu:fold`, and what each maps to:
 | `fold-all-code` | `foldAllCodeBlocks` (ours) |
 | `unfold-all` | `unfoldAll` (CodeMirror) |
 
-Three of the four are CodeMirror's own `StateCommand`s used unchanged, so
+Three of the four are CodeMirror's own commands used unchanged, so
 `FOLD_COMMANDS` is mostly a lookup table; only `fold-all-code` is new code.
+
+**A correction found while planning.** All four CodeMirror fold commands are
+typed `Command` — `(view: EditorView) => boolean` — not `StateCommand`, which
+is what `Editor.runCommand` currently accepts. Widening `runCommand` to take
+`Command` and call `cmd(view)` serves both kinds: `StateCommand` is assignable
+to `Command` by parameter contravariance, and a `StateCommand` invoked with a
+view works at runtime — verified by calling `toggleBold(view)` directly and
+confirming it produced `**hello**`. So this is a one-line signature change with
+no risk to the existing formatting commands, not a second method.
+
+`foldAllCodeBlocks` stays a `StateCommand` regardless, so it can be tested
+against a bare `EditorState` with no DOM.
 
 ## Error handling
 
