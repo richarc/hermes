@@ -83,4 +83,21 @@ describe('foldAllCodeBlocks', () => {
     foldAllCodeBlocks({ state, dispatch: () => count++ })
     expect(count).toBe(1)
   })
+
+  it('folds a block past the synchronous parse prefix on a long document', () => {
+    // CodeMirror only parses min(3000, doc.length) characters synchronously
+    // when a state is created; the rest is filled in later by an idle-driven
+    // ViewPlugin. Build a document comfortably past that threshold with the
+    // fenced block near the end, past where the initial parse would stop.
+    const prose = 'Prose line.\n'.repeat(400)
+    expect(prose.length).toBeGreaterThan(3000)
+    const doc = `${prose}\n\`\`\`js\nconst x = 1\n\`\`\`\n`
+    // 1-based line number of the fence, computed from the doc itself rather
+    // than hardcoded, so this doesn't drift if `prose` changes.
+    const fenceLine = doc.slice(0, doc.indexOf('```js')).split('\n').length
+
+    const { state, handled } = run(makeState(doc))
+    expect(handled).toBe(true)
+    expect(foldedStartLines(state)).toContain(fenceLine)
+  })
 })
