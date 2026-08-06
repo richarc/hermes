@@ -214,11 +214,12 @@ html, body {
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 
 @media print {
-  /* Exported PDFs are always light, and use maximum-contrast ink on the page
-     rather than either screen palette. Browsers drop background colours when
-     printing but honour text colour, so without this override a dark-theme
-     export renders low-contrast text that is nearly invisible on the printed
-     page even though it reads fine on screen.
+  /* Exported PDFs are always light, and use pure black on white rather than
+     either screen palette. Ink does not glare the way a backlit screen does,
+     and black-on-white is the academic convention. Browsers drop background
+     colours when printing but honour text colour, so without this override a
+     dark-theme export is near-white text on white paper — invisible on
+     screen, total on paper.
      The dark selector is listed too and comes last, so it wins the tie. */
   :root, :root[data-theme="dark"] {
     color-scheme: light;

@@ -24,6 +24,15 @@ function ruleBody(css: string): string {
     .join('\n')
 }
 
+/** Strips CSS comments before the literal-colour hunt. Explanatory prose is
+ *  free to say "black", "pink", "avoid a stark white flash" — those are
+ *  colour *words*, not colour *declarations*, and the guard below exists to
+ *  catch the latter. Without this, ordinary English trips an unrelated test
+ *  in a file most contributors don't know exists. */
+function stripComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
 // The CSS Color Module Level 4 named colours. A contributor reaching for a
 // quick colour is just as likely to type `white` or `firebrick` as `#fff` —
 // this list closes that gap so bare keywords are caught too.
@@ -67,7 +76,7 @@ describe('style.css palette contract', () => {
   it('declares no literal colours outside the palette', () => {
     // Colours are decided in one place. A literal here means a rule that
     // cannot follow the theme — the exact way a half-dark UI ships.
-    const literals = ruleBody(CSS).match(LITERAL_COLOUR) ?? []
+    const literals = ruleBody(stripComments(CSS)).match(LITERAL_COLOUR) ?? []
     expect(literals).toEqual([])
   })
 
