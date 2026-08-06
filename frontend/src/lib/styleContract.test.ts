@@ -82,3 +82,28 @@ describe('style.css palette contract', () => {
     expect(missing).toEqual([])
   })
 })
+
+function blockNames(css: string, selector: string): string[] {
+  const start = css.indexOf(selector + ' {')
+  if (start === -1) return []
+  const end = css.indexOf('\n}', start)
+  return [...css.slice(start, end).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1])
+}
+
+describe('dark palette', () => {
+  it('overrides exactly the variables the light palette defines', () => {
+    const light = blockNames(CSS, ':root')
+    const dark = blockNames(CSS, ':root[data-theme="dark"]')
+    // A name defined light-only is a rule that stays light in dark mode —
+    // the single most likely way this feature ships half-finished.
+    expect([...light].sort()).toEqual([...dark].sort())
+  })
+
+  it('forces a light palette back for print', () => {
+    const print = CSS.slice(CSS.indexOf('@media print'))
+    expect(print).toContain(':root[data-theme="dark"]')
+    expect(print).toContain('--fg:')
+    expect(print).toContain('--bg:')
+    expect(print).toContain('--figure-bg:')
+  })
+})

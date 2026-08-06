@@ -1,54 +1,108 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* The single place a colour is decided. Rules below reference these only —
-   styleContract.test.ts fails the build if a literal colour appears in a rule.
-   A later task adds a dark block here and enforces that it defines the same
-   names; this file does not check that yet. */
+   styleContract.test.ts fails the build if a literal colour appears in a rule,
+   and enforces that the dark block below defines the same names. */
 :root {
   color-scheme: light;
 
-  --bg: #ffffff;
-  --fg: #000000;
-  --border: #ddd;
-  --border-strong: #ccc;
-  --muted: #666;
-  --muted-strong: #555;
-  --surface: #f5f5f5;
-  --surface-code-block: #f6f6f6;
-  --surface-code-inline: #f2f2f2;
-  --divider: #eee;
-  --link: #0b62d6;
-  --overlay-bg: #ffffff;
+  --bg: #fcfcfc;
+  --fg: #1a1a1a;
+  --border: #dcdcdc;
+  --border-strong: #c4c4c4;
+  --muted: #5e5e5e;
+  --muted-strong: #4a4a4a;
+  --surface: #f0f0f0;
+  --surface-code-block: #f2f2f2;
+  --surface-code-inline: #eeeeee;
+  --divider: #e6e6e6;
+  --link: #0b57c2;
+  --overlay-bg: #fcfcfc;
   --backdrop: rgba(0, 0, 0, 0.4);
-  --toast-bg: #333333;
-  --toast-fg: #ffffff;
-  --chart-error-fg: #cc0000;
+  --toast-bg: #2a2a2a;
+  --toast-fg: #fafafa;
+  --chart-error-fg: #b30000;
   --chart-error-bg: #fff5f5;
-  --cite-error-fg: #cc0000;
+  --cite-error-fg: #b30000;
   --cite-error-bg: #fff5f5;
 
-  /* Figures are cards only in dark mode; light mode keeps today's layout
-     exactly, which is why these are transparent and zero here. */
+  /* Figures are cards only in dark mode; light keeps today's layout exactly. */
   --figure-bg: transparent;
   --figure-pad: 0;
   --figure-radius: 0;
 
   /* CodeMirror reads these through var() in its generated stylesheet, so
      switching themes needs no reconfiguration. See Editor.svelte. */
-  --editor-bg: #ffffff;
-  --editor-fg: #000000;
-  --editor-caret: #000000;
-  --editor-selection: #d7d4f0;
-  --editor-gutter-bg: #f5f5f5;
-  --editor-gutter-fg: #6c6c6c;
-  --editor-active-line: #cceeff44;
+  --editor-bg: #fcfcfc;
+  --editor-fg: #1a1a1a;
+  --editor-caret: #1a1a1a;
+  --editor-selection: #cfe0f7;
+  --editor-gutter-bg: #f4f4f4;
+  --editor-gutter-fg: #5c5c5c;
+  --editor-active-line: #00000008;
 
   --syn-heading: #0b3d91;
-  --syn-emphasis: #6a4a00;
-  --syn-code: #7a1f7a;
-  --syn-link: #0b62d6;
-  --syn-quote: #555555;
-  --syn-meta: #888888;
+  --syn-emphasis: #7a5200;
+  --syn-code: #8a1a8a;
+  --syn-link: #0b57c2;
+  --syn-quote: #4a4a4a;
+  --syn-meta: #6b6b6b;
+}
+
+/* Must define exactly the same names as the light palette above — enforced by
+   styleContract.test.ts, because a name defined light-only is a rule that
+   silently stays light in dark mode.
+
+   --bg is duplicated in main.go as the window's BackgroundColour, because Go
+   cannot read this file. If you change it here, change it there too. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #1f1f1f;
+  --fg: #d0d0d0;
+  --border: #383838;
+  --border-strong: #4a4a4a;
+  --muted: #9c9c9c;
+  --muted-strong: #b4b4b4;
+  --surface: #2a2a2a;
+  --surface-code-block: #262626;
+  --surface-code-inline: #2c2c2c;
+  --divider: #333333;
+  --link: #7cb0ff;
+  --overlay-bg: #1f1f1f;
+  --backdrop: rgba(0, 0, 0, 0.6);
+
+  /* Inverted deliberately: a dark toast on a dark app does not read as an
+     overlay. Light-on-dark is what makes it stand out here. */
+  --toast-bg: #ebebeb;
+  --toast-fg: #1a1a1a;
+
+  --chart-error-fg: #ff9a9a;
+  --chart-error-bg: #3a2222;
+  --cite-error-fg: #ff9a9a;
+  --cite-error-bg: #3a2222;
+
+  /* Vega draws in dark ink on a transparent ground, so a figure needs a light
+     card to stay readable — and this way charts match the exported PDF and the
+     hydrator's spec-text cache stays valid across a theme change. */
+  --figure-bg: #ffffff;
+  --figure-pad: 12px;
+  --figure-radius: 6px;
+
+  --editor-bg: #1f1f1f;
+  --editor-fg: #d0d0d0;
+  --editor-caret: #d0d0d0;
+  --editor-selection: #2f5d8c;
+  --editor-gutter-bg: #242424;
+  --editor-gutter-fg: #8f8f8f;
+  --editor-active-line: #ffffff0d;
+
+  --syn-heading: #a8c8ff;
+  --syn-emphasis: #e2c07f;
+  --syn-code: #dda6dd;
+  --syn-link: #7cb0ff;
+  --syn-quote: #b4b4b4;
+  --syn-meta: #949494;
 }
 
 html, body {
@@ -111,6 +165,12 @@ html, body {
 .preview-pane img { max-width: 100%; }
 .preview-pane a { color: var(--link); }
 
+.preview-pane .vega-lite-chart {
+  background: var(--figure-bg);
+  padding: var(--figure-pad);
+  border-radius: var(--figure-radius);
+}
+
 .divider { width: 4px; cursor: col-resize; background: var(--divider); flex-shrink: 0; }
 
 .status-bar {
@@ -154,6 +214,51 @@ html, body {
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 
 @media print {
+  /* Exported PDFs are always light, and use maximum-contrast ink on the page
+     rather than either screen palette. Browsers drop background colours when
+     printing but honour text colour, so without this override a dark-theme
+     export renders low-contrast text that is nearly invisible on the printed
+     page even though it reads fine on screen.
+     The dark selector is listed too and comes last, so it wins the tie. */
+  :root, :root[data-theme="dark"] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --fg: #000000;
+    --border: #dddddd;
+    --border-strong: #cccccc;
+    --muted: #666666;
+    --muted-strong: #555555;
+    --surface: #f5f5f5;
+    --surface-code-block: #f6f6f6;
+    --surface-code-inline: #f2f2f2;
+    --divider: #eeeeee;
+    --link: #0b62d6;
+    --overlay-bg: #ffffff;
+    --backdrop: rgba(0, 0, 0, 0.4);
+    --toast-bg: #333333;
+    --toast-fg: #ffffff;
+    --chart-error-fg: #cc0000;
+    --chart-error-bg: #fff5f5;
+    --cite-error-fg: #cc0000;
+    --cite-error-bg: #fff5f5;
+    --figure-bg: transparent;
+    --figure-pad: 0;
+    --figure-radius: 0;
+    --editor-bg: #ffffff;
+    --editor-fg: #000000;
+    --editor-caret: #000000;
+    --editor-selection: #d7d4f0;
+    --editor-gutter-bg: #f5f5f5;
+    --editor-gutter-fg: #6c6c6c;
+    --editor-active-line: #cceeff44;
+    --syn-heading: #0b3d91;
+    --syn-emphasis: #6a4a00;
+    --syn-code: #7a1f7a;
+    --syn-link: #0b62d6;
+    --syn-quote: #555555;
+    --syn-meta: #888888;
+  }
+
   .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, .modal-backdrop {
     display: none !important;
   }
