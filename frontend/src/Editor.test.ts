@@ -6,12 +6,20 @@ import { foldCode } from '@codemirror/language'
 import Editor from './Editor.svelte'
 import { toggleBold } from './lib/markdownCommands'
 
+interface ChartBlock {
+  from: number
+  to: number
+  spec: string
+}
+
 interface EditorApi {
   setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
   runCommand(cmd: Command): void
   lineCount(): number
   topVisibleLine(): number
+  enclosingChartBlock(): ChartBlock | null
+  replaceRange(from: number, to: number, text: string): void
 }
 
 /**
@@ -203,6 +211,89 @@ describe('Editor.runCommand', () => {
     flushSync()
 
     expect(target.querySelector('.cm-foldPlaceholder')).not.toBeNull()
+    cleanup()
+  })
+})
+
+describe('chart block lookup', () => {
+  const DOC = [
+    '# Results',
+    '',
+    '```vega-lite',
+    '{"mark": "line"}',
+    '```',
+    '',
+    'After.',
+    '',
+    '```js',
+    'const x = 1',
+    '```',
+    '',
+  ].join('\n')
+
+  /** Mounts with DOC loaded and the cursor at `pos`. */
+  function atPosition(pos: number) {
+    const { editor, cleanup } = mountEditor()
+    editor.setContent(DOC)
+    const view = EditorView.findFromDOM(document.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: pos } })
+    return { editor, view, cleanup }
+  }
+
+  it('finds the block when the cursor is in the spec body', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('"mark"'))
+    const block = editor.enclosingChartBlock()
+    expect(block).not.toBeNull()
+    expect(block!.spec).toBe('{"mark": "line"}')
+    cleanup()
+  })
+
+  it('finds the block from the very start of the opening fence', () => {
+    // side=0 misses this position entirely; the implementation tries side=1.
+    const { editor, cleanup } = atPosition(DOC.indexOf('```vega-lite'))
+    expect(editor.enclosingChartBlock()).not.toBeNull()
+    cleanup()
+  })
+
+  it('finds the block from the end of the closing fence', () => {
+    // The mirror case: only side=-1 reaches this one.
+    const end = DOC.indexOf('```\n\nAfter') + 3
+    const { editor, cleanup } = atPosition(end)
+    expect(editor.enclosingChartBlock()).not.toBeNull()
+    cleanup()
+  })
+
+  it('returns null in ordinary prose', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('After.') + 2)
+    expect(editor.enclosingChartBlock()).toBeNull()
+    cleanup()
+  })
+
+  it('returns null inside a non-vega fenced block', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('const x'))
+    expect(editor.enclosingChartBlock()).toBeNull()
+    cleanup()
+  })
+
+  it('reports an empty body for an empty chart block', () => {
+    const { editor, cleanup } = mountEditor()
+    editor.setContent('```vega-lite\n```\n')
+    const view = EditorView.findFromDOM(document.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 13 } })
+    expect(editor.enclosingChartBlock()!.spec).toBe('')
+    cleanup()
+  })
+
+  it('replaces a range and leaves the cursor after the new text', () => {
+    const { editor, view, cleanup } = atPosition(0)
+    const block = (() => {
+      view.dispatch({ selection: { anchor: DOC.indexOf('"mark"') } })
+      return editor.enclosingChartBlock()!
+    })()
+    editor.replaceRange(block.from, block.to, '```vega-lite\n{"mark": "bar"}\n```')
+    expect(view.state.doc.toString()).toContain('"mark": "bar"')
+    expect(view.state.doc.toString()).not.toContain('"mark": "line"')
+    expect(view.state.selection.main.head).toBe(block.from + 32)
     cleanup()
   })
 })

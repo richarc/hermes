@@ -5,8 +5,9 @@
   import { languages } from '@codemirror/language-data'
   import { keymap, type Command } from '@codemirror/view'
   import { Prec } from '@codemirror/state'
-  import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+  import { HighlightStyle, syntaxHighlighting, syntaxTree, forceParsing } from '@codemirror/language'
   import { tags } from '@lezer/highlight'
+  import type { SyntaxNode } from '@lezer/common'
 
   let {
     onchange,
@@ -180,6 +181,67 @@
     const pos = view.posAtCoords({ x: rect.left + 1, y: rect.top + 1 })
     if (pos == null) return 1
     return view.state.doc.lineAt(pos).number
+  }
+
+  export interface ChartBlock {
+    from: number
+    to: number
+    spec: string
+  }
+
+  /**
+   * The `vega-lite` fenced block containing the cursor, or null.
+   *
+   * Two things here are load-bearing and were established by measurement:
+   *
+   * 1. forceParsing first. CodeMirror parses only the first ~3000 characters
+   *    synchronously, so a chart late in a long paper is invisible to the tree
+   *    until parsing is forced — the same trap that made late fences fail to
+   *    fold in v0.5.
+   * 2. Both sides. resolveInner(pos, 0) misses BOTH the exact start of the
+   *    opening fence and the exact end of the closing fence, and each is an
+   *    ordinary place to leave a cursor. side=1 reaches the first, side=-1 the
+   *    second, so try them in that order.
+   */
+  export function enclosingChartBlock(): ChartBlock | null {
+    forceParsing(view, view.state.doc.length, 5000)
+    const tree = syntaxTree(view.state)
+    const pos = view.state.selection.main.head
+
+    for (const side of [1, -1] as const) {
+      let node: SyntaxNode | null = tree.resolveInner(pos, side)
+      while (node && node.name !== 'FencedCode') node = node.parent
+      if (!node) continue
+
+      let info = ''
+      let bodyFrom = -1
+      let bodyTo = -1
+      for (let c = node.firstChild; c; c = c.nextSibling) {
+        if (c.name === 'CodeInfo') info = view.state.doc.sliceString(c.from, c.to)
+        // An empty block has no CodeText child at all, hence the -1 default.
+        if (c.name === 'CodeText') {
+          bodyFrom = c.from
+          bodyTo = c.to
+        }
+      }
+      if (info.trim() !== 'vega-lite') continue
+
+      return {
+        from: node.from,
+        to: node.to,
+        spec: bodyFrom >= 0 ? view.state.doc.sliceString(bodyFrom, bodyTo) : '',
+      }
+    }
+    return null
+  }
+
+  /** Replaces a document range, leaving the cursor after the inserted text. */
+  export function replaceRange(from: number, to: number, text: string): void {
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + text.length },
+    })
+    view.focus()
   }
 
   onMount(() => {
