@@ -11,6 +11,19 @@ const { DocumentService } = vi.hoisted(() => ({
 vi.mock('../bindings/hermes', () => ({ DocumentService }))
 const ImportData = DocumentService.ImportData
 
+// Controllable stand-in for the real embedChart, which under jsdom resolves
+// to null anyway (no canvas context) — mocking it here isn't a workaround for
+// that, it's what lets the mid-embed-teardown leak test resolve the embed
+// promise at an exact, chosen instant instead of racing jsdom's real
+// vega-embed/canvas failure path. Every other test gets the default
+// immediately-null behaviour, same as the real thing under jsdom.
+const { embedChart } = vi.hoisted(() => ({
+  embedChart: vi.fn(
+    (): Promise<{ finalize: () => void } | null> => Promise.resolve(null),
+  ),
+}))
+vi.mock('./lib/charts', () => ({ embedChart }))
+
 function mountBuilder() {
   const target = document.createElement('div')
   document.body.appendChild(target)
@@ -36,7 +49,13 @@ function paste(target: HTMLElement, text: string) {
   flushSync()
 }
 
-beforeEach(() => ImportData.mockReset())
+beforeEach(() => {
+  ImportData.mockReset()
+  // Clear call history only — mockClear (not mockReset) preserves the
+  // default `() => Promise.resolve(null)` implementation every other test
+  // relies on; only the leak test below overrides it, and only once.
+  embedChart.mockClear()
+})
 
 describe('ChartBuilder data step', () => {
   it('reports the shape of a pasted table', () => {
@@ -241,6 +260,83 @@ describe('ChartBuilder encoding step', () => {
     const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
     expect(spec.encoding.x.type).toBe('nominal')
     unmount(cmp)
+    target.remove()
+  })
+
+  it('drops readiness when switching to boxplot cancels out a count aggregate chosen for a hidden y', () => {
+    // Regression for: pick x, choose the count aggregate (valid without a y
+    // field), then switch to boxplot — which ignores aggregate entirely and
+    // summarises the field itself. Readiness must track the same effective
+    // aggregate the committed spec uses, or Insert stays enabled for a state
+    // that serialises to an empty, invalid y encoding.
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'x', 'dose')
+    select(target, 'aggregate', 'count')
+    const insert = [...target.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Insert chart',
+    )!
+    expect(insert.disabled).toBe(false)
+    select(target, 'mark', 'boxplot')
+    expect(insert.disabled).toBe(true)
+    cleanup()
+  })
+
+  it('clears a stale axis selection when a re-paste changes the columns', () => {
+    // Regression for: paste a table, pick both axes, then paste a table with
+    // entirely different columns. The old field names must not survive into
+    // readiness or a committed spec once they no longer exist.
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    const insert = [...target.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Insert chart',
+    )!
+    expect(insert.disabled).toBe(false)
+
+    paste(target, 'alpha,beta\n1,2\n3,4\n')
+
+    const x = target.querySelector<HTMLSelectElement>('select[data-field="x"]')!
+    expect([...x.options].map((o) => o.value)).toEqual(['alpha', 'beta'])
+    expect(insert.disabled).toBe(true)
+    cleanup()
+  })
+
+  it('finalizes a view whose embed resolves after the modal is torn down', async () => {
+    // Regression for: cancel while the preview's embedChart() is still
+    // pending. Teardown must invalidate the in-flight pass so its eventual
+    // resolution finalizes itself instead of assigning into a `view`
+    // nothing will ever read again — otherwise every cancel-mid-embed leaks
+    // one Vega view (listeners, timers) for the life of the session.
+    let resolveEmbed: (view: { finalize: () => void } | null) => void = () => {}
+    const finalize = vi.fn()
+    embedChart.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveEmbed = resolve
+        }),
+    )
+
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: { initial: null, oncommit: vi.fn(), oncancel: vi.fn() },
+    })
+    flushSync()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    flushSync()
+    expect(embedChart).toHaveBeenCalledTimes(1)
+
+    unmount(cmp)
+    resolveEmbed({ finalize })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(finalize).toHaveBeenCalledTimes(1)
     target.remove()
   })
 })

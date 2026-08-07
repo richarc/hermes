@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { parseDelimited, tableFromRows, type DataTable, type FieldType } from './lib/dataTable'
   import { buildSpec, MARKS, AGGREGATES, type Mark, type Aggregate, type BuilderState } from './lib/chartSpec'
   import { embedChart, type ChartView } from './lib/charts'
@@ -16,24 +17,62 @@
   // large raw table a legitimate input — so this warns and does not block.
   const ROW_WARNING = 5000
 
+  interface Seed {
+    table: DataTable | null
+    mark: Mark
+    xField: string
+    yField: string
+    colourField: string
+    xTitle: string
+    yTitle: string
+    aggregate: Aggregate
+    xType: FieldType
+    yType: FieldType
+    colourType: FieldType
+  }
+
+  // Every field below is read once, synchronously, while constructing this
+  // component's starting state: the modal is recreated (never updated) on
+  // each open, so none of it should ever react to a later `initial` change.
+  // `untrack` states that read-once intent explicitly instead of leaving it
+  // to a comment, which also satisfies svelte-check's
+  // `state_referenced_locally` warning instead of accepting it repeatedly.
+  //
+  // Reopening an existing chart arrives with rows already parsed, so the
+  // paste box starts empty and the table is seeded from the spec. The
+  // encoded columns (x/y/colour) already carry an authoritative type read
+  // out of the spec — trust those rather than re-guessing, since a guess
+  // from row values alone cannot tell a date column from a nominal one
+  // reliably.
+  const seed: Seed = untrack(() => {
+    let seededTable: DataTable | null = null
+    if (initial) {
+      const { x, y, colour, rows } = initial
+      const knownTypes: Record<string, FieldType> = {}
+      if (x.field) knownTypes[x.field] = x.type
+      if (y.field) knownTypes[y.field] = y.type
+      if (colour?.field) knownTypes[colour.field] = colour.type
+      seededTable = tableFromRows(rows, knownTypes)
+    }
+    return {
+      table: seededTable,
+      mark: initial?.mark ?? 'line',
+      xField: initial?.x.field ?? '',
+      yField: initial?.y.field ?? '',
+      colourField: initial?.colour?.field ?? '',
+      xTitle: initial?.x.title ?? '',
+      yTitle: initial?.y.title ?? '',
+      aggregate: initial?.y.aggregate ?? 'none',
+      xType: initial?.x.type ?? 'nominal',
+      yType: initial?.y.type ?? 'quantitative',
+      colourType: initial?.colour?.type ?? 'nominal',
+    }
+  })
+
   let pasted = $state('')
-  let table: DataTable | null = $state(null)
+  let table: DataTable | null = $state(seed.table)
   let parseError = $state('')
   let importError = $state('')
-
-  // Reopening an existing chart arrives with rows already parsed, so the paste
-  // box starts empty and the table is seeded from the spec. The encoded
-  // columns (x/y/colour) already carry an authoritative type read out of the
-  // spec — trust those rather than re-guessing, since a guess from row
-  // values alone cannot tell a date column from a nominal one reliably.
-  if (initial) {
-    const { x, y, colour, rows } = initial
-    const knownTypes: Record<string, FieldType> = {}
-    if (x.field) knownTypes[x.field] = x.type
-    if (y.field) knownTypes[y.field] = y.type
-    if (colour?.field) knownTypes[colour.field] = colour.type
-    table = tableFromRows(rows, knownTypes)
-  }
 
   function load(text: string) {
     importError = ''
@@ -46,6 +85,16 @@
     if (result.ok) {
       table = result.table
       parseError = ''
+      // A fresh paste can replace the columns entirely (different header
+      // row). A selection that named a column from the old table is no
+      // longer meaningful once that column is gone — clear it rather than
+      // silently keeping a stale field name selected while the dropdown
+      // shows something else, which would let Insert commit a spec that
+      // encodes a column absent from the new data.
+      const names = new Set(table.columns.map((c) => c.name))
+      if (!names.has(xField)) xField = ''
+      if (!names.has(yField)) yField = ''
+      if (colourField && !names.has(colourField)) colourField = ''
     } else {
       table = null
       parseError = result.message
@@ -71,20 +120,20 @@
 
   const FIELD_TYPES: readonly FieldType[] = ['quantitative', 'temporal', 'nominal']
 
-  let mark: Mark = $state(initial?.mark ?? 'line')
-  let xField = $state(initial?.x.field ?? '')
-  let yField = $state(initial?.y.field ?? '')
-  let colourField = $state(initial?.colour?.field ?? '')
-  let xTitle = $state(initial?.x.title ?? '')
-  let yTitle = $state(initial?.y.title ?? '')
-  let aggregate: Aggregate = $state(initial?.y.aggregate ?? 'none')
+  let mark: Mark = $state(seed.mark)
+  let xField = $state(seed.xField)
+  let yField = $state(seed.yField)
+  let colourField = $state(seed.colourField)
+  let xTitle = $state(seed.xTitle)
+  let yTitle = $state(seed.yTitle)
+  let aggregate: Aggregate = $state(seed.aggregate)
 
   // Types are seeded from inference when a column is picked, then owned by the
   // user: an ID column of integers infers as quantitative but is really
   // nominal, and nothing but the author can know that.
-  let xType: FieldType = $state(initial?.x.type ?? 'nominal')
-  let yType: FieldType = $state(initial?.y.type ?? 'quantitative')
-  let colourType: FieldType = $state(initial?.colour?.type ?? 'nominal')
+  let xType: FieldType = $state(seed.xType)
+  let yType: FieldType = $state(seed.yType)
+  let colourType: FieldType = $state(seed.colourType)
 
   const columns = $derived(table?.columns ?? [])
   const typeOf = (name: string): FieldType =>
@@ -103,7 +152,16 @@
     if (name) colourType = typeOf(name)
   }
 
-  const ready = $derived(table !== null && xField !== '' && (yField !== '' || aggregate === 'count'))
+  // Boxplot computes its own summary and ignores an aggregate; builderState's
+  // y.aggregate already substitutes 'none' for it, so readiness has to test
+  // that same effective value rather than the raw control — otherwise
+  // count+boxplot reads as ready (an aggregate is "selected") while the spec
+  // it commits carries neither a field nor a real aggregate.
+  const effectiveAggregate = $derived<Aggregate>(mark === 'boxplot' ? 'none' : aggregate)
+
+  const ready = $derived(
+    table !== null && xField !== '' && (yField !== '' || effectiveAggregate === 'count'),
+  )
 
   // Named builderState rather than state: a local variable named `state`
   // collides with the `$state` rune elsewhere in the file — Svelte parses
@@ -115,12 +173,7 @@
           mark,
           rows: table.rows,
           x: { field: xField, type: xType, title: xTitle },
-          y: {
-            field: yField,
-            type: yType,
-            title: yTitle,
-            aggregate: mark === 'boxplot' ? 'none' : aggregate,
-          },
+          y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
           colour: colourField ? { field: colourField, type: colourType } : null,
         }
       : null,
@@ -131,11 +184,19 @@
   let generation = 0
 
   // Mirrors charts.ts: a newer pass invalidates an older one, so a slow embed
-  // cannot overwrite a faster later one.
+  // cannot overwrite a faster later one. Bumping generation on the early-out
+  // path too means an embed already in flight when the table/selection is
+  // cleared takes the stale branch on arrival and finalizes itself, instead
+  // of resurrecting a view for a chart that is no longer showing.
   $effect(() => {
     const s = builderState
     const el = previewEl
-    if (!s || !el) return
+    if (!s || !el) {
+      generation++
+      view?.finalize()
+      view = null
+      return
+    }
     const gen = ++generation
     void embedChart(el, buildSpec(s)).then((v) => {
       if (gen !== generation) {
@@ -147,7 +208,13 @@
     })
   })
 
-  $effect(() => () => view?.finalize())
+  // Teardown bumps generation first so an embed still in flight when the
+  // modal closes takes the stale branch on arrival and finalizes itself
+  // rather than assigning into a `view` nothing will ever read again.
+  $effect(() => () => {
+    generation++
+    view?.finalize()
+  })
 
   function commit() {
     if (builderState) oncommit(buildSpec(builderState))
