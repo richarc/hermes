@@ -134,7 +134,7 @@ full, plus Zotero integration that was not in the original sketch:
 Charts get the attention citations got in v0.3: the release is entirely about
 making Vega-Lite usable without hand-writing a spec.
 
-- [ ] Implement a Vega-Lite builder for importing data and creating the chart
+- [x] Implement a Vega-Lite builder for importing data and creating the chart
       graphically.
 
 ## Backlog (unscheduled)

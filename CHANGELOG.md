@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A chart builder, from Insert → Chart… or the toolbar. Paste a table or
+  import a CSV, choose a mark and which columns map to which axis, and watch
+  the chart update as you go; inserting writes a `vega-lite` block at the
+  cursor with the data inlined, so the document stays self-contained. Put the
+  cursor back inside that block and Insert → Chart… reopens it with the
+  controls filled in. A chart using anything the builder cannot express —
+  layers, transforms, a hand-set `title: null` — is left strictly alone, and
+  says which feature stopped it rather than failing vaguely.
+- Insert Citation… moved from the File menu to a new Insert menu, alongside
+  Insert Chart…. ⌘⇧C is unchanged.
 - Block folding is now visible in the View menu: Fold Block and Unfold Block
   (⌘⌥[ and ⌘⌥], which already worked but were undiscoverable), plus Fold All
   Code Blocks and Unfold All. Folding a `vega-lite` or code block keeps its
