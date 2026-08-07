@@ -445,4 +445,130 @@ describe('chart builder', () => {
     flushSync()
     expect(target.querySelector('.chart-builder')).toBeNull()
   })
+
+  it('opens targeting an empty fence rather than refusing it as invalid JSON', async () => {
+    const target = await openDoc(['# Results', '', '```vega-lite', '```', ''].join('\n'))
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const content = view.state.doc.toString()
+    view.dispatch({ selection: { anchor: content.indexOf('```vega-lite') + 5 } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+
+    // Not refused, and not prefilled either — a fresh builder targeted at
+    // replacing this block on commit.
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+    expect(target.textContent).toContain('Insert chart')
+  })
+
+  it('replaces exactly the target block in place on an edited-chart commit, leaving prose intact', async () => {
+    const target = await openDoc(WITH_CHART)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: WITH_CHART.indexOf('"mark"') } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Update chart')
+
+    const markSelect = target.querySelector<HTMLSelectElement>('select[data-field="mark"]')!
+    markSelect.value = 'bar'
+    markSelect.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+
+    const doc = view.state.doc.toString()
+    expect(target.querySelector('.chart-builder')).toBeNull()
+    expect((doc.match(/```vega-lite/g) ?? []).length).toBe(1)
+    expect(doc).toContain('"mark": "bar"')
+    expect(doc).not.toContain('"mark": "line"')
+    expect(doc).toContain('# Results')
+  })
+
+  // Critical finding: replaceRange used a stashed { from, to } blindly. The
+  // chart-builder modal does not block the keyboard, so a stray edit reaching
+  // the editor behind it — three characters typed inside the target block —
+  // shifted the closing fence without the stashed range knowing, and commit
+  // wrote using the stale offsets, leaving the old fence as garbage after the
+  // new text. commitChart now re-validates the range against the live
+  // document immediately before writing and refuses rather than corrupt it.
+  it('refuses to commit when the target block changed while the builder was open', async () => {
+    const target = await openDoc(WITH_CHART)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const insidePos = WITH_CHART.indexOf('"mark"')
+    view.dispatch({ selection: { anchor: insidePos } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Update chart')
+
+    // Simulates a stray keystroke reaching the editor behind the modal —
+    // exactly what the paste-box autofocus in ChartBuilder.svelte exists to
+    // prevent in the real app, and exactly what the commit-time validation
+    // exists to catch if it happens anyway.
+    view.dispatch({ changes: { from: insidePos, to: insidePos, insert: 'XYZ' } })
+    const stray = view.state.doc.toString()
+
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+
+    expect(target.querySelector('.chart-builder')).toBeNull()
+    expect(target.textContent).toContain("wasn't changed")
+    // The document is exactly the stray edit — commit must refuse rather
+    // than write using stale offsets, not merely avoid an obvious corruption.
+    expect(view.state.doc.toString()).toBe(stray)
+  })
+
+  // Important finding: openChartBuilder had no re-entry guard. Firing
+  // menu:insert-chart again while the builder is already open reassigned
+  // chartTarget (even though chartInitial's new value would be silently
+  // ignored, since ChartBuilder reads `initial` only once at mount) — so a
+  // pending Insert silently turned into a Replace of whatever block the
+  // cursor now sat in. openChartBuilder now no-ops while chartOpen is true.
+  it('a second menu:insert-chart while already open does not turn Insert into Replace', async () => {
+    const target = await openDoc(WITH_CHART)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 0 } }) // in the heading, not inside the chart
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Insert chart')
+
+    // Move into the existing chart and re-fire the menu — must be a no-op
+    // while the builder is already open, not a switch to replace mode.
+    view.dispatch({ selection: { anchor: WITH_CHART.indexOf('"mark"') } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Insert chart')
+
+    // Cursor back to a safe prose position so the commit's outcome (insert
+    // vs. replace) is unambiguous.
+    view.dispatch({ selection: { anchor: 0 } })
+
+    const box = target.querySelector<HTMLTextAreaElement>('#chart-paste')!
+    box.value = 'dose,response\n0,1\n5,2\n'
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    for (const [field, value] of [
+      ['x', 'dose'],
+      ['y', 'response'],
+    ]) {
+      const el = target.querySelector<HTMLSelectElement>(`select[data-field="${field}"]`)!
+      el.value = value
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+      flushSync()
+    }
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Insert chart')!
+      .click()
+    flushSync()
+
+    const doc = view.state.doc.toString()
+    // The original chart survives untouched, and a new one was inserted
+    // alongside it — not in place of it.
+    expect(doc).toContain('"field": "a"')
+    expect(doc).toContain('"field": "dose"')
+    expect((doc.match(/```vega-lite/g) ?? []).length).toBe(2)
+  })
 })

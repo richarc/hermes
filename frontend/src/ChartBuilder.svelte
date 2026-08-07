@@ -219,6 +219,17 @@
   function commit() {
     if (builderState) oncommit(buildSpec(builderState))
   }
+
+  let pasteEl: HTMLTextAreaElement | undefined = $state()
+
+  // The modal sits over a full-document editor whose keyboard shortcuts
+  // (menu accelerators aside) still work if focus is left behind: stray
+  // typing must land here, not in the document underneath. The paste box is
+  // also where the user goes first, so this doubles as sensible default
+  // focus. Runs once: pasteEl is only ever assigned by the initial mount.
+  $effect(() => {
+    pasteEl?.focus()
+  })
 </script>
 
 <div class="modal-backdrop">
@@ -227,7 +238,7 @@
 
     <section class="data-step">
       <label for="chart-paste">Paste a table</label>
-      <textarea id="chart-paste" rows="6" value={pasted} oninput={onPaste}></textarea>
+      <textarea id="chart-paste" bind:this={pasteEl} rows="6" value={pasted} oninput={onPaste}></textarea>
       <button onclick={() => void chooseFile()}>Choose file…</button>
 
       {#if parseError}

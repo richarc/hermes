@@ -139,6 +139,10 @@
   })
 
   async function insertCitation() {
+    // Same reasoning as the chartOpen guards below: the chart builder modal
+    // does not block the keyboard, so this must refuse to touch the document
+    // while it's open rather than trust that focus alone kept it out.
+    if (chartOpen) return
     try {
       const picked = await DocumentService.PickCitations()
       if (picked) {
@@ -182,6 +186,12 @@
   let chartTarget: { from: number; to: number } | null = null
 
   function openChartBuilder() {
+    // A second trigger while the builder is already open must be a no-op,
+    // not a way to silently retarget it: ChartBuilder reads `initial` once at
+    // mount, so reassigning chartInitial here would be ignored — but
+    // chartTarget WOULD update, turning a pending insert into a replace of
+    // whatever block the cursor happens to be in.
+    if (chartOpen) return
     // Same guard as applyFormat: menu items fire regardless of focus, so
     // without it this would act on the hidden document behind the welcome pane.
     if (showWelcome) return
@@ -190,6 +200,16 @@
     if (!block) {
       chartInitial = null
       chartTarget = null
+      chartOpen = true
+      return
+    }
+
+    // An empty fence has no JSON to read, but that's not a refusal case: a
+    // fresh builder targeted at replacing this (empty) block is exactly the
+    // right thing to open.
+    if (block.spec.trim() === '') {
+      chartInitial = null
+      chartTarget = { from: block.from, to: block.to }
       chartOpen = true
       return
     }
@@ -211,6 +231,21 @@
   function commitChart(spec: string) {
     const block = '```vega-lite\n' + spec + '\n```'
     if (chartTarget) {
+      // chartTarget is a raw offset pair captured when the builder opened and
+      // never remapped against later document changes, so it cannot be
+      // trusted blindly at commit time — guards elsewhere keep the document
+      // still while the builder is open, but this is the safety net that
+      // holds even if one of those guards is missing or a future change adds
+      // a new way to edit the document. Re-check that the range still looks
+      // like a vega-lite block before overwriting it.
+      const current = editor.textInRange(chartTarget.from, chartTarget.to)
+      if (!current.startsWith('```vega-lite') || !current.endsWith('```')) {
+        toast("That chart moved while the builder was open, so it wasn't changed.")
+        chartOpen = false
+        chartInitial = null
+        chartTarget = null
+        return
+      }
       editor.replaceRange(chartTarget.from, chartTarget.to, block)
     } else {
       editor.insertAtCursor(block + '\n')
@@ -218,14 +253,18 @@
     chartOpen = false
     chartInitial = null
     chartTarget = null
-    // Inline data runs to dozens of lines; fold it so the prose stays readable.
+    // Every commit re-folds every vega-lite block in the document, including
+    // ones the user had deliberately left unfolded — not just the block just
+    // inserted or replaced.
     editor.runCommand(foldAllCodeBlocks)
   }
 
   function applyFormat(name: string) {
     // Menu accelerators fire regardless of focus, so a guard is required:
-    // without it, Cmd-B on the welcome screen would edit a hidden document.
-    if (showWelcome) return
+    // without it, Cmd-B on the welcome screen would edit a hidden document —
+    // and, for the same reason, Cmd-B while the chart builder modal is open
+    // would edit the document behind it.
+    if (showWelcome || chartOpen) return
     const cmd = FORMAT_COMMANDS[name]
     if (cmd) editor.runCommand(cmd)
   }
@@ -239,9 +278,9 @@
 
   function applyFold(name: string) {
     // Same guard as applyFormat: menu accelerators fire regardless of focus,
-    // so without it a chord on the welcome screen would act on a hidden
-    // document.
-    if (showWelcome) return
+    // so without it a chord on the welcome screen — or with the chart
+    // builder open — would act on a hidden document.
+    if (showWelcome || chartOpen) return
     const cmd = FOLD_COMMANDS[name]
     if (cmd) editor.runCommand(cmd)
   }
@@ -288,6 +327,10 @@
   }
 
   function requestNew() {
+    // menu:new fires regardless of focus (and regardless of whether the
+    // chart builder modal is covering the editor), so this must refuse
+    // rather than swap the whole document out from under an open modal.
+    if (chartOpen) return
     if (dirty) {
       pendingAction = 'new'
       return
@@ -321,6 +364,9 @@
   }
 
   function requestOpen() {
+    // Same reasoning as requestNew: menu:open must not swap the document out
+    // from under an open chart builder modal.
+    if (chartOpen) return
     if (dirty) {
       pendingAction = 'open'
       return
@@ -339,6 +385,9 @@
   }
 
   function requestOpenRecent(p: string) {
+    // Same reasoning as requestNew: menu- and welcome-pane-triggered opens
+    // must not swap the document out from under an open chart builder modal.
+    if (chartOpen) return
     if (dirty) {
       pendingAction = 'open'
       pendingRecentPath = p

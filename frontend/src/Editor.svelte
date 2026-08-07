@@ -235,6 +235,20 @@
     return null
   }
 
+  /**
+   * The document text between two positions, or '' if the range does not fit
+   * inside the current document. Callers use the empty result as "this range
+   * is no longer meaningful" rather than risking an out-of-bounds exception —
+   * a range captured before the document changed underneath it (e.g. a chart
+   * block's position, stashed while a modal was open) cannot be trusted to
+   * still be in bounds.
+   */
+  export function textInRange(from: number, to: number): string {
+    const len = view.state.doc.length
+    if (from < 0 || to > len || from > to) return ''
+    return view.state.doc.sliceString(from, to)
+  }
+
   /** Replaces a document range, leaving the cursor after the inserted text. */
   export function replaceRange(from: number, to: number, text: string): void {
     view.dispatch({
