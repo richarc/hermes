@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDelimited } from './dataTable'
+import { parseDelimited, tableFromRows } from './dataTable'
 
 function ok(text: string) {
   const r = parseDelimited(text)
@@ -134,5 +134,27 @@ describe('parseDelimited', () => {
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.message).toMatch(/values/)
+  })
+})
+
+describe('tableFromRows', () => {
+  it('keeps a mapped column typed temporal even when its values would not infer that way', () => {
+    // "Jan 2026" is not ISO, so inferType alone would call this nominal —
+    // this is the regression: the encoding's authoritative type must win.
+    const rows = [{ when: 'Jan 2026', n: 1 }, { when: 'Feb 2026', n: 2 }]
+    const t = tableFromRows(rows, { when: 'temporal' })
+    expect(t.columns).toContainEqual({ name: 'when', type: 'temporal' })
+  })
+
+  it('infers an unmapped column of ISO dates as temporal, not nominal', () => {
+    const rows = [{ when: '2026-01-05', n: 1 }, { when: '2026-02-06', n: 2 }]
+    const t = tableFromRows(rows, { n: 'quantitative' })
+    expect(t.columns).toContainEqual({ name: 'when', type: 'temporal' })
+  })
+
+  it('infers an unmapped column as nominal when only its first row looks numeric', () => {
+    const rows = [{ code: 5 }, { code: 'n/a' }]
+    const t = tableFromRows(rows)
+    expect(t.columns).toContainEqual({ name: 'code', type: 'nominal' })
   })
 })

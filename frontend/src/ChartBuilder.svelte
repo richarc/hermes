@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { parseDelimited, type DataTable } from './lib/dataTable'
+  import { parseDelimited, tableFromRows, type DataTable, type FieldType } from './lib/dataTable'
   import type { BuilderState } from './lib/chartSpec'
   import { DocumentService } from '../bindings/hermes'
 
@@ -21,16 +21,17 @@
   let importError = $state('')
 
   // Reopening an existing chart arrives with rows already parsed, so the paste
-  // box starts empty and the table is seeded from the spec.
+  // box starts empty and the table is seeded from the spec. The encoded
+  // columns (x/y/colour) already carry an authoritative type read out of the
+  // spec — trust those rather than re-guessing, since a guess from row
+  // values alone cannot tell a date column from a nominal one reliably.
   if (initial) {
-    const names = Object.keys(initial.rows[0] ?? {})
-    table = {
-      columns: names.map((name) => ({
-        name,
-        type: typeof initial.rows[0]?.[name] === 'number' ? 'quantitative' : 'nominal',
-      })),
-      rows: initial.rows,
-    }
+    const { x, y, colour, rows } = initial
+    const knownTypes: Record<string, FieldType> = {}
+    if (x.field) knownTypes[x.field] = x.type
+    if (y.field) knownTypes[y.field] = y.type
+    if (colour?.field) knownTypes[colour.field] = colour.type
+    table = tableFromRows(rows, knownTypes)
   }
 
   function load(text: string) {

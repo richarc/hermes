@@ -56,7 +56,7 @@ function isNumeric(v: string): boolean {
   return Number.isFinite(n)
 }
 
-function inferType(values: string[]): FieldType {
+export function inferType(values: string[]): FieldType {
   const present = values.filter((v) => v !== '')
   if (present.length === 0) return 'nominal'
   if (present.every(isNumeric)) return 'quantitative'
@@ -130,4 +130,30 @@ export function parseDelimited(text: string): ParseResult {
   })
 
   return { ok: true, table: { columns, rows } }
+}
+
+/**
+ * Rebuilds a DataTable from rows that were already parsed elsewhere — e.g.
+ * reopening a previously inserted chart, where the spec's rows are available
+ * but the column types are not carried alongside them.
+ *
+ * `knownTypes` supplies the authoritative type for any column already mapped
+ * to an encoding (read out of the spec itself, not re-derived); every other
+ * column is inferred from its full run of values, the same way
+ * `parseDelimited` types a freshly pasted column — not from a single row,
+ * which cannot distinguish "this row happens to be a number" from "this
+ * column is quantitative."
+ */
+export function tableFromRows(
+  rows: Record<string, string | number>[],
+  knownTypes: Record<string, FieldType> = {},
+): DataTable {
+  const names = Object.keys(rows[0] ?? {})
+  return {
+    columns: names.map((name) => ({
+      name,
+      type: knownTypes[name] ?? inferType(rows.map((r) => String(r[name] ?? ''))),
+    })),
+    rows,
+  }
 }
