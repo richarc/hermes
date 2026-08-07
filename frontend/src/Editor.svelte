@@ -154,6 +154,22 @@
   }
 
   /**
+   * Inserts text as its own block, guaranteeing it starts on a fresh line.
+   *
+   * insertAtCursor is deliberately raw — a citation belongs mid-sentence. A
+   * fenced block does not: written at a column other than 0 it is not a fence
+   * at all, markdown renders its contents as prose, and the syntax tree will
+   * not recognise it, so the builder cannot reopen what it just wrote.
+   */
+  export function insertBlockAtCursor(text: string): void {
+    const head = view.state.selection.main.head
+    const line = view.state.doc.lineAt(head)
+    const prefix = head === line.from ? '' : '\n\n'
+    view.dispatch(view.state.replaceSelection(prefix + text))
+    view.focus()
+  }
+
+  /**
    * Runs an editor command. Typed `Command` rather than `StateCommand` because
    * CodeMirror's fold commands need the view — and a `StateCommand` works when
    * handed a view too, so this one signature serves both kinds.

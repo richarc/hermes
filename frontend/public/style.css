@@ -208,6 +208,8 @@ html, body {
 .chart-builder {
   width: min(56rem, 90vw);
   max-width: min(56rem, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
   text-align: left;
 }
 

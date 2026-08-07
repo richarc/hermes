@@ -437,6 +437,48 @@ describe('chart builder', () => {
     expect(target.querySelector('.chart-builder')).toBeNull()
   })
 
+  // Critical finding: commitChart's insert branch called editor.insertAtCursor,
+  // a bare replaceSelection with no leading newline. Leaving the cursor
+  // mid-line (the ordinary place it sits after typing a sentence) and
+  // inserting a chart merged the fence into the prose line — markdown then
+  // rendered the whole dataset as visible text, and Lezer would not parse it
+  // as a FencedCode node, so the builder could never reopen it. This is the
+  // path that broke; it now goes through insertBlockAtCursor instead.
+  it('inserts on its own line even when the cursor sits mid-line, not merged into the prose', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const midLine = view.state.doc.toString().indexOf('Just prose.') + 'Just prose.'.length
+    view.dispatch({ selection: { anchor: midLine } })
+
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+
+    const box = target.querySelector<HTMLTextAreaElement>('#chart-paste')!
+    box.value = 'dose,response\n0,1\n5,2\n'
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    for (const [field, value] of [
+      ['x', 'dose'],
+      ['y', 'response'],
+    ]) {
+      const el = target.querySelector<HTMLSelectElement>(`select[data-field="${field}"]`)!
+      el.value = value
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+      flushSync()
+    }
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Insert chart')!
+      .click()
+    flushSync()
+
+    const doc = view.state.doc.toString()
+    expect(doc).toMatch(/(^|\n)```vega-lite/)
+    // The original sentence survives whole, on its own line — not merged
+    // into the fence, which is what made the document unrenderable and the
+    // block unreopenable.
+    expect(doc.split('\n')).toContain('Just prose.')
+  })
+
   it('does nothing from the welcome screen', async () => {
     recents.current = ['/tmp/paper.md']
     const { target } = mountApp()
@@ -570,5 +612,40 @@ describe('chart builder', () => {
     expect(doc).toContain('"field": "a"')
     expect(doc).toContain('"field": "dose"')
     expect((doc.match(/```vega-lite/g) ?? []).length).toBe(2)
+  })
+
+  // Minor finding: the builder could open on top of the unsaved-changes
+  // confirm dialog, leaving that dialog's buttons keyboard-reachable behind a
+  // modal with no focus trap. openChartBuilder now refuses while pendingAction
+  // is set, same shape as its existing chartOpen/showWelcome guards.
+  it('does not open the chart builder over the unsaved-changes confirm dialog', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } }) // make the document dirty
+    flushSync()
+
+    listeners['menu:new']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('unsaved') // confirm dialog is up
+
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).toBeNull()
+  })
+
+  // Same robustness gap in the other direction: close:confirm fires
+  // regardless of what else is on screen, so without a guard it could raise
+  // the unsaved-changes dialog behind the chart modal.
+  it('does not raise the unsaved-changes dialog while the chart builder is open', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+
+    listeners['close:confirm']({ data: null })
+    flushSync()
+
+    expect(target.textContent).not.toContain('unsaved')
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
   })
 })

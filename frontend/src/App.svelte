@@ -195,6 +195,10 @@
     // Same guard as applyFormat: menu items fire regardless of focus, so
     // without it this would act on the hidden document behind the welcome pane.
     if (showWelcome) return
+    // The unsaved-changes confirm dialog must stay the only modal on screen —
+    // opening the builder on top of it would leave its buttons keyboard-
+    // reachable behind a chart modal with no focus trap.
+    if (pendingAction) return
 
     const block = editor.enclosingChartBlock()
     if (!block) {
@@ -248,7 +252,7 @@
       }
       editor.replaceRange(chartTarget.from, chartTarget.to, block)
     } else {
-      editor.insertAtCursor(block + '\n')
+      editor.insertBlockAtCursor(block + '\n')
     }
     chartOpen = false
     chartInitial = null
@@ -490,7 +494,13 @@
     })
     Events.On('menu:save', () => void save())
     Events.On('menu:save-as', () => void saveAs())
-    Events.On('close:confirm', () => (pendingAction = 'quit'))
+    Events.On('close:confirm', () => {
+      // Mirrors the openChartBuilder guard above: don't raise the
+      // unsaved-changes dialog behind the chart modal, which has no focus
+      // trap of its own.
+      if (chartOpen) return
+      pendingAction = 'quit'
+    })
     Events.On('recents:changed', () => void refreshRecents())
     Events.On('bib:changed', () => void reloadBibliography())
     Events.On('menu:insert-citation', () => void insertCitation())

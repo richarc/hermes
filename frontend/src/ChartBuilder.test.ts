@@ -100,8 +100,44 @@ describe('ChartBuilder data step', () => {
       b.textContent?.includes('Choose file'),
     )!
     button.click()
-    await vi.waitFor(() => expect(target.textContent).toContain("Couldn't read"))
+    await vi.waitFor(() => expect(target.textContent).toContain('nope'))
     expect(target.querySelector('.chart-builder')).not.toBeNull()
+    cleanup()
+  })
+
+  // Important finding: chooseFile's catch discarded the rejection and always
+  // showed "Couldn't read that file.", even though Go's readDataFile composes
+  // a specific message for the size cap ("that file is 40 MB; the limit is
+  // 25 MB…"). That entire error path was unreachable to users — a deliberate,
+  // explainable limit read as file corruption. Surface the real message.
+  it('surfaces the actual error message from a rejected import, not a generic string', async () => {
+    ImportData.mockRejectedValueOnce(
+      new Error('that file is 40 MB; the limit is 25 MB because the data is stored in the document'),
+    )
+    const { target, cleanup } = mountBuilder()
+    const button = [...target.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Choose file'),
+    )!
+    button.click()
+    await vi.waitFor(() =>
+      expect(target.textContent).toContain('the limit is 25 MB because the data is stored'),
+    )
+    cleanup()
+  })
+
+  it('clears a stale import error when a second import is attempted', async () => {
+    ImportData.mockRejectedValueOnce(new Error('nope'))
+    const { target, cleanup } = mountBuilder()
+    const button = [...target.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Choose file'),
+    )!
+    button.click()
+    await vi.waitFor(() => expect(target.textContent).toContain('nope'))
+
+    ImportData.mockImplementationOnce(() => new Promise(() => {})) // never resolves
+    button.click()
+    flushSync()
+    expect(target.textContent).not.toContain('nope')
     cleanup()
   })
 
@@ -146,7 +182,28 @@ describe('ChartBuilder encoding step', () => {
     const { target, cleanup } = mountBuilder()
     paste(target, 'dose,response\n0,1\n5,2\n')
     const x = target.querySelector<HTMLSelectElement>('select[data-field="x"]')!
-    expect([...x.options].map((o) => o.value)).toEqual(['dose', 'response'])
+    // Leading '' is the disabled "choose a column…" placeholder — present so
+    // a fresh paste reads as unset rather than blank-and-broken, but never a
+    // real, selectable column.
+    expect([...x.options].map((o) => o.value)).toEqual(['', 'dose', 'response'])
+    cleanup()
+  })
+
+  // Minor finding: xField/yField start as '' with no matching <option>, so
+  // both selects rendered blank on a fresh paste — reading as broken rather
+  // than merely unset. A disabled placeholder option now makes '' a real,
+  // displayed choice, without ever being auto-selectable (Insert disabled
+  // above already guards that no real column gets picked for you).
+  it('shows a disabled placeholder in the x and y selects before a column is chosen', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    for (const field of ['x', 'y']) {
+      const el = target.querySelector<HTMLSelectElement>(`select[data-field="${field}"]`)!
+      const placeholder = el.options[0]
+      expect(placeholder.value).toBe('')
+      expect(placeholder.disabled).toBe(true)
+      expect(el.value).toBe('')
+    }
     cleanup()
   })
 
@@ -298,7 +355,7 @@ describe('ChartBuilder encoding step', () => {
     paste(target, 'alpha,beta\n1,2\n3,4\n')
 
     const x = target.querySelector<HTMLSelectElement>('select[data-field="x"]')!
-    expect([...x.options].map((o) => o.value)).toEqual(['alpha', 'beta'])
+    expect([...x.options].map((o) => o.value)).toEqual(['', 'alpha', 'beta'])
     expect(insert.disabled).toBe(true)
     cleanup()
   })

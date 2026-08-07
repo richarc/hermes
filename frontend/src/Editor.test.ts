@@ -15,6 +15,7 @@ interface ChartBlock {
 interface EditorApi {
   setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
+  insertBlockAtCursor(text: string): void
   runCommand(cmd: Command): void
   lineCount(): number
   topVisibleLine(): number
@@ -76,6 +77,43 @@ describe('Editor.setContent', () => {
     flushSync()
 
     expect(text()).toBe('second')
+    cleanup()
+  })
+})
+
+describe('Editor.insertBlockAtCursor', () => {
+  // Critical finding: commitChart used insertAtCursor (a bare
+  // replaceSelection) for a fresh insert, so a chart placed after prose on
+  // the same line landed mid-line — not a fence at all, so markdown rendered
+  // the raw JSON as prose and the syntax tree could never recognise it well
+  // enough to reopen. insertBlockAtCursor exists specifically to guarantee a
+  // fresh line.
+  it('starts the block on a fresh line when the cursor is mid-line, leaving the original prose intact', () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('Some prose here.', 'end')
+    flushSync()
+
+    editor.insertBlockAtCursor('```vega-lite\n{}\n```')
+    flushSync()
+
+    const doc = text()
+    expect(doc).toMatch(/(^|\n)```vega-lite/)
+    // The original sentence survives whole, on its own line, not merged
+    // into the fence.
+    const lines = doc.split('\n')
+    expect(lines[0]).toBe('Some prose here.')
+    cleanup()
+  })
+
+  it('does not add a spurious blank line when the cursor is already at column 0', () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('') // cursor defaults to the start
+    flushSync()
+
+    editor.insertBlockAtCursor('```vega-lite\n{}\n```')
+    flushSync()
+
+    expect(text()).toBe('```vega-lite\n{}\n```')
     cleanup()
   })
 })

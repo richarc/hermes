@@ -128,6 +128,22 @@ function diffPaths(a: unknown, b: unknown, path = '', out: string[] = []): strin
 }
 
 /**
+ * Resolves a dotted path (as produced by diffPaths, including the '(root)'
+ * sentinel) against a parsed spec. Used to tell a path that genuinely exists
+ * on the user's original spec from one that only exists on the rebuild side
+ * — diffPaths reports both, but only the former is honest to show the user.
+ */
+function getPath(obj: Record<string, unknown>, path: string): unknown {
+  if (path === '(root)') return obj
+  let cur: unknown = obj
+  for (const seg of path.split('.')) {
+    if (!isPlainObject(cur)) return undefined
+    cur = cur[seg]
+  }
+  return cur
+}
+
+/**
  * A row the builder can express: a plain object whose every value is a
  * string or number, matching `Record<string, string | number>` exactly.
  * Anything else — arrays, `null`, primitives, nested objects — cannot
@@ -199,9 +215,23 @@ export function readSpec(json: string): ReadResult {
   const rebuilt: unknown = JSON.parse(buildSpec(candidate))
   if (deepEqual(rebuilt, parsed)) return { ok: true, state: candidate }
 
+  // diffPaths diffs both directions: it also reports paths that exist only
+  // because the rebuild introduced them (a layered spec's candidate always
+  // has top-level `mark`/`encoding`, even though the user's original never
+  // did). Naming those to the user is actively misleading — "That chart uses
+  // encoding and layer" when their spec has no top-level `encoding` at all —
+  // so only paths present on the ORIGINAL spec are reportable. A path that
+  // survives is present but different (e.g. encoding.x.title: null vs
+  // omitted), which is still honest to show.
+  const allPaths = diffPaths(parsed, rebuilt)
+  const originalPaths = allPaths.filter((p) => getPath(parsed, p) !== undefined)
+
   return {
     ok: false,
     reason: 'unsupported',
-    unconsumed: [...new Set(diffPaths(parsed, rebuilt))].sort(),
+    // If nothing survives the filter (every differing path is a rebuild-only
+    // artefact), fall back to the unfiltered list rather than an empty
+    // message — still generic, but not fabricated.
+    unconsumed: [...new Set(originalPaths.length > 0 ? originalPaths : allPaths)].sort(),
   }
 }

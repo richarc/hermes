@@ -113,6 +113,21 @@ describe('readSpec', () => {
     expect(r.unconsumed).toContain('layer')
   })
 
+  // Important finding: diffPaths reported paths on BOTH sides of the diff —
+  // including ones that exist only because rebuilding the candidate always
+  // introduces top-level `mark`/`encoding`, even when the user's original
+  // layered spec has neither. Sorted alphabetically, `encoding` landed first,
+  // so the refusal read "That chart uses encoding and layer" for a spec with
+  // no top-level `encoding` at all. Only paths present on the ORIGINAL spec
+  // may be reported now.
+  it('refuses a layered spec without naming encoding, which the original spec does not have', () => {
+    const r = readSpec(JSON.stringify({ data: { values: [] }, layer: [{ mark: 'line' }] }))
+    expect(r.ok).toBe(false)
+    if (r.ok || r.reason !== 'unsupported') throw new Error('expected unsupported')
+    expect(r.unconsumed).toContain('layer')
+    expect(r.unconsumed).not.toContain('encoding')
+  })
+
   it('refuses a spec with transforms and names transform', () => {
     const spec = {
       data: { values: [{ a: 1 }] },
@@ -127,6 +142,18 @@ describe('readSpec', () => {
     expect(r.ok).toBe(false)
     if (r.ok || r.reason !== 'unsupported') throw new Error('expected unsupported')
     expect(r.unconsumed).toContain('transform')
+  })
+
+  // Same rebuild-artefact trap as the layered case above, on the other
+  // property that always reappears on rebuild: a spec with `transform` and no
+  // top-level `encoding` must not be told it "uses encoding".
+  it('refuses transform without encoding, on a spec with no top-level encoding', () => {
+    const spec = { data: { values: [] }, transform: [{ filter: 'true' }], mark: 'line' }
+    const r = readSpec(JSON.stringify(spec))
+    expect(r.ok).toBe(false)
+    if (r.ok || r.reason !== 'unsupported') throw new Error('expected unsupported')
+    expect(r.unconsumed).toContain('transform')
+    expect(r.unconsumed).not.toContain('encoding')
   })
 
   it('refuses external data and names data', () => {

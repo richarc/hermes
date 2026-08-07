@@ -107,14 +107,20 @@
   }
 
   async function chooseFile() {
+    importError = ''
     try {
       const text = await DocumentService.ImportData()
       if (text) {
         pasted = text
         load(text)
       }
-    } catch {
-      importError = "Couldn't read that file."
+    } catch (err) {
+      // Go's readDataFile composes a specific message for the size cap
+      // ("that file is N MB; the limit is M MB…") — surface it rather than
+      // a generic string, which would read as corruption instead of a
+      // deliberate, explainable limit.
+      const message = err instanceof Error ? err.message : String(err)
+      importError = message || "Couldn't read that file."
     }
   }
 
@@ -267,6 +273,7 @@
 
         <label>X
           <select data-field="x" value={xField} onchange={(e) => pickX(e.currentTarget.value)}>
+            <option value="" disabled>choose a column…</option>
             {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
           </select>
         </label>
@@ -279,6 +286,7 @@
 
         <label>Y
           <select data-field="y" value={yField} onchange={(e) => pickY(e.currentTarget.value)}>
+            <option value="" disabled>choose a column…</option>
             {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
           </select>
         </label>
