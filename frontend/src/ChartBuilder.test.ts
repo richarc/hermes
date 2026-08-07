@@ -114,3 +114,133 @@ describe('ChartBuilder data step', () => {
     target.remove()
   })
 })
+
+function select(target: HTMLElement, label: string, value: string) {
+  const el = target.querySelector<HTMLSelectElement>(`select[data-field="${label}"]`)!
+  el.value = value
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+  flushSync()
+}
+
+describe('ChartBuilder encoding step', () => {
+  it('offers every column as an x and y choice once data is loaded', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    const x = target.querySelector<HTMLSelectElement>('select[data-field="x"]')!
+    expect([...x.options].map((o) => o.value)).toEqual(['dose', 'response'])
+    cleanup()
+  })
+
+  it('keeps Insert disabled until both axes are chosen', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    const insert = [...target.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'Insert chart',
+    )!
+    expect(insert.disabled).toBe(true)
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    expect(insert.disabled).toBe(false)
+    cleanup()
+  })
+
+  it('hands the generated spec to oncommit', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const oncommit = vi.fn()
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: { initial: null, oncommit, oncancel: vi.fn() },
+    })
+    flushSync()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Insert chart')!
+      .click()
+    flushSync()
+
+    expect(oncommit).toHaveBeenCalledTimes(1)
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.mark).toBe('line')
+    expect(spec.encoding.x.field).toBe('dose')
+    expect(spec.encoding.y.field).toBe('response')
+    expect(spec.data.values).toHaveLength(2)
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('prefills from an existing chart and labels the action as an update', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar',
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative', title: '' },
+          y: { field: 'response', type: 'quantitative', title: '', aggregate: 'none' },
+          colour: null,
+        },
+        oncommit: vi.fn(),
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="x"]')!.value).toBe('dose')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="mark"]')!.value).toBe('bar')
+    expect(target.textContent).toContain('Update chart')
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('hides the aggregate control for boxplot, which summarises for itself', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'mark', 'boxplot')
+    expect(target.querySelector('select[data-field="aggregate"]')).toBeNull()
+    cleanup()
+  })
+
+  it('seeds the field type from inference when a column is picked', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'label,score\na,1\nb,2\n')
+    select(target, 'x', 'label')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="x-type"]')!.value).toBe(
+      'nominal',
+    )
+    select(target, 'x', 'score')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="x-type"]')!.value).toBe(
+      'quantitative',
+    )
+    cleanup()
+  })
+
+  it('lets the user override an inferred type, and uses the override', () => {
+    // An integer ID column infers as quantitative but is really nominal; only
+    // the author knows that, so the override has to reach the spec.
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const oncommit = vi.fn()
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: { initial: null, oncommit, oncancel: vi.fn() },
+    })
+    flushSync()
+    paste(target, 'id,score\n1,10\n2,20\n')
+    select(target, 'x', 'id')
+    select(target, 'y', 'score')
+    select(target, 'x-type', 'nominal')
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Insert chart')!
+      .click()
+    flushSync()
+
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.encoding.x.type).toBe('nominal')
+    unmount(cmp)
+    target.remove()
+  })
+})
