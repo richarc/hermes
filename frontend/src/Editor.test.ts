@@ -116,6 +116,36 @@ describe('Editor.insertBlockAtCursor', () => {
     expect(text()).toBe('```vega-lite\n{}\n```')
     cleanup()
   })
+
+  // Residual of the same critical bug: replaceSelection inserts at the
+  // selection's `from`, not its `head`. A forward selection (anchor < head)
+  // that starts mid-line but ends at the next line's column 0 has a head
+  // that reads as "column 0" even though the insertion itself lands mid-line
+  // — so a head-keyed check let the fence merge into the prose exactly as
+  // before, just for selections instead of plain cursors. Keying off `from`
+  // fixes it.
+  it('keys off the selection start, not its head, for a forward selection reaching the next line', () => {
+    const { editor, target, text, cleanup } = mountEditor()
+    editor.setContent('Just prose.\nsecond line\n')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const from = 'Just prose.'.length // right after the period — mid-line
+    // Forward selection: anchor at `from` (mid-line), head at the start of
+    // the next line. main.head would read as column 0; main.from does not.
+    view.dispatch({ selection: { anchor: from, head: from + 1 } })
+    flushSync()
+
+    editor.insertBlockAtCursor('```vega-lite\n{}\n```\n')
+    flushSync()
+
+    const doc = text()
+    expect(doc).toMatch(/(^|\n)```vega-lite/)
+    // The original sentence survives whole, on its own line, not merged
+    // into the fence.
+    expect(doc.split('\n')[0]).toBe('Just prose.')
+    cleanup()
+  })
 })
 
 describe('Editor scroll reporting', () => {

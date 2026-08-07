@@ -162,9 +162,9 @@
    * not recognise it, so the builder cannot reopen what it just wrote.
    */
   export function insertBlockAtCursor(text: string): void {
-    const head = view.state.selection.main.head
-    const line = view.state.doc.lineAt(head)
-    const prefix = head === line.from ? '' : '\n\n'
+    const from = view.state.selection.main.from
+    const line = view.state.doc.lineAt(from)
+    const prefix = from === line.from ? '' : '\n\n'
     view.dispatch(view.state.replaceSelection(prefix + text))
     view.focus()
   }
