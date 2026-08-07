@@ -189,6 +189,45 @@ describe('readSpec', () => {
     expect(r.unconsumed.some((p) => p.startsWith('data.values.'))).toBe(false)
   })
 
+  describe('row validation', () => {
+    // Each of these is Array.isArray-true but not every entry is a plain
+    // object of string | number values, so casting the array straight into
+    // BuilderState.rows would produce state that violates its own type.
+    // Instead of casting, readSpec must fail to reproduce the original
+    // "values" array (since it can't represent these rows), leaving them out
+    // of the candidate and refusing via the same by-construction path as any
+    // other unsupported spec.
+    const invalidValues: Record<string, unknown> = {
+      'bare numbers': [1, 2, 3],
+      'a null entry': [null],
+      'bare strings': ['a', 'b'],
+      'a nested array': [[1, 2]],
+      'a nested object value': [{ a: { deep: 1 } }],
+    }
+
+    for (const [label, values] of Object.entries(invalidValues)) {
+      it(`refuses rows containing ${label}`, () => {
+        const spec = {
+          data: { values },
+          mark: 'line',
+          encoding: {
+            x: { field: 'a', type: 'quantitative' },
+            y: { field: 'a', type: 'quantitative' },
+          },
+        }
+        const r = readSpec(JSON.stringify(spec))
+        expect(r.ok).toBe(false)
+        if (r.ok || r.reason !== 'unsupported') throw new Error('expected unsupported')
+        expect(r.unconsumed).toContain('data.values')
+      })
+    }
+
+    it('still accepts a normal row array', () => {
+      const r = readSpec(buildSpec(BASE))
+      expect(r.ok).toBe(true)
+    })
+  })
+
   it('accepts a spec the builder itself would produce', () => {
     const r = readSpec(buildSpec(BASE))
     expect(r.ok).toBe(true)

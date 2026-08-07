@@ -127,6 +127,19 @@ function diffPaths(a: unknown, b: unknown, path = '', out: string[] = []): strin
   return out
 }
 
+/**
+ * A row the builder can express: a plain object whose every value is a
+ * string or number, matching `Record<string, string | number>` exactly.
+ * Anything else — arrays, `null`, primitives, nested objects — cannot
+ * survive as a column value, so `readSpec` must not cast it into one.
+ */
+function isValidRow(v: unknown): v is Record<string, string | number> {
+  return (
+    isPlainObject(v) &&
+    Object.values(v).every((value) => typeof value === 'string' || typeof value === 'number')
+  )
+}
+
 function readEncoding(raw: unknown): Encoding {
   const o = isPlainObject(raw) ? raw : {}
   return {
@@ -167,17 +180,17 @@ export function readSpec(json: string): ReadResult {
     : 'none'
 
   const data = isPlainObject(parsed.data) ? parsed.data : {}
-  const colour = isPlainObject(enc.color)
-    ? { field: readEncoding(enc.color).field, type: readEncoding(enc.color).type }
-    : null
+  const colourEncoding = isPlainObject(enc.color) ? readEncoding(enc.color) : null
+  const colour = colourEncoding ? { field: colourEncoding.field, type: colourEncoding.type } : null
 
   const candidate: BuilderState = {
     mark: (MARKS as readonly string[]).includes(String(parsed.mark))
       ? (parsed.mark as Mark)
       : 'line',
-    rows: Array.isArray(data.values)
-      ? (data.values as Record<string, string | number>[])
-      : [],
+    rows:
+      Array.isArray(data.values) && data.values.every(isValidRow)
+        ? (data.values as Record<string, string | number>[])
+        : [],
     x: readEncoding(enc.x),
     y: { ...y, aggregate },
     colour,
