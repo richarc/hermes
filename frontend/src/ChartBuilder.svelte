@@ -265,7 +265,7 @@
 
     {#if table}
       <section class="encode-step">
-        <label>Mark
+        <label class="mark-row">Mark
           <select data-field="mark" bind:value={mark}>
             {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
           </select>

@@ -229,11 +229,25 @@ html, body {
   color: var(--muted);
 }
 
+/* Three fixed columns so the field, type and title controls line up in the
+   same column for X and for Y. An auto-fill grid packed them end to end, which
+   left the two axes' controls staggered against each other. */
 .encode-step {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 16px;
   margin-top: 16px;
+}
+
+/* Mark applies to the whole chart rather than to an axis, so it gets its own
+   row above them. The select is held to one column's width so spanning the row
+   does not stretch a five-item dropdown across the dialog. */
+.encode-step .mark-row {
+  grid-column: 1 / -1;
+}
+
+.encode-step .mark-row select {
+  max-width: calc((100% - 32px) / 3);
 }
 
 .encode-step label {
