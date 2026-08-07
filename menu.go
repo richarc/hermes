@@ -40,10 +40,6 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		clearItem.SetEnabled(false)
 	}
 
-	file.Add("Insert Citation…").SetAccelerator("shift+cmdorctrl+c").OnClick(func(*application.Context) {
-		app.Event.Emit("menu:insert-citation")
-	})
-
 	file.Add("Save").SetAccelerator("cmdorctrl+s").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:save")
 	})
@@ -77,6 +73,17 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	})
 
 	menu.AddRole(application.EditMenu)
+
+	insert := menu.AddSubmenu("Insert")
+	insert.Add("Citation…").SetAccelerator("shift+cmdorctrl+c").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:insert-citation", nil)
+	})
+	// No accelerator: an invented chord cannot be checked against every macOS
+	// binding, and the menu item is the discoverable route — the same reasoning
+	// as Blockquote in the Format menu.
+	insert.Add("Chart…").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:insert-chart", nil)
+	})
 
 	format := menu.AddSubmenu("Format")
 	heading := format.AddSubmenu("Heading")

@@ -30,6 +30,8 @@
   import { foldCode, unfoldCode, unfoldAll } from '@codemirror/language'
   import type { Command } from '@codemirror/view'
   import { foldAllCodeBlocks } from './lib/foldCommands'
+  import ChartBuilder from './ChartBuilder.svelte'
+  import { readSpec, type BuilderState } from './lib/chartSpec'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -173,6 +175,51 @@
     italic: toggleItalic,
     code: toggleInlineCode,
     strike: toggleStrikethrough,
+  }
+
+  let chartOpen = $state(false)
+  let chartInitial: BuilderState | null = $state(null)
+  let chartTarget: { from: number; to: number } | null = null
+
+  function openChartBuilder() {
+    // Same guard as applyFormat: menu items fire regardless of focus, so
+    // without it this would act on the hidden document behind the welcome pane.
+    if (showWelcome) return
+
+    const block = editor.enclosingChartBlock()
+    if (!block) {
+      chartInitial = null
+      chartTarget = null
+      chartOpen = true
+      return
+    }
+
+    const result = readSpec(block.spec)
+    if (!result.ok) {
+      toast(
+        result.reason === 'invalid-json'
+          ? "That chart block isn't valid JSON, so it can't be opened here."
+          : `That chart uses ${result.unconsumed.slice(0, 2).join(' and ')}, which the builder can't edit.`,
+      )
+      return
+    }
+    chartInitial = result.state
+    chartTarget = { from: block.from, to: block.to }
+    chartOpen = true
+  }
+
+  function commitChart(spec: string) {
+    const block = '```vega-lite\n' + spec + '\n```'
+    if (chartTarget) {
+      editor.replaceRange(chartTarget.from, chartTarget.to, block)
+    } else {
+      editor.insertAtCursor(block + '\n')
+    }
+    chartOpen = false
+    chartInitial = null
+    chartTarget = null
+    // Inline data runs to dozens of lines; fold it so the prose stays readable.
+    editor.runCommand(foldAllCodeBlocks)
   }
 
   function applyFormat(name: string) {
@@ -398,6 +445,7 @@
     Events.On('recents:changed', () => void refreshRecents())
     Events.On('bib:changed', () => void reloadBibliography())
     Events.On('menu:insert-citation', () => void insertCitation())
+    Events.On('menu:insert-chart', () => openChartBuilder())
     Events.On('menu:format', (ev: { data: unknown }) => {
       if (typeof ev.data === 'string') applyFormat(ev.data)
     })
@@ -436,6 +484,7 @@
     <button onclick={requestOpen}>Open</button>
     <button onclick={() => void save()}>Save</button>
     <button onclick={() => void insertCitation()}>Cite</button>
+    <button onclick={openChartBuilder}>Chart</button>
     <button onclick={() => void DocumentService.ExportPDF()}>Export PDF</button>
   </header>
 
@@ -498,5 +547,17 @@
 
   {#if toastMsg}
     <div class="toast" role="status">{toastMsg}</div>
+  {/if}
+
+  {#if chartOpen}
+    <ChartBuilder
+      initial={chartInitial}
+      oncommit={commitChart}
+      oncancel={() => {
+        chartOpen = false
+        chartInitial = null
+        chartTarget = null
+      }}
+    />
   {/if}
 </div>

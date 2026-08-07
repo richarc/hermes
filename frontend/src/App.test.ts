@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
+import { EditorView } from '@codemirror/view'
 
 const { DocumentService, listeners, recents, settings } = vi.hoisted(() => {
   const listeners: Record<string, (ev: { data: unknown }) => void> = {}
@@ -26,6 +27,7 @@ const { DocumentService, listeners, recents, settings } = vi.hoisted(() => {
       ExportPDF: vi.fn(async () => {}),
       Settings: vi.fn(async () => settings.current),
       UpdateSettings: vi.fn(async () => {}),
+      ImportData: vi.fn(async () => ''),
     },
   }
 })
@@ -343,5 +345,104 @@ describe('fold menu', () => {
     flushSync()
 
     expect(target.querySelector('.cm-foldPlaceholder')).toBeNull()
+  })
+})
+
+describe('chart builder', () => {
+  const WITH_CHART = [
+    '# Results',
+    '',
+    '```vega-lite',
+    '{"data": {"values": [{"a": 1}]}, "mark": "line", "encoding": {"x": {"field": "a", "type": "quantitative"}, "y": {"field": "a", "type": "quantitative"}}}',
+    '```',
+    '',
+  ].join('\n')
+
+  const WITH_TRANSFORM = [
+    '# Results',
+    '',
+    '```vega-lite',
+    '{"data": {"values": []}, "transform": [{"filter": "true"}], "mark": "line"}',
+    '```',
+    '',
+  ].join('\n')
+
+  async function openDoc(content: string) {
+    recents.current = ['/tmp/paper.md']
+    DocumentService.OpenPath.mockResolvedValueOnce({ path: '/tmp/paper.md', content })
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+    await vi.waitFor(() => expect(target.textContent).toContain('Results'))
+    return target
+  }
+
+  it('opens an empty builder from prose', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+    expect(target.textContent).toContain('Insert chart')
+  })
+
+  it('prefills the builder when the cursor is inside a chart block', async () => {
+    const target = await openDoc(WITH_CHART)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: WITH_CHART.indexOf('"mark"') } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Update chart')
+  })
+
+  it('refuses a spec it cannot model and leaves the document untouched', async () => {
+    const target = await openDoc(WITH_TRANSFORM)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const before = view.state.doc.toString()
+    view.dispatch({ selection: { anchor: WITH_TRANSFORM.indexOf('"filter"') } })
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+
+    expect(target.querySelector('.chart-builder')).toBeNull()
+    expect(target.textContent).toContain('transform')
+    expect(view.state.doc.toString()).toBe(before)
+  })
+
+  it('inserts a fenced block at the cursor on commit', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+
+    const box = target.querySelector<HTMLTextAreaElement>('#chart-paste')!
+    box.value = 'dose,response\n0,1\n5,2\n'
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    for (const [field, value] of [
+      ['x', 'dose'],
+      ['y', 'response'],
+    ]) {
+      const el = target.querySelector<HTMLSelectElement>(`select[data-field="${field}"]`)!
+      el.value = value
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+      flushSync()
+    }
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Insert chart')!
+      .click()
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const doc = view.state.doc.toString()
+    expect(doc).toContain('```vega-lite')
+    expect(doc).toContain('"field": "dose"')
+    expect(target.querySelector('.chart-builder')).toBeNull()
+  })
+
+  it('does nothing from the welcome screen', async () => {
+    recents.current = ['/tmp/paper.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).toBeNull()
   })
 })
