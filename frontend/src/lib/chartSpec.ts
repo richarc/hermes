@@ -26,14 +26,31 @@ export interface BuilderState {
 }
 
 /**
+ * The canonical form of a builder state.
+ *
+ * Vega-Lite's `count` counts rows and takes no field, so a field alongside it
+ * cannot survive a trip through a spec. Rather than let two states collapse to
+ * one spec, collapse them here — buildSpec canonicalises first, and readSpec
+ * returns canonical states, so the round trip is exact by construction.
+ */
+export function canonicalise(state: BuilderState): BuilderState {
+  if (state.y.aggregate !== 'count') return state
+  return { ...state, y: { ...state.y, field: '', type: 'quantitative' } }
+}
+
+/**
  * Renders builder state as Vega-Lite spec text.
  *
  * Every optional property is omitted rather than emitted empty, and `readSpec`
- * inverts each omission exactly. That symmetry is what makes the round-trip
- * property in chartSpec.test.ts hold — changing an omission here without
- * changing the matching read there will fail that test, which is the point.
+ * inverts each omission exactly — but only up to canonicalisation:
+ * `readSpec(buildSpec(s))` recovers `canonicalise(s)`, not necessarily `s`
+ * itself. The two differ only for a `count` aggregate, where `field` cannot
+ * survive the trip (see `canonicalise`); every other property is preserved
+ * exactly.
  */
-export function buildSpec(state: BuilderState): string {
+export function buildSpec(input: BuilderState): string {
+  const state = canonicalise(input)
+
   const x: Record<string, unknown> = { field: state.x.field, type: state.x.type }
   if (state.x.title !== '') x.title = state.x.title
 

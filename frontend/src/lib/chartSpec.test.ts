@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSpec, type BuilderState } from './chartSpec'
+import { buildSpec, canonicalise, type BuilderState } from './chartSpec'
 
 const BASE: BuilderState = {
   mark: 'line',
@@ -74,5 +74,28 @@ describe('buildSpec', () => {
 
   it('does not emit $schema, which no existing document carries', () => {
     expect(buildSpec(BASE)).not.toContain('$schema')
+  })
+})
+
+describe('canonicalise', () => {
+  it('clears the field and forces type quantitative for a count aggregate', () => {
+    const s = { ...BASE, y: { ...BASE.y, field: 'response', aggregate: 'count' as const } }
+    expect(canonicalise(s).y).toEqual({
+      field: '',
+      type: 'quantitative',
+      title: '',
+      aggregate: 'count',
+    })
+  })
+
+  it('returns other states unchanged, by identity', () => {
+    expect(canonicalise(BASE)).toBe(BASE)
+  })
+
+  it('maps two states that differ only by y.field under a count aggregate to the same canonical value', () => {
+    const withField = { ...BASE, y: { ...BASE.y, field: 'response', aggregate: 'count' as const } }
+    const withoutField = { ...BASE, y: { ...BASE.y, field: '', aggregate: 'count' as const } }
+    expect(canonicalise(withField)).toEqual(canonicalise(withoutField))
+    expect(buildSpec(withField)).toBe(buildSpec(withoutField))
   })
 })
