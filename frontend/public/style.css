@@ -205,6 +205,27 @@ html, body {
 .modal { background: var(--overlay-bg); border-radius: 8px; padding: 24px; max-width: 400px; }
 .modal-buttons { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
 
+.chart-builder {
+  width: min(56rem, 90vw);
+  text-align: left;
+}
+
+.chart-builder textarea {
+  width: 100%;
+  font-family: monospace;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+.chart-builder .field-error {
+  color: var(--cite-error-fg);
+}
+
+.chart-builder .data-summary {
+  color: var(--muted);
+}
+
 .toast {
   position: fixed; bottom: 16px; right: 16px;
   background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
