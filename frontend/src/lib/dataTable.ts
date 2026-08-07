@@ -82,7 +82,17 @@ export function parseDelimited(text: string): ParseResult {
   const tabs = (lines[0].match(/\t/g) ?? []).length
   const commas = (lines[0].match(/,/g) ?? []).length
   // A single-column table's header has neither: nothing to sniff from, and
-  // nothing that needs splitting, so comma is a harmless default.
+  // nothing that needs splitting, so comma is a harmless default. But a
+  // header with neither delimiter AND whitespace is not a header at all —
+  // it's the first line of a paragraph someone pasted by accident. A real
+  // column name is a token ("year", "group"); prose is not. Reject that
+  // case rather than silently reporting a bogus one-column, one-row table.
+  if (tabs === 0 && commas === 0 && /\s/.test(lines[0])) {
+    return {
+      ok: false,
+      message: 'Expected a comma- or tab-separated table with a header row.',
+    }
+  }
   const delim = tabs > commas ? '\t' : ','
 
   const header = splitLine(lines[0], delim).map((h) => h.trim())

@@ -93,4 +93,46 @@ describe('parseDelimited', () => {
     expect(t.columns.map((c) => c.name)).toEqual(['a', 'b'])
     expect(t.rows).toEqual([])
   })
+
+  it('rejects a pasted paragraph that is not a table', () => {
+    // No comma, no tab, and a header line with whitespace: the shape of
+    // prose, not a column name. Must not silently become a bogus
+    // one-column table named after the first line.
+    const r = parseDelimited('This is a paragraph.\nIt has several lines.\nEach line is here.\n')
+    expect(r.ok).toBe(false)
+  })
+
+  it('parses a single-column table whose header is a single token', () => {
+    const t = ok('id\n1\n2\n')
+    expect(t.columns).toEqual([{ name: 'id', type: 'quantitative' }])
+  })
+
+  it('parses a single-column table for the count-aggregation case', () => {
+    const t = ok('group\na\nb\na\n')
+    expect(t.columns).toEqual([{ name: 'group', type: 'nominal' }])
+    expect(t.rows).toEqual([{ group: 'a' }, { group: 'b' }, { group: 'a' }])
+  })
+
+  it('does not type free-form date strings as temporal', () => {
+    // Date.parse accepts both of these; the ISO regex does not. This test
+    // fails if ISO_DATE is ever swapped for a Date.parse-based check —
+    // unlike the bare-integer test, whose protection comes from checking
+    // isNumeric before dates and would not catch that swap.
+    const t = ok('when,n\nJan 5 2026,1\nMar 6 2026,2\n')
+    expect(t.columns[0].type).toBe('nominal')
+  })
+
+  it('reports a row-length mismatch rather than hanging on an unterminated quote in the header', () => {
+    const r = parseDelimited('"a,b\n1,2\n')
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.message).toMatch(/values/)
+  })
+
+  it('reports a row-length mismatch rather than hanging on an unterminated quote in a data row', () => {
+    const r = parseDelimited('a,b\n"1,2\n3,4\n')
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.message).toMatch(/values/)
+  })
 })
