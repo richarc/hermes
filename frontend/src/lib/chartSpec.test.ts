@@ -10,6 +10,7 @@ const BASE: BuilderState = {
   x: { field: 'dose', type: 'quantitative', title: '' },
   y: { field: 'response', type: 'quantitative', title: '', aggregate: 'none' },
   colour: null,
+  extras: {},
 }
 
 const parsed = (s: BuilderState) => JSON.parse(buildSpec(s))
@@ -276,12 +277,58 @@ describe('readSpec', () => {
   // actually exercises that: every other state here is already canonical, so
   // canonicalise(s) equals s for it and the assertion is unchanged from a
   // plain round-trip.
+  it('carries inert top-level metadata through unchanged', () => {
+    // A description is the single most common thing a hand-written chart
+    // carries, and refusing the whole chart over one would make the builder
+    // useless on any spec a human had written first.
+    const spec = {
+      description: 'Recovered sources by condition',
+      data: { values: [{ a: 1 }] },
+      mark: 'bar',
+      encoding: {
+        x: { field: 'a', type: 'quantitative' },
+        y: { field: 'a', type: 'quantitative' },
+      },
+    }
+    const r = readSpec(JSON.stringify(spec))
+    if (!r.ok) throw new Error(`refused: ${JSON.stringify(r)}`)
+    expect(r.state.extras).toEqual({ description: 'Recovered sources by condition' })
+    expect(JSON.parse(buildSpec(r.state)).description).toBe('Recovered sources by condition')
+  })
+
+  it('writes metadata ahead of the data, where a human would put it', () => {
+    const text = buildSpec({ ...BASE, extras: { description: 'A chart' } })
+    expect(text.indexOf('"description"')).toBeLessThan(text.indexOf('"data"'))
+  })
+
+  it('still refuses a property that is unmodelled AND not inert', () => {
+    // The allowlist is the point: carrying `transform` through would emit it
+    // beside the mark/encoding pair, which is not a valid spec.
+    const spec = {
+      description: 'has both',
+      data: { values: [{ a: 1 }] },
+      transform: [{ filter: 'true' }],
+      mark: 'bar',
+      encoding: {
+        x: { field: 'a', type: 'quantitative' },
+        y: { field: 'a', type: 'quantitative' },
+      },
+    }
+    const r = readSpec(JSON.stringify(spec))
+    expect(r.ok).toBe(false)
+    if (r.ok || r.reason !== 'unsupported') throw new Error('expected unsupported')
+    expect(r.unconsumed).toContain('transform')
+    expect(r.unconsumed).not.toContain('description')
+  })
+
   it('round-trips every builder state back to its canonical form', () => {
     const states: BuilderState[] = [
       BASE,
       { ...BASE, mark: 'bar' },
       { ...BASE, mark: 'boxplot' },
       { ...BASE, x: { ...BASE.x, title: 'Dose' } },
+      { ...BASE, extras: { description: 'Recovered sources by condition' } },
+      { ...BASE, extras: { $schema: 'https://vega.github.io/schema/vega-lite/v6.json' } },
       { ...BASE, y: { ...BASE.y, title: 'Response', aggregate: 'mean' } },
       { ...BASE, y: { ...BASE.y, aggregate: 'median' } },
       { ...BASE, y: { ...BASE.y, aggregate: 'sum' } },

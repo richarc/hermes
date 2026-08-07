@@ -17,12 +17,27 @@ export interface ValueEncoding extends Encoding {
   aggregate: Aggregate
 }
 
+/**
+ * Top-level properties the builder does not model but carries unchanged.
+ *
+ * Every one of these is inert with respect to what the UI edits: metadata a
+ * human wrote, or sizing. Preserving them is a strictly better outcome than
+ * refusing the whole chart — nothing is lost either way, but the user gets to
+ * keep editing. The list is an allowlist rather than "everything unrecognised"
+ * on purpose: `layer`, `transform` and `facet` are also unmodelled, and
+ * carrying those alongside the `mark`/`encoding` pair buildSpec emits would
+ * produce a spec that is not valid Vega-Lite at all.
+ */
+const PASSTHROUGH_KEYS = ['$schema', 'description', 'name', 'title', 'width', 'height'] as const
+
 export interface BuilderState {
   mark: Mark
   rows: Record<string, string | number>[]
   x: Encoding
   y: ValueEncoding
   colour: { field: string; type: FieldType } | null
+  /** Inert top-level properties preserved verbatim across a round trip. */
+  extras: Record<string, unknown>
 }
 
 /**
@@ -70,7 +85,14 @@ export function buildSpec(input: BuilderState): string {
     encoding.color = { field: state.colour.field, type: state.colour.type }
   }
 
-  return JSON.stringify({ data: { values: state.rows }, mark: state.mark, encoding }, null, 2)
+  // Extras lead, so `$schema` and `description` sit where a human would write
+  // them. They cannot collide with what follows: PASSTHROUGH_KEYS excludes
+  // data, mark and encoding.
+  return JSON.stringify(
+    { ...state.extras, data: { values: state.rows }, mark: state.mark, encoding },
+    null,
+    2,
+  )
 }
 
 export type ReadResult =
@@ -210,6 +232,12 @@ export function readSpec(json: string): ReadResult {
     x: readEncoding(enc.x),
     y: { ...y, aggregate },
     colour,
+    extras: Object.fromEntries(
+      PASSTHROUGH_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(parsed, k)).map((k) => [
+        k,
+        parsed[k],
+      ]),
+    ),
   }
 
   const rebuilt: unknown = JSON.parse(buildSpec(candidate))

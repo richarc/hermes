@@ -65,7 +65,7 @@ Metadata loss during conversion is consistent with the figures reported by
   },
   "mark": "bar",
   "encoding": {
-    "x": {"field": "condition", "type": "nominal", "title": null},
+    "x": {"field": "condition", "type": "nominal", "title": "Condition"},
     "y": {"field": "recovered", "type": "quantitative", "title": "Recovered"}
   }
 }

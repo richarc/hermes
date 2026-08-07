@@ -259,6 +259,7 @@ describe('ChartBuilder encoding step', () => {
           x: { field: 'dose', type: 'quantitative', title: '' },
           y: { field: 'response', type: 'quantitative', title: '', aggregate: 'none' },
           colour: null,
+          extras: {},
         },
         oncommit: vi.fn(),
         oncancel: vi.fn(),

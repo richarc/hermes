@@ -181,6 +181,10 @@
           x: { field: xField, type: xType, title: xTitle },
           y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
           colour: colourField ? { field: colourField, type: colourType } : null,
+          // Metadata the UI never shows — a description, a $schema line — that
+          // readSpec preserved when this chart was opened. Carrying it through
+          // is what stops reopening a chart from quietly stripping it.
+          extras: initial?.extras ?? {},
         }
       : null,
   )
