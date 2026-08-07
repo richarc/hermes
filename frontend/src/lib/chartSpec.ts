@@ -72,3 +72,123 @@ export function buildSpec(input: BuilderState): string {
 
   return JSON.stringify({ data: { values: state.rows }, mark: state.mark, encoding }, null, 2)
 }
+
+export type ReadResult =
+  | { ok: true; state: BuilderState }
+  | { ok: false; reason: 'invalid-json' }
+  | { ok: false; reason: 'unsupported'; unconsumed: string[] }
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]))
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const keys = Object.keys(a)
+    if (keys.length !== Object.keys(b).length) return false
+    return keys.every((k) => Object.prototype.hasOwnProperty.call(b, k) && deepEqual(a[k], b[k]))
+  }
+  return false
+}
+
+/**
+ * Dotted paths where `a` and `b` differ.
+ *
+ * Descends into objects only when they share at least one key name — that
+ * shared key name is what lets a nested mismatch (`encoding.x.title`) read
+ * as more specific than its container. Two objects with no key names in
+ * common at all (`{ url }` vs `{ values }`, e.g. `data` using an external
+ * source rather than inline rows) are structurally different shapes, not a
+ * field-by-field diff, so they are reported at their own shared path
+ * (`data`) instead of as a confusing pair of one-sided leaves
+ * (`data.url`, `data.values`).
+ *
+ * An array that differs is reported at its own path rather than per element,
+ * so a data mismatch reads as `data.values` instead of thousands of
+ * `data.values.0.dose` entries.
+ */
+function diffPaths(a: unknown, b: unknown, path = '', out: string[] = []): string[] {
+  if (deepEqual(a, b)) return out
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const keysA = Object.keys(a)
+    const keysB = Object.keys(b)
+    if (keysA.some((k) => keysB.includes(k))) {
+      for (const k of new Set([...keysA, ...keysB])) {
+        diffPaths(a[k], b[k], path ? `${path}.${k}` : k, out)
+      }
+      return out
+    }
+  }
+  out.push(path === '' ? '(root)' : path)
+  return out
+}
+
+function readEncoding(raw: unknown): Encoding {
+  const o = isPlainObject(raw) ? raw : {}
+  return {
+    field: typeof o.field === 'string' ? o.field : '',
+    type: (o.type === 'quantitative' || o.type === 'temporal' || o.type === 'nominal'
+      ? o.type
+      : 'nominal') as FieldType,
+    title: typeof o.title === 'string' ? o.title : '',
+  }
+}
+
+/**
+ * Reads spec text back into builder state, or refuses.
+ *
+ * Editability is decided by construction rather than by a checklist of
+ * disqualifying features: derive a candidate, rebuild from it, and compare. A
+ * checklist would drift out of step with buildSpec every time the UI gained a
+ * control, and — more importantly — a hand-edit that the candidate failed to
+ * capture is exactly what makes the rebuild differ, so this cannot silently
+ * discard one.
+ */
+export function readSpec(json: string): ReadResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return { ok: false, reason: 'invalid-json' }
+  }
+  if (!isPlainObject(parsed)) {
+    return { ok: false, reason: 'unsupported', unconsumed: ['(root)'] }
+  }
+
+  const enc = isPlainObject(parsed.encoding) ? parsed.encoding : {}
+  const rawY = isPlainObject(enc.y) ? enc.y : {}
+  const y = readEncoding(rawY)
+  const aggregate = (AGGREGATES as readonly string[]).includes(String(rawY.aggregate))
+    ? (rawY.aggregate as Aggregate)
+    : 'none'
+
+  const data = isPlainObject(parsed.data) ? parsed.data : {}
+  const colour = isPlainObject(enc.color)
+    ? { field: readEncoding(enc.color).field, type: readEncoding(enc.color).type }
+    : null
+
+  const candidate: BuilderState = {
+    mark: (MARKS as readonly string[]).includes(String(parsed.mark))
+      ? (parsed.mark as Mark)
+      : 'line',
+    rows: Array.isArray(data.values)
+      ? (data.values as Record<string, string | number>[])
+      : [],
+    x: readEncoding(enc.x),
+    y: { ...y, aggregate },
+    colour,
+  }
+
+  const rebuilt: unknown = JSON.parse(buildSpec(candidate))
+  if (deepEqual(rebuilt, parsed)) return { ok: true, state: candidate }
+
+  return {
+    ok: false,
+    reason: 'unsupported',
+    unconsumed: [...new Set(diffPaths(parsed, rebuilt))].sort(),
+  }
+}
