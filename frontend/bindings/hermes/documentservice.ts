@@ -17,6 +17,15 @@ export function ExportPDF(): $CancellablePromise<void> {
     return $Call.ByID(2450231792);
 }
 
+/**
+ * ImportData opens a native picker for a delimited data file and returns its
+ * contents. The reading half is split into readDataFile so it stays testable,
+ * the same way ReadBibliography is testable while Open is not.
+ */
+export function ImportData(): $CancellablePromise<string> {
+    return $Call.ByID(2788725769);
+}
+
 export function IsDirty(): $CancellablePromise<boolean> {
     return $Call.ByID(410112692);
 }

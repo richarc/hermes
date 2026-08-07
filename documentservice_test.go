@@ -267,3 +267,31 @@ func TestAddRecentSurvivesConcurrentSaves(t *testing.T) {
 		seen[r] = true
 	}
 }
+
+func TestReadDataFile(t *testing.T) {
+	dir := t.TempDir()
+
+	good := filepath.Join(dir, "data.csv")
+	if err := os.WriteFile(good, []byte("a,b\n1,2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readDataFile(good)
+	if err != nil {
+		t.Fatalf("readDataFile: %v", err)
+	}
+	if got != "a,b\n1,2\n" {
+		t.Errorf("got %q", got)
+	}
+
+	if _, err := readDataFile(filepath.Join(dir, "missing.csv")); err == nil {
+		t.Error("expected an error for a missing file")
+	}
+
+	big := filepath.Join(dir, "big.csv")
+	if err := os.WriteFile(big, make([]byte, maxDataFileBytes+1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readDataFile(big); err == nil {
+		t.Error("expected an error for a file over the size limit")
+	}
+}

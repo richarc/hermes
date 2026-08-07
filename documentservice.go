@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -14,6 +15,10 @@ import (
 )
 
 const maxRecents = 10
+
+// A pasted or imported table is inlined into the document, so an enormous file
+// would produce an unusable paper rather than a chart. Refuse early and say so.
+const maxDataFileBytes = 10 << 20 // 10 MB
 
 type Document struct {
 	Path    string `json:"path"`
@@ -101,6 +106,36 @@ func (s *DocumentService) Open() (Document, error) {
 		return Document{}, err
 	}
 	return s.OpenPath(path)
+}
+
+// ImportData opens a native picker for a delimited data file and returns its
+// contents. The reading half is split into readDataFile so it stays testable,
+// the same way ReadBibliography is testable while Open is not.
+func (s *DocumentService) ImportData() (string, error) {
+	path, err := application.Get().Dialog.OpenFile().
+		SetTitle("Import Data").
+		AddFilter("Data files", "*.csv;*.tsv;*.txt").
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return "", err
+	}
+	return readDataFile(path)
+}
+
+func readDataFile(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.Size() > maxDataFileBytes {
+		return "", fmt.Errorf("that file is %d MB; the limit is %d MB because the data is stored in the document",
+			info.Size()>>20, maxDataFileBytes>>20)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func (s *DocumentService) SaveAs(content string) (string, error) {
