@@ -157,3 +157,27 @@ describe('dark palette', () => {
     expect([...print].sort()).toEqual([...light].sort())
   })
 })
+
+describe('figure alignment', () => {
+  it('never spells the alignment the British way in a rule', () => {
+    // Hermes' own identifier is `centre`; CSS's keyword — and therefore the
+    // attribute value Preview.svelte writes — is `center`. A `centre` in a
+    // rule means cssTextAlign was bypassed, and centring silently does
+    // nothing at all. Comments are stripped first: the prose here is free to
+    // explain the mapping using both spellings.
+    expect(stripComments(CSS)).not.toContain('centre')
+  })
+
+  it('styles all three alignments', () => {
+    for (const value of ['left', 'center', 'right']) {
+      expect(CSS).toContain(`[data-figure-align="${value}"]`)
+    }
+  })
+
+  it('keeps a caption on the same page as its figure when printing', () => {
+    // Without this a caption orphans onto the next page — a failure the
+    // in-SVG title did not have.
+    const print = CSS.slice(CSS.indexOf('@media print'))
+    expect(print).toMatch(/figure[^{]*\{[^}]*break-inside: avoid/)
+  })
+})
