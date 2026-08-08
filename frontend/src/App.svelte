@@ -599,6 +599,7 @@
   <Dialog
     open={pendingAction !== null}
     label="Unsaved changes"
+    role="alertdialog"
     onclose={() => {
       pendingAction = null
       pendingRecentPath = null

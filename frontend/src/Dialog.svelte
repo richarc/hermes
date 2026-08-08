@@ -9,11 +9,14 @@
     onclose: () => void
     /** Extra classes, for a call site that needs its own sizing. */
     class?: string
+    /** Overrides the element's implicit `dialog` role; `alertdialog` for a
+        destructive confirm, which screen readers announce differently. */
+    role?: string
     children: Snippet
     footer?: Snippet
   }
 
-  const { open, label, onclose, class: extra = '', children, footer }: Props = $props()
+  const { open, label, onclose, class: extra = '', role, children, footer }: Props = $props()
 
   let el: HTMLDialogElement | undefined = $state()
 
@@ -43,15 +46,36 @@
     }
   })
 
+  // Unmounting removes the element from the top layer, but skips the focus
+  // restoration close() performs — ChartBuilder is unmounted rather than
+  // closed, so without this the caret does not return to the editor.
+  $effect(() => () => {
+    const d = el
+    if (d && typeof d.close === 'function' && d.open) d.close()
+  })
+
   // Esc fires `cancel`. Prevented, so the element does not close behind the
   // parent's back and leave `open` describing something untrue.
   function onCancel(event: Event) {
     event.preventDefault()
     onclose()
   }
+
+  // The element closed without the prop asking. Tell the parent so `open` can
+  // catch up; guarded, so our own close() above does not echo back.
+  function onNativeClose() {
+    if (open) onclose()
+  }
 </script>
 
-<dialog bind:this={el} class={extra} aria-label={label} oncancel={onCancel}>
+<dialog
+  bind:this={el}
+  class={extra || undefined}
+  aria-label={label}
+  role={role}
+  oncancel={onCancel}
+  onclose={onNativeClose}
+>
   <div class="dialog-body">{@render children()}</div>
   {#if footer}
     <div class="modal-buttons">{@render footer()}</div>

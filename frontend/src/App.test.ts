@@ -632,7 +632,12 @@ describe('chart builder', () => {
 
     listeners['menu:new']({ data: null })
     flushSync()
-    expect(target.textContent).toContain('unsaved') // confirm dialog is up
+    // The confirm dialog's content is always in the DOM (see the fix below),
+    // so textContent can't tell shown from hidden — check the dialog's own
+    // open state instead.
+    expect(
+      target.querySelector<HTMLDialogElement>('dialog[aria-label="Unsaved changes"]')!.open,
+    ).toBe(true) // confirm dialog is up
 
     listeners['menu:insert-chart']({ data: null })
     flushSync()

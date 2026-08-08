@@ -59,11 +59,16 @@ describe('Dialog', () => {
   it('asks the parent to close on Esc rather than closing itself', () => {
     // The parent owns `open`, so the dialog reports the intent instead of
     // acting on it — otherwise the element and the prop drift apart.
+    // `d.el.open` can't tell us this in jsdom: with no close() implementation
+    // the element has no way to close itself either way, so that assertion
+    // alone can't fail. dispatchEvent's return value is what actually proves
+    // preventDefault() ran: it's `false` for a cancelable event only when
+    // some handler called preventDefault().
     const d = mountDialog(true)
-    d.el.dispatchEvent(new Event('cancel', { cancelable: true }))
+    const notCancelled = d.el.dispatchEvent(new Event('cancel', { cancelable: true }))
     flushSync()
+    expect(notCancelled).toBe(false)
     expect(d.onclose).toHaveBeenCalledTimes(1)
-    expect(d.el.open).toBe(true)
     d.cleanup()
   })
 })
