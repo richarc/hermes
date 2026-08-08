@@ -157,3 +157,49 @@ export function tableFromRows(
     rows,
   }
 }
+
+/**
+ * Renders a table as delimited text — the inverse of `parseDelimited`, for
+ * putting an already-parsed table back in front of the user to edit.
+ *
+ * Always comma-separated, whatever the original paste used: the source text is
+ * not stored anywhere, so its delimiter cannot be. Comma is `parseDelimited`'s
+ * own default for a header it cannot sniff, so the output always re-parses.
+ *
+ * The round trip is exact for a table that came from `parseDelimited`, and
+ * only for those. A table from `tableFromRows` can carry a declared type
+ * inference would not reach — an integer column declared `nominal` — and
+ * re-parsing re-infers it. That is not a defect to design around: the type the
+ * chart uses lives in the builder's own encoding state, which never reads it
+ * back off the table.
+ */
+export function toDelimited(table: DataTable): string {
+  if (table.columns.length === 0) return ''
+  const names = table.columns.map((c) => c.name)
+  const lines = [names.map(field).join(',')]
+  for (const row of table.rows) {
+    lines.push(names.map((name) => field(String(row[name] ?? ''))).join(','))
+  }
+  return lines.join('\n')
+}
+
+/**
+ * One field, quoted only if it would otherwise be misread.
+ *
+ * `splitLine` treats a comma as a separator and a double quote as opening a
+ * quoted run wherever it appears, so those two are the whole list; an inner
+ * quote is doubled, which is what `splitLine` unescapes.
+ *
+ * A newline is different in kind. `parseDelimited` splits the text into lines
+ * before `splitLine` ever runs, so an embedded newline is outside the grammar
+ * however it is written — quoting it would produce a box that fails to parse
+ * with a row-length error the user did not cause. No table pasted into the box
+ * can contain one; the only source is a hand-authored spec. So it is
+ * normalised into the grammar instead, losing the line break and keeping the
+ * table readable.
+ */
+function field(value: string): string {
+  const flat = value.replace(/\r\n?|\n/g, ' ')
+  if (!/[",]/.test(flat)) return flat
+  return `"${flat.replace(/"/g, '""')}"`
+}

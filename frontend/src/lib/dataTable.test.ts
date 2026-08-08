@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseDelimited, tableFromRows } from './dataTable'
+import { parseDelimited, tableFromRows, toDelimited } from './dataTable'
 
 function ok(text: string) {
   const r = parseDelimited(text)
@@ -156,5 +156,63 @@ describe('tableFromRows', () => {
     const rows = [{ code: 5 }, { code: 'n/a' }]
     const t = tableFromRows(rows)
     expect(t.columns).toContainEqual({ name: 'code', type: 'nominal' })
+  })
+})
+
+describe('toDelimited', () => {
+  it('writes a header row and one line per row, comma-separated', () => {
+    const t = ok('dose,response\n0,1.5\n5,3.25\n')
+    expect(toDelimited(t)).toBe('dose,response\n0,1.5\n5,3.25')
+  })
+
+  it('emits no trailing newline', () => {
+    expect(toDelimited(ok('a\n1\n'))).toBe('a\n1')
+  })
+
+  it('quotes a field containing a comma or a quote, and doubles inner quotes', () => {
+    const t = ok('label,n\n"Smith, J.",1\n"He said ""hi""",2\n')
+    expect(toDelimited(t)).toBe('label,n\n"Smith, J.",1\n"He said ""hi""",2')
+  })
+
+  it('leaves ordinary fields unquoted', () => {
+    // Quoting everything would also re-parse correctly, so this pins the
+    // choice: the box is something a human reads and edits.
+    expect(toDelimited(ok('a,b\nx,y\n'))).toBe('a,b\nx,y')
+  })
+
+  it('round-trips a table that came from parseDelimited', () => {
+    // Exact only for parse-derived tables — see the nominal-override test
+    // below for the asymmetry.
+    const text = 'label,n,when\n"Smith, J.",1,2024-01-01\n"a ""quoted"" one",2,2024-02-01'
+    const t = ok(text)
+    expect(ok(toDelimited(t))).toEqual(t)
+  })
+
+  it('round-trips a header-only table', () => {
+    const t = ok('a,b')
+    expect(t.rows).toHaveLength(0)
+    expect(ok(toDelimited(t))).toEqual(t)
+  })
+
+  it('serializes a table with no columns as the empty string', () => {
+    expect(toDelimited({ columns: [], rows: [] })).toBe('')
+  })
+
+  it('replaces a newline inside a value with a space, keeping the text parseable', () => {
+    // parseDelimited splits on newlines before splitLine sees a quote, so an
+    // embedded newline is outside the grammar however it is written. Quoting
+    // it would hand the user a box that fails to parse.
+    const t = tableFromRows([{ label: 'two\nlines', n: 1 }], {})
+    const text = toDelimited(t)
+    expect(text).toBe('label,n\ntwo lines,1')
+    expect(ok(text).rows).toEqual([{ label: 'two lines', n: 1 }])
+  })
+
+  it('re-infers a declared type on the way back, which is why types are not read from the table', () => {
+    // tableFromRows can hold a type inference would never reach. The chart's
+    // own type lives in the builder's xType/yType state, not here.
+    const t = tableFromRows([{ id: 1 }, { id: 2 }], { id: 'nominal' })
+    expect(t.columns[0].type).toBe('nominal')
+    expect(ok(toDelimited(t)).columns[0].type).toBe('quantitative')
   })
 })
