@@ -237,10 +237,10 @@ like one program.
 - [ ] Consistent UI elements — buttons, dialogs, form controls. Today each was
       styled where it was needed: the welcome pane has its own
       `.welcome-action` rule, the chart builder its own input and select
-      styling, and the modals share only `.modal`/`.modal-buttons`. The
-      backlog's note about a more readable, more prominent button style that
-      works in both themes belongs to this release and should move here when
-      it is scheduled.
+      styling, and the modals share only `.modal`/`.modal-buttons`. Includes
+      the button style carried in the backlog since before v0.5: a more
+      readable, more prominent button that works in both the light and dark
+      themes.
 - [ ] A colour scheme for document source — markdown syntax and any embedded
       text. The mechanism exists: `style.css` defines `--syn-heading`,
       `--syn-emphasis`, `--syn-code`, `--syn-link`, `--syn-quote` and
@@ -314,8 +314,6 @@ Ideas noted along the way, not yet committed to a release:
   `frontend/src`; one `http.Client` in Go, pointed at localhost. The ~60 URLs
   in the bundle are identifiers (XML namespaces, CSL style IDs, ORCIDs), not
   endpoints, and are never fetched.
-- Create a new button style, one that is more readable and more prominent but
-  compatible with both the light and dark modes.
 - ~~Two document types: single-file, and a multi-part type living in a
   directory.~~ **Dropped 2026-08-06.** Hermes stays single-file. The research
   found the deciding question was not "one file or many" but what the preview
