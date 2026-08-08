@@ -3,6 +3,7 @@
   import { parseDelimited, tableFromRows, type DataTable, type FieldType } from './lib/dataTable'
   import { buildSpec, MARKS, AGGREGATES, type Mark, type Aggregate, type BuilderState } from './lib/chartSpec'
   import { embedChart, type ChartView } from './lib/charts'
+  import { captionFromTitle } from './lib/figures'
   import { DocumentService } from '../bindings/hermes'
 
   interface Props {
@@ -19,6 +20,7 @@
 
   interface Seed {
     table: DataTable | null
+    caption: string
     mark: Mark
     xField: string
     yField: string
@@ -56,6 +58,7 @@
     }
     return {
       table: seededTable,
+      caption: captionFromTitle(initial?.extras.title),
       mark: initial?.mark ?? 'line',
       xField: initial?.x.field ?? '',
       yField: initial?.y.field ?? '',
@@ -133,6 +136,7 @@
   let xTitle = $state(seed.xTitle)
   let yTitle = $state(seed.yTitle)
   let aggregate: Aggregate = $state(seed.aggregate)
+  let caption = $state(seed.caption)
 
   // Types are seeded from inference when a column is picked, then owned by the
   // user: an ID column of integers infers as quantitative but is really
@@ -169,6 +173,23 @@
     table !== null && xField !== '' && (yField !== '' || effectiveAggregate === 'count'),
   )
 
+  // The caption lives in the spec's own `title` — Vega-Lite's native home for
+  // it, so the block stays portable and Pandoc keeps the caption. renderer.ts
+  // lifts it out and draws it below the chart.
+  //
+  // Only rewritten when the field actually changed: a title the box cannot
+  // show as text (an object with styling, say) is inert metadata readSpec
+  // preserved, and clearing it because the box looked empty would be silent
+  // data loss.
+  const extras = $derived.by(() => {
+    const base = { ...(initial?.extras ?? {}) }
+    const text = caption.trim()
+    if (text === seed.caption) return base
+    if (text === '') delete base.title
+    else base.title = text
+    return base
+  })
+
   // Named builderState rather than state: a local variable named `state`
   // collides with the `$state` rune elsewhere in the file — Svelte parses
   // `$state` as store auto-subscription of a variable named `state` once one
@@ -182,12 +203,27 @@
           y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
           colour: colourField ? { field: colourField, type: colourType } : null,
           // Metadata the UI never shows — a description, a $schema line — that
-          // readSpec preserved when this chart was opened. Carrying it through
-          // is what stops reopening a chart from quietly stripping it.
-          extras: initial?.extras ?? {},
+          // readSpec preserved when this chart was opened, plus the caption
+          // the field above owns. Carrying the rest through is what stops
+          // reopening a chart from quietly stripping it.
+          extras,
         }
       : null,
   )
+
+  // The document draws the caption below the chart, so the preview must too —
+  // otherwise the builder shows it inside the chart and the document shows it
+  // underneath. No number is shown: numbering is a property of the document,
+  // assigned by position, and the builder cannot know it.
+  const previewSpec = $derived(
+    builderState ? buildSpec({ ...builderState, extras: withoutTitle(extras) }) : '',
+  )
+
+  function withoutTitle(e: Record<string, unknown>): Record<string, unknown> {
+    const rest = { ...e }
+    delete rest.title
+    return rest
+  }
 
   let previewEl: HTMLDivElement | undefined = $state()
   let view: ChartView | null = null
@@ -199,16 +235,16 @@
   // cleared takes the stale branch on arrival and finalizes itself, instead
   // of resurrecting a view for a chart that is no longer showing.
   $effect(() => {
-    const s = builderState
+    const spec = previewSpec
     const el = previewEl
-    if (!s || !el) {
+    if (spec === '' || !el) {
       generation++
       view?.finalize()
       view = null
       return
     }
     const gen = ++generation
-    void embedChart(el, buildSpec(s)).then((v) => {
+    void embedChart(el, spec).then((v) => {
       if (gen !== generation) {
         v?.finalize()
         return
@@ -269,6 +305,10 @@
 
     {#if table}
       <section class="encode-step">
+        <label class="caption-row">Caption
+          <input data-field="caption" bind:value={caption} />
+        </label>
+
         <label class="mark-row">Mark
           <select data-field="mark" bind:value={mark}>
             {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
@@ -322,6 +362,9 @@
       </section>
 
       <div class="chart-preview" bind:this={previewEl}></div>
+      {#if caption.trim()}
+        <p class="chart-caption">{caption.trim()}</p>
+      {/if}
     {/if}
 
     <div class="modal-buttons">

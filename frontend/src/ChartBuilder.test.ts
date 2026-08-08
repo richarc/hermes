@@ -19,7 +19,8 @@ const ImportData = DocumentService.ImportData
 // immediately-null behaviour, same as the real thing under jsdom.
 const { embedChart } = vi.hoisted(() => ({
   embedChart: vi.fn(
-    (): Promise<{ finalize: () => void } | null> => Promise.resolve(null),
+    (_el: HTMLElement, _specText: string): Promise<{ finalize: () => void } | null> =>
+      Promise.resolve(null),
   ),
 }))
 vi.mock('./lib/charts', () => ({ embedChart }))
@@ -396,5 +397,176 @@ describe('ChartBuilder encoding step', () => {
 
     expect(finalize).toHaveBeenCalledTimes(1)
     target.remove()
+  })
+})
+
+/** Types into a text input the way a user would. */
+function typeInto(target: HTMLElement, field: string, value: string) {
+  const el = target.querySelector<HTMLInputElement>(`input[data-field="${field}"]`)!
+  el.value = value
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  flushSync()
+}
+
+/** A ready-to-commit builder: data pasted and both axes chosen. */
+function readyBuilder(oncommit = vi.fn()) {
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const cmp = mount(ChartBuilder, {
+    target,
+    props: { initial: null, oncommit, oncancel: vi.fn() },
+  })
+  flushSync()
+  paste(target, 'dose,response\n0,1\n5,2\n')
+  select(target, 'x', 'dose')
+  select(target, 'y', 'response')
+  return {
+    target,
+    oncommit,
+    commit: () => {
+      const button = [...target.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Insert chart',
+      )!
+      button.click()
+      flushSync()
+    },
+    cleanup: () => {
+      unmount(cmp)
+      target.remove()
+    },
+  }
+}
+
+describe('ChartBuilder caption', () => {
+  it('writes the caption into the spec title, where the renderer reads it', () => {
+    const b = readyBuilder()
+    typeInto(b.target, 'caption', 'Recovered sources')
+    b.commit()
+    const spec = JSON.parse(b.oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toBe('Recovered sources')
+    b.cleanup()
+  })
+
+  it('commits no title at all when the caption is left empty', () => {
+    const b = readyBuilder()
+    b.commit()
+    const spec = JSON.parse(b.oncommit.mock.calls[0][0] as string)
+    expect('title' in spec).toBe(false)
+    b.cleanup()
+  })
+
+  it('prefills the caption when reopening a captioned chart', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: 'Recovered sources' },
+        },
+        oncommit: vi.fn(),
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    expect(target.querySelector<HTMLInputElement>('input[data-field="caption"]')!.value).toBe(
+      'Recovered sources',
+    )
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('clears the title when the caption is emptied', () => {
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: 'Recovered sources' },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    typeInto(target, 'caption', '')
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect('title' in spec).toBe(false)
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('leaves a title the field cannot show as text untouched', () => {
+    // An object title with styling is inert metadata readSpec preserved.
+    // Clearing it because the text box showed nothing would be silent loss.
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: { text: 42 } },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toEqual({ text: 42 })
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('previews the caption below the chart, not inside it', () => {
+    // Mirrors the document: the title is stripped from the embedded spec and
+    // the caption is drawn as text beneath.
+    const b = readyBuilder()
+    typeInto(b.target, 'caption', 'Recovered sources')
+    const lastSpec = JSON.parse(embedChart.mock.calls.at(-1)![1] as string)
+    expect('title' in lastSpec).toBe(false)
+    expect(b.target.querySelector('.chart-caption')?.textContent).toBe('Recovered sources')
+    b.cleanup()
   })
 })

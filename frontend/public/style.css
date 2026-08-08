@@ -317,6 +317,18 @@ html, body {
   background: var(--surface);
 }
 
+/* A caption is a sentence, not a token, so it takes the full dialog width —
+   unlike the axis controls, which line up in three columns. */
+.encode-step .caption-row {
+  grid-column: 1 / -1;
+}
+
+.chart-builder .chart-caption {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: var(--muted-strong);
+}
+
 .toast {
   position: fixed; bottom: 16px; right: 16px;
   background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
