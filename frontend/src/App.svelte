@@ -588,7 +588,7 @@
           <li><button class="link-button" onclick={() => requestOpenRecent(r)}>{r}</button></li>
         {/each}
       </ul>
-      <div class="welcome-buttons">
+      <div class="welcome-actions">
         <button onclick={requestNew}>New document</button>
         <button onclick={requestOpen}>Open…</button>
       </div>

@@ -205,9 +205,19 @@ describe('control styling', () => {
     expect(css).toMatch(/button:disabled[^{]*\{/)
   })
 
+  it('gives buttons a pressed state', () => {
+    // Setting background and border suppresses the platform's own pressed
+    // chrome, so it has to be put back explicitly — same reasoning as the
+    // focus ring above.
+    expect(css).toMatch(/button:active[^{]*\{[^}]*filter:/)
+  })
+
   it('no longer carries the one-off welcome button rule', () => {
     // Promoted to the base button style; a survivor would silently win on
     // specificity and keep the welcome pane looking different from the rest.
-    expect(css).not.toContain('welcome-action')
+    // A word boundary (rather than a plain substring match) so this does not
+    // false-positive on the surviving .welcome-actions layout wrapper, which
+    // starts with the same characters but is a different class.
+    expect(css).not.toMatch(/\bwelcome-action\b/)
   })
 })

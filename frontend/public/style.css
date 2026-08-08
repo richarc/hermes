@@ -166,6 +166,14 @@ button.primary {
    its own contrast pair to say the same thing. */
 button.primary:hover { filter: brightness(0.92); border-color: var(--accent); }
 
+/* Pressed. Setting background and border suppressed the platform's own pressed
+   chrome, the same way it suppressed the focus ring — so it is put back, and
+   deliberately understated: this is a document editor, not a toolbar of toys.
+   Placed after button.primary:hover: the two tie on specificity (0,1,1), so
+   source order is what makes a pressed primary read as pressed rather than
+   keeping its hover brightness. */
+button:active { filter: brightness(0.95); }
+
 /* A button that is really a link — the welcome pane's recent files are a
    column of paths, and bordered boxes would read worse than what is there
    today. */
@@ -323,7 +331,7 @@ textarea:focus-visible,
   padding: 48px; overflow: auto;
 }
 .welcome ul { list-style: none; margin-top: 12px; }
-.welcome-buttons { display: flex; gap: 12px; margin-top: 24px; }
+.welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
 
 .modal-backdrop {
   position: fixed; inset: 0; background: var(--backdrop);
@@ -343,9 +351,6 @@ textarea:focus-visible,
 .chart-builder textarea {
   width: 100%;
   font-family: monospace;
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
 }
 
 .chart-builder .field-error {
