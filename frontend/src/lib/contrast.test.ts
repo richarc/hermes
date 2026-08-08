@@ -40,6 +40,7 @@ const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
   ['status bar', '--muted', '--bg', 4.5],
   ['blockquote', '--muted-strong', '--bg', 4.5],
   ['link', '--link', '--bg', 4.5],
+  ['primary button', '--on-accent', '--accent', 4.5],
   ['toast', '--toast-fg', '--toast-bg', 4.5],
   ['welcome button', '--fg', '--surface', 4.5],
   ['chart error', '--chart-error-fg', '--chart-error-bg', 4.5],

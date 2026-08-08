@@ -17,6 +17,11 @@
   --surface-code-inline: #eeeeee;
   --divider: #e6e6e6;
   --link: #0b57c2;
+  /* Filled primary button. Valued as the link colour, but named for its role:
+     a rule reading `background: var(--link)` on a button would be a lie about
+     intent every future reader has to see through. */
+  --accent: #0b57c2;
+  --on-accent: #ffffff;
   --overlay-bg: #fcfcfc;
   --backdrop: rgba(0, 0, 0, 0.4);
   --toast-bg: #2a2a2a;
@@ -69,6 +74,8 @@
   --surface-code-inline: #2c2c2c;
   --divider: #333333;
   --link: #7cb0ff;
+  --accent: #7cb0ff;
+  --on-accent: #12233d;
   --overlay-bg: #1f1f1f;
   --backdrop: rgba(0, 0, 0, 0.6);
 
@@ -381,6 +388,8 @@ html, body {
     --surface-code-inline: #f2f2f2;
     --divider: #eeeeee;
     --link: #0b62d6;
+    --accent: #0b62d6;
+    --on-accent: #ffffff;
     --overlay-bg: #ffffff;
     --backdrop: rgba(0, 0, 0, 0.4);
     --toast-bg: #333333;
