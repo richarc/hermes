@@ -16,10 +16,18 @@ type Settings struct {
 	PrintOrientation string `json:"printOrientation"`
 	SyncScrolling    bool   `json:"syncScrolling"`
 	Theme            string `json:"theme"`
+	FigureAlignment  string `json:"figureAlignment"`
+	ChartWidth       string `json:"chartWidth"`
 }
 
 func defaultSettings() Settings {
-	return Settings{PrintOrientation: "portrait", SyncScrolling: false, Theme: "system"}
+	return Settings{
+		PrintOrientation: "portrait",
+		SyncScrolling:    false,
+		Theme:            "system",
+		FigureAlignment:  "centre",
+		ChartWidth:       "medium",
+	}
 }
 
 // normalise replaces any value outside a field's allowed set with that field's
@@ -34,6 +42,14 @@ func (s Settings) normalise() Settings {
 	}
 	if s.Theme != "system" && s.Theme != "light" && s.Theme != "dark" {
 		s.Theme = defaultSettings().Theme
+	}
+	// Hermes spells this `centre` throughout; the frontend maps it to CSS's
+	// `center` at the boundary, so `center` is not a legal value here.
+	if s.FigureAlignment != "left" && s.FigureAlignment != "centre" && s.FigureAlignment != "right" {
+		s.FigureAlignment = defaultSettings().FigureAlignment
+	}
+	if s.ChartWidth != "small" && s.ChartWidth != "medium" && s.ChartWidth != "large" {
+		s.ChartWidth = defaultSettings().ChartWidth
 	}
 	return s
 }

@@ -17,4 +17,6 @@ export interface Settings {
     "printOrientation": string;
     "syncScrolling": boolean;
     "theme": string;
+    "figureAlignment": string;
+    "chartWidth": string;
 }
