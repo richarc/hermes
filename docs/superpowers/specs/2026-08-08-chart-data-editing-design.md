@@ -130,8 +130,11 @@ a point on the axis.
 **Output is always CSV, even for a table pasted as TSV.** The original text is
 not kept, so the delimiter cannot be. This is a real, if small, loss: a user
 who pasted tab-separated data gets comma-separated data back. Comma is
-`parseDelimited`'s own default for an unsniffable header, so the output always
-re-parses.
+`parseDelimited`'s own default for an unsniffable header, so a comma is never
+the reason the output fails to re-parse — but it is not a guarantee that it
+re-parses at all. `parseDelimited` rejects a single-column header containing
+whitespace (`Sales Region`), and the check runs against the raw line, so
+quoting does not rescue it. The seeding below guards against exactly that.
 
 ### The wiring
 
@@ -139,16 +142,34 @@ re-parses.
 block that seeds the table:
 
 ```ts
-let pasted = $state(seed.table ? toDelimited(seed.table) : '')
+let pasted = $state(seedPasteText(seed.table))
 ```
 
-That is the entire behavioural change. `load()`, `onPaste` and `chooseFile`
-are untouched: editing the prefilled text goes through exactly the path a
-fresh paste goes through, including the existing rule that clears an axis
-selection whose column no longer exists.
+`seedPasteText` serializes the table and then confirms the result re-parses,
+falling back to `''` when it does not — the single-column-whitespace-header
+case above. A box that breaks on the first keystroke would recreate the very
+trap this feature exists to remove, so the guard is load-bearing rather than
+defensive.
+
+`load()`, `onPaste` and `chooseFile` are otherwise untouched: editing the
+prefilled text goes through exactly the path a fresh paste goes through.
+
+One rule does have to change. `load()` previously cleared an axis selection
+whose column had vanished, which was safe when the only way to reach it was a
+deliberate re-paste. Editing a prefilled header makes it fire on every
+intermediate keystroke — retyping `dose` clears the selection at `d` and never
+restores it, and re-picking the column from the dropdown resets its type,
+silently discarding a declared `nominal` override. So the clearing goes, and
+`ready` gains the requirement that every selected column still exists in the
+table. That keeps the property the clearing rule protected — a spec can never
+encode a column absent from the data — without destroying state to get it.
+Mid-rename the preview blanks and Update disables, both visible, both restored
+the moment the header is whole again.
 
 Two presentation changes come with it. The textarea grows from `rows="6"` to
-`rows="12"`, because it now has something to show on open. And the label
+`rows="12"` when reopening a chart, because it then has something to show; a
+fresh builder keeps six, rather than pushing its controls below the fold
+behind twelve empty rows. And the label
 "Paste a table" becomes "Data", which is true in both cases; the paste hint
 moves to the textarea's placeholder, where it appears only when the box is
 empty.
@@ -182,7 +203,13 @@ empty.
 - a fresh builder — no `initial` — still opens with an empty box;
 - reopening a chart whose x column was typed `nominal` over numeric-looking
   values, editing the data text, and committing still writes
-  `"type": "nominal"` — the override survives the re-parse.
+  `"type": "nominal"` — the override survives the re-parse;
+- that same override survives a character-by-character rename of the header
+  column back to its own name, which is the case the old clearing rule broke;
+- an axis naming a column absent from the data cannot be committed, pinning
+  the property the clearing rule used to provide;
+- a chart whose only column name contains a space opens with an empty box
+  rather than text that fails to re-parse.
 
 ### What is not tested
 
