@@ -65,6 +65,34 @@ describe('createChartHydrator: caching', () => {
       Array.from(second.children).every((c) => (c as HTMLElement).textContent === 'RENDERED'),
     ).toBe(true)
   })
+
+  it('drops a stale anchor when the adopted node lands inside a figure', () => {
+    // Stripping the title makes a captioned chart's data-spec identical to
+    // the same chart uncaptioned, so the cache can hand a node embedded as a
+    // bare placeholder (anchor on the div) to a placeholder inside a
+    // <figure> (anchor on the figure). Left on, that is two anchors for one
+    // source line.
+    return (async () => {
+      const embed = fakeEmbed()
+      const h = createChartHydrator(embed.fn)
+      const specAttr = SPEC.replace(/"/g, '&quot;')
+
+      const first = containerWith(
+        `<div class="vega-lite-chart" data-source-line="4" data-spec="${specAttr}"></div>`,
+      )
+      await h.hydrate(first)
+
+      const second = containerWith(
+        `<figure data-source-line="4"><div class="vega-lite-chart" data-spec="${specAttr}"></div></figure>`,
+      )
+      await h.hydrate(second)
+
+      expect(second.querySelectorAll('[data-source-line]')).toHaveLength(1)
+      expect(
+        second.querySelector<HTMLElement>('.vega-lite-chart')!.dataset.sourceLine,
+      ).toBeUndefined()
+    })()
+  })
 })
 
 describe('createChartHydrator: view lifecycle', () => {

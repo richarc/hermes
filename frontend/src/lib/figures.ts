@@ -82,3 +82,89 @@ export function cssTextAlign(alignment: string | undefined): 'left' | 'center' |
   if (alignment === 'right') return 'right'
   return 'center'
 }
+
+import type MarkdownIt from 'markdown-it'
+import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs'
+import type Token from 'markdown-it/lib/token.mjs'
+
+/** What the numbering pass stamps onto a token it decided is a figure. */
+export interface FigureMeta {
+  number: number
+  caption: string
+}
+
+/** Reads that stamp back, for a renderer that hand-builds its own HTML. */
+export function figureOf(token: Token): FigureMeta | null {
+  const meta = token.meta as { figure?: FigureMeta } | null | undefined
+  return meta?.figure ?? null
+}
+
+/**
+ * Numbers figures and builds them.
+ *
+ * The pass needs no persistent state: render() re-runs on every debounced
+ * change, so the count is recomputed each time and inserting a figure
+ * renumbers everything below it on the next keystroke.
+ *
+ * Charts are only *stamped* here — they are emitted by renderer.ts's fence
+ * renderer, which already hand-builds their HTML. Images need token surgery
+ * instead: a <figure> cannot live inside the <p> markdown-it wraps them in,
+ * so the paragraph tokens become figure tokens with a figcaption appended.
+ */
+export function figurePlugin(md: MarkdownIt): void {
+  md.core.ruler.push('figures', numberFigures)
+  md.renderer.rules.figcaption = (tokens, idx) =>
+    `<figcaption>${md.utils.escapeHtml(tokens[idx].content)}</figcaption>`
+}
+
+function numberFigures(state: StateCore): boolean {
+  let count = 0
+  for (let i = 0; i < state.tokens.length; i++) {
+    const token = state.tokens[i]
+    // Only top-level blocks are figures — the same level-0 restriction the
+    // source_line rule uses, so a chart quoted inside a blockquote or a list
+    // item stays a plain chart rather than claiming a figure number.
+    if (token.level !== 0) continue
+
+    if (token.type === 'fence' && token.info.trim() === 'vega-lite') {
+      const caption = chartCaption(token.content)
+      if (caption === '') continue
+      count += 1
+      token.meta = { ...(token.meta ?? {}), figure: { number: count, caption } }
+      continue
+    }
+
+    if (token.type !== 'paragraph_open') continue
+    const inline = state.tokens[i + 1]
+    const close = state.tokens[i + 2]
+    if (inline?.type !== 'inline' || close?.type !== 'paragraph_close') continue
+
+    // Exactly one child, and it an image: a linked image is [link_open,
+    // image, link_close], and two images (or an image with prose) leave text
+    // tokens beside it. markdown-it's text_collapse rule has already removed
+    // empty text tokens by the time a pushed core rule runs, so a lone image
+    // really is a single child.
+    const children = inline.children ?? []
+    if (children.length !== 1 || children[0].type !== 'image') continue
+
+    // renderInlineAsText is how markdown-it's own image renderer derives the
+    // alt attribute, so this is the same text the <img> will carry.
+    const alt = state.md.renderer
+      .renderInlineAsText(children[0].children ?? [], state.md.options, state.env)
+      .trim()
+    // Empty alt stays decorative and unnumbered — the accessibility
+    // convention, and it stops a spacer image consuming a figure number.
+    if (alt === '') continue
+
+    count += 1
+    // Retagging keeps the paragraph's attributes, which is exactly what is
+    // wanted: data-source-line moves onto the <figure> and off nothing else,
+    // because the <img> never carried one.
+    token.tag = 'figure'
+    close.tag = 'figure'
+    const caption = new state.Token('figcaption', 'figcaption', 0)
+    caption.content = figureLabel(count, alt)
+    state.tokens.splice(i + 2, 0, caption)
+  }
+  return true
+}

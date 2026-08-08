@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
-import { chartWidthPx, type ChartWidth } from './figures'
+import { chartWidthPx, figureLabel, figureOf, figurePlugin, type ChartWidth } from './figures'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
 // disagree on whether the default import is the plugin function or the CJS
@@ -45,6 +45,10 @@ md.core.ruler.push('source_line', (state) => {
   return true
 })
 
+// Pushed after source_line so a paragraph that becomes a <figure> already
+// carries its anchor, and the retag carries it along.
+md.use(figurePlugin)
+
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
@@ -54,21 +58,40 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   // anchor the core rule set on the token has to be written out by hand.
   // Charts are the largest source of height divergence — the very reason
   // anchors beat a scroll ratio — so losing theirs would gut the feature.
-  const line = token.attrGet('data-source-line') ?? ''
-  const spec = rewriteChartSpec(token.content.trim(), (env as RenderEnv).chartWidthPx)
-  return `<div class="vega-lite-chart" data-source-line="${md.utils.escapeHtml(line)}" data-spec="${md.utils.escapeHtml(spec)}"></div>\n`
+  const anchor = ` data-source-line="${md.utils.escapeHtml(token.attrGet('data-source-line') ?? '')}"`
+  const figure = figureOf(token)
+  const spec = md.utils.escapeHtml(
+    rewriteChartSpec(token.content.trim(), (env as RenderEnv).chartWidthPx, figure !== null),
+  )
+  if (!figure) return `<div class="vega-lite-chart"${anchor} data-spec="${spec}"></div>\n`
+
+  // The anchor moves ONTO the <figure> and must not stay on the child:
+  // collectAnchors takes every [data-source-line] as an anchor, and two at
+  // different offsets for one source line is a degenerate segment for
+  // previewOffsetForLine to interpolate across.
+  const caption = md.utils.escapeHtml(figureLabel(figure.number, figure.caption))
+  return (
+    `<figure${anchor}>` +
+    `<div class="vega-lite-chart" data-spec="${spec}"></div>` +
+    `<figcaption>${caption}</figcaption>` +
+    `</figure>\n`
+  )
 }
 
 /**
  * Render-time only: the document's text is never touched, so the chart
- * builder still reads the block's raw spec out of the editor. `width` is in
- * chartSpec.ts's passthrough allowlist, which is what makes an author's own
- * `"width": 300` survive a builder round trip and keep beating this default.
+ * builder still reads the block's raw spec out of the editor. `title` and
+ * `width` are both in chartSpec.ts's passthrough allowlist, which is what
+ * makes a builder round trip preserve them and an author's own `"width": 300`
+ * keep beating the document default.
+ *
+ * The title is removed when the caption is being drawn below the chart —
+ * otherwise Vega-Lite draws it inside the SVG as well and it appears twice.
  *
  * Anything that is not a JSON object is returned verbatim, so a malformed
  * spec still reaches the hydrator's error card unchanged.
  */
-function rewriteChartSpec(text: string, widthPx: number): string {
+function rewriteChartSpec(text: string, widthPx: number, stripTitle: boolean): string {
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -77,6 +100,7 @@ function rewriteChartSpec(text: string, widthPx: number): string {
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return text
   const spec = { ...(parsed as Record<string, unknown>) }
+  if (stripTitle) delete spec.title
   if (!('width' in spec)) spec.width = widthPx
   return JSON.stringify(spec)
 }

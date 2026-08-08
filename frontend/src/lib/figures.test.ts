@@ -90,3 +90,157 @@ describe('cssTextAlign', () => {
     expect(cssTextAlign('justified')).toBe('center')
   })
 })
+
+// The plugin is exercised through render() rather than against tokens
+// directly: what matters is the HTML a document produces, and that is also
+// the only place the fence renderer's half of the work shows up.
+import { render } from './renderer'
+
+const fence = (spec: string) => '```vega-lite\n' + spec + '\n```'
+
+describe('figures: what becomes one', () => {
+  it('captions a chart whose spec has a title', () => {
+    const html = render(fence('{"title":"Recovered sources","mark":"bar"}'))
+    expect(html).toContain('<figure')
+    expect(html).toContain('<figcaption>Figure 1 — Recovered sources</figcaption>')
+  })
+
+  it('accepts all three title shapes', () => {
+    expect(render(fence('{"title":{"text":"Sources"},"mark":"bar"}'))).toContain(
+      'Figure 1 — Sources',
+    )
+    expect(render(fence('{"title":{"text":["one","two"]},"mark":"bar"}'))).toContain(
+      'Figure 1 — one two',
+    )
+  })
+
+  it('leaves an untitled chart exactly as it was', () => {
+    const html = render(fence('{"mark":"bar"}'))
+    expect(html).toContain('class="vega-lite-chart"')
+    expect(html).not.toContain('<figure')
+    expect(html).not.toContain('<figcaption')
+  })
+
+  it('leaves a chart with an unusable title shape alone', () => {
+    expect(render(fence('{"title":42,"mark":"bar"}'))).not.toContain('<figure')
+    expect(render(fence('{"title":null,"mark":"bar"}'))).not.toContain('<figure')
+  })
+
+  it('leaves an unparseable chart alone, still as a chart placeholder', () => {
+    const html = render(fence('not json'))
+    expect(html).not.toContain('<figure')
+    expect(html).toContain('class="vega-lite-chart"')
+  })
+
+  it('captions an image that is alone in its paragraph', () => {
+    const html = render('![Recovered map](map.png)\n')
+    expect(html).toContain('<figure')
+    expect(html).toContain('<figcaption>Figure 1 — Recovered map</figcaption>')
+  })
+
+  it('keeps the alt attribute as well as adding the caption', () => {
+    // The two serve different readers: the caption is visible to everyone,
+    // the alt describes the image when it fails to load or is read aloud.
+    const html = render('![Recovered map](map.png)\n')
+    expect(html).toContain('alt="Recovered map"')
+  })
+
+  it('leaves an empty-alt image decorative and unnumbered', () => {
+    const html = render('![](spacer.png)\n')
+    expect(html).not.toContain('<figure')
+    expect(html).toContain('<p data-source-line="1"')
+  })
+
+  it('leaves a linked image alone — only a bare image qualifies', () => {
+    const html = render('[![Recovered map](map.png)](https://example.com)\n')
+    expect(html).not.toContain('<figure')
+  })
+
+  it('leaves two images in one paragraph alone — ambiguous which is captioned', () => {
+    const html = render('![one](a.png) ![two](b.png)\n')
+    expect(html).not.toContain('<figure')
+  })
+
+  it('leaves an image with surrounding text alone', () => {
+    const html = render('See ![one](a.png) here.\n')
+    expect(html).not.toContain('<figure')
+  })
+})
+
+describe('figures: numbering', () => {
+  it('numbers charts and images in one sequence, in document order', () => {
+    const doc =
+      fence('{"title":"Sources","mark":"bar"}') +
+      '\n\n![Recovered map](map.png)\n\n' +
+      fence('{"title":"Yield","mark":"line"}')
+    const html = render(doc)
+    expect(html).toContain('Figure 1 — Sources')
+    expect(html).toContain('Figure 2 — Recovered map')
+    expect(html).toContain('Figure 3 — Yield')
+  })
+
+  it('does not spend a number on an uncaptioned block', () => {
+    const doc = fence('{"mark":"bar"}') + '\n\n![Recovered map](map.png)\n'
+    expect(render(doc)).toContain('Figure 1 — Recovered map')
+  })
+
+  it('renumbers everything below a figure inserted above them', () => {
+    const below = '![Recovered map](map.png)\n'
+    expect(render(below)).toContain('Figure 1 — Recovered map')
+    expect(render('![Overview](overview.png)\n\n' + below)).toContain(
+      'Figure 2 — Recovered map',
+    )
+  })
+})
+
+describe('figures: the title never renders twice', () => {
+  it('strips the title from the spec handed to the hydrator', () => {
+    // Left in, Vega-Lite draws the caption inside the SVG as well.
+    const html = render(fence('{"title":"Sources","mark":"bar"}'))
+    expect(html).not.toContain('&quot;title&quot;')
+    expect(html).toContain('Figure 1 — Sources')
+  })
+
+  it('leaves the title in place on a chart that is not a figure', () => {
+    // No caption is drawn below it, so the in-SVG title is all there is.
+    const html = render(fence('{"title":42,"mark":"bar"}'))
+    expect(html).toContain('&quot;title&quot;')
+  })
+})
+
+describe('figures: scroll-sync anchors', () => {
+  it('gives a chart figure exactly one data-source-line', () => {
+    // collectAnchors() takes every [data-source-line] as an anchor, so an
+    // attribute on both the <figure> and its child would be two anchors for
+    // one source line at different offsets — a degenerate interpolation
+    // segment for previewOffsetForLine.
+    const html = render(fence('{"title":"Sources","mark":"bar"}'))
+    expect(html.match(/data-source-line/g)).toHaveLength(1)
+    expect(html).toMatch(/<figure data-source-line="1"/)
+  })
+
+  it('gives an image figure exactly one data-source-line', () => {
+    const html = render('![Recovered map](map.png)\n')
+    expect(html.match(/data-source-line/g)).toHaveLength(1)
+    expect(html).toMatch(/<figure data-source-line="1"/)
+  })
+
+  it('anchors a figure past the frontmatter, like every other block', () => {
+    const html = render('---\ncsl: apa\n---\n\n![Recovered map](map.png)\n')
+    expect(html).toMatch(/<figure data-source-line="5"/)
+  })
+})
+
+describe('figures: caption text is escaped', () => {
+  it('escapes HTML-significant characters in a chart caption', () => {
+    const html = render(fence('{"title":"a <b> & c","mark":"bar"}'))
+    expect(html).toContain('&lt;b&gt; &amp; c')
+    expect(html).not.toContain('<b>')
+  })
+
+  it('escapes HTML-significant characters in an image caption', () => {
+    const html = render('![a <b> & c](map.png)\n')
+    expect(html).toContain('&lt;b&gt; &amp; c')
+    expect(html).not.toContain('<b>')
+  })
+})
