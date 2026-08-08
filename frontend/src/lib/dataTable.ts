@@ -164,21 +164,44 @@ export function tableFromRows(
  *
  * Always comma-separated, whatever the original paste used: the source text is
  * not stored anywhere, so its delimiter cannot be. Comma is `parseDelimited`'s
- * own default for a header it cannot sniff, so the output always re-parses.
+ * own default for a header it cannot sniff, so most output re-parses this way
+ * — but not all of it. A column name `parseDelimited` itself would never
+ * write into a header (one containing whitespace with no comma or tab to
+ * sniff a delimiter from, or an empty name — both reachable only from a
+ * hand-authored spec via `tableFromRows`, never from a paste) serializes into
+ * text that fails to re-parse. A caller that hands this text back to the user
+ * for editing must check first; see `ChartBuilder.svelte`'s `seedPasteText`.
  *
- * The round trip is exact for a table that came from `parseDelimited`, and
- * only for those. A table from `tableFromRows` can carry a declared type
- * inference would not reach — an integer column declared `nominal` — and
- * re-parsing re-infers it. That is not a defect to design around: the type the
- * chart uses lives in the builder's own encoding state, which never reads it
- * back off the table.
+ * The round trip is exact for any chart the builder itself inserted, and only
+ * for those — not, as the shape of this function might suggest, for tables
+ * that came from `parseDelimited` specifically. A *reopened* chart's table
+ * always arrives through `tableFromRows` (see `ChartBuilder.svelte`'s
+ * `seed`), so that boundary would never apply to the case it exists to
+ * describe. The boundary that predicts behaviour is whether the *rows*
+ * originated from the builder. `parseDelimited` never produces a
+ * numeric-looking string for a column it infers `nominal`, so a
+ * builder-inserted chart's rows re-parse to the same types and the same
+ * values. A hand-authored spec can break both: `{ dose: '007' }` declared
+ * `nominal` prefills faithfully as `007`, but editing any other cell reparses
+ * the *whole* table text and re-infers every column fresh from its values —
+ * `007` looks numeric, so it reparses `quantitative` and the value becomes
+ * `7`. The chart's declared axis type survives that (it is builder state
+ * `load()` never reads back off the table), but the value reaching
+ * `data.values` does not — the axis's own labels change as a side effect of
+ * an unrelated edit. A sparse row hits a related trap: `tableFromRows` on
+ * `[{a:1,b:2},{a:3}]` has no `b` key on the second row, but this function
+ * writes `''` for the missing cell, and re-parsing commits an explicit
+ * `b: ''` rather than the absent key the original had. Vega-Lite filters a
+ * row with a missing quantitative field out of the chart; it does not filter
+ * one whose field is `''` — that renders as a real point at zero. So editing
+ * and committing can turn a gap in the data into a point on the axis.
  */
 export function toDelimited(table: DataTable): string {
   if (table.columns.length === 0) return ''
   const names = table.columns.map((c) => c.name)
-  const lines = [names.map(field).join(',')]
+  const lines = [names.map(quoteField).join(',')]
   for (const row of table.rows) {
-    lines.push(names.map((name) => field(String(row[name] ?? ''))).join(','))
+    lines.push(names.map((name) => quoteField(String(row[name] ?? ''))).join(','))
   }
   return lines.join('\n')
 }
@@ -198,7 +221,7 @@ export function toDelimited(table: DataTable): string {
  * normalised into the grammar instead, losing the line break and keeping the
  * table readable.
  */
-function field(value: string): string {
+function quoteField(value: string): string {
   const flat = value.replace(/\r\n?|\n/g, ' ')
   if (!/[",]/.test(flat)) return flat
   return `"${flat.replace(/"/g, '""')}"`

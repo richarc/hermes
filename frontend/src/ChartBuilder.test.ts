@@ -341,10 +341,14 @@ describe('ChartBuilder encoding step', () => {
     cleanup()
   })
 
-  it('clears a stale axis selection when a re-paste changes the columns', () => {
+  it('cannot commit once a re-paste changes the columns an axis selection names', () => {
     // Regression for: paste a table, pick both axes, then paste a table with
-    // entirely different columns. The old field names must not survive into
-    // readiness or a committed spec once they no longer exist.
+    // entirely different columns. Selections are no longer cleared when their
+    // column disappears (clearing on every keystroke is what discarded a
+    // declared type override mid-edit — see the header-rename test below), so
+    // this pins the property that clearing used to provide by a different
+    // route: `ready` must refuse a spec that would encode a column absent
+    // from the current data, whether or not the stale selection is cleared.
     const { target, cleanup } = mountBuilder()
     paste(target, 'dose,response\n0,1\n5,2\n')
     select(target, 'x', 'dose')
@@ -704,6 +708,41 @@ describe('ChartBuilder data box on reopen', () => {
     r.update()
     const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
     expect(spec.encoding.x.type).toBe('nominal')
+    r.cleanup()
+  })
+
+  it('keeps a declared type override through a keystroke-by-keystroke header rename back to the same name', () => {
+    // Important finding: load() runs on every keystroke, so selecting the
+    // header cell and retyping it renames the column away and back one
+    // character at a time. The old rule cleared xField the instant the name
+    // first changed and nothing ever restored it — re-picking the column from
+    // the dropdown afterwards re-inferred its type from scratch (quantitative,
+    // for a numeric-looking column), silently discarding the user's nominal
+    // override even though the final header text matches what it started as.
+    const r = reopened([{ dose: 1, response: 1 }], { xType: 'nominal' })
+    for (const partial of ['d', 'do', 'dos', 'dose']) {
+      paste(r.target, `${partial},response\n1,1`)
+    }
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.encoding.x.field).toBe('dose')
+    expect(spec.encoding.x.type).toBe('nominal')
+    r.cleanup()
+  })
+
+  it('opens with an empty box rather than text that fails to re-parse, when a column name has no delimiter to sniff', () => {
+    // Important finding: toDelimited's claim that its output "always
+    // re-parses" is false for a table it did not itself produce. A
+    // single-column table whose header contains whitespace but neither a
+    // comma nor a tab serializes to text parseDelimited rejects as prose
+    // ("Expected a comma- or tab-separated table with a header row.") — the
+    // modal would open looking fine and then break on the very first
+    // keystroke with an error the user did not cause. seedPasteText must
+    // check before prefilling and fall back to '', same as an unseeded
+    // builder.
+    const r = reopened([{ 'Sales Region': 'North' }])
+    expect(r.box.value).toBe('')
+    expect(r.target.textContent).not.toContain('Expected a comma')
     r.cleanup()
   })
 })
