@@ -162,24 +162,26 @@ then widening what a "figure" can be beyond statistical graphics.
       hand-authored spec can shift — `{dose: '007'}` commits as `dose: 7` after
       an unrelated edit, and a sparse row commits `b: ''` where it had no key,
       which Vega-Lite draws as a point at zero rather than filtering out.
-- [ ] Support additional chart types essential to physics, and to quantum
-      mechanics in particular — perhaps as multiple tabs in the builder, one
-      per chart family. The tabs are the easy half; the question to settle
-      first is how much of the wanted list Vega-Lite can express at all. It is
-      a grammar for *statistical* graphics: a polar plot is an awkward
-      composition of arc marks, a contour plot needs Vega's `isocontour`
-      transform rather than anything Vega-Lite offers, and 3-D surfaces,
-      vector fields and Bloch spheres are outside it entirely. So the honest
-      scoping question is whether this is "more builder tabs over one
-      renderer" or "a second renderer alongside Vega-Lite" — and the answer
-      probably differs per chart type. Worth starting from the actual list of
-      plots a QM paper needs (wavefunctions with complex amplitude, probability
-      densities, energy-level diagrams, Bloch spheres, band structures) and
-      sorting it into what Vega-Lite can do today, what it can do with a
-      hand-written spec the builder could template, and what needs something
-      else. Note the builder's own constraint too: `readSpec` decides
-      editability by rebuilding and comparing, so every new chart family needs
-      its round trip to be exact or reopening will refuse it.
+- [ ] Support more Vega-Lite chart types in the builder — perhaps as multiple
+      tabs, one per chart family. Today `MARKS` in `lib/chartSpec.ts` offers
+      five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed
+      encoding shape: an `x`, a `y`, and an optional `color`. That split is
+      what decides the cost of each addition. A mark that fits the existing
+      shape is nearly free — `tick`, `rule`, `circle`, `square` and `trail`
+      are a list entry each. The ones worth having mostly do not fit it: a
+      histogram needs `bin` on an encoding, a pie needs `theta` instead of
+      `x`/`y`, a heatmap needs `rect` plus a colour scale over a quantitative
+      field, and error bars need an extent. Those are new encoding shapes, and
+      a tab per *shape* is the honest reading of the tabs idea — a tab per
+      mark name would mostly be five copies of one form.
+      Two existing constraints bound the work. `readSpec` decides editability
+      by rebuilding and comparing, so every new shape must round-trip exactly
+      or reopening a chart will refuse it. And `PASSTHROUGH_KEYS` deliberately
+      excludes `layer`, `transform` and `facet`, because carrying them
+      alongside the `mark`/`encoding` pair `buildSpec` emits would produce a
+      spec that is not valid Vega-Lite — so anything needing a transform or a
+      layer (a regression line over a scatter, say) means extending the round
+      trip first, not just adding a mark.
 - [ ] Implement support for Mermaid diagrams. The renderer hook is the cheap
       part — intercept a ` ```mermaid ` fence the way `renderer.ts` already
       intercepts `vega-lite`, and hydrate it in `charts.ts` alongside the Vega
