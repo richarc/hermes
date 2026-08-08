@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Code Blocks and Unfold All. Folding a `vega-lite` or code block keeps its
   opening fence line and hides the body, so a long chart spec stops crowding
   the prose around it. Fold All Code Blocks leaves headings and tables alone.
+- A consistent look for the app's own controls. Every button now has real
+  padding, a border, and hover, focus and disabled states — previously only
+  the two welcome-pane buttons were styled at all. A dialog's confirming
+  action is filled, so it is clear what Return does. Both dialogs are now
+  built on one shell using the native `<dialog>` element, which keeps Tab
+  inside them, closes on Esc, and keeps a large chart's Insert button visible
+  instead of scrolling it away. Keyboard focus is visible everywhere it lands,
+  including the pane divider.
 
 ### Fixed
 
