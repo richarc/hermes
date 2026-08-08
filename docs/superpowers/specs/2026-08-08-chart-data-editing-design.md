@@ -88,21 +88,44 @@ A table with no columns serializes to `''`, which is why the seeding below is
 guarded rather than unconditional: `parseDelimited('')` is an error, not an
 empty table.
 
-**The round trip is exact for tables that came from `parseDelimited`, and only
-those.** Text is not the whole of a `DataTable`: a column carries a type, and
+**The round trip is exact for any chart the builder itself inserted, and only
+for those.** That is not quite the same claim as "tables that came from
+`parseDelimited`": a *reopened* chart's table always arrives through
+`tableFromRows` (see the wiring below), so a boundary drawn at "which function
+built this table" never actually applies to the case this whole feature is
+about. The boundary that predicts behaviour is whether the *rows* originated
+from the builder. `parseDelimited` never produces a numeric-looking string for
+a column it infers `nominal`, so a builder-inserted chart's rows re-parse to
+the same types and the same values.
+
+A hand-authored spec can break that, and not only in the way a column's type
+changes. Text is not the whole of a `DataTable`: a column carries a type, and
 `toDelimited` writes only values. A table from `tableFromRows` can hold a type
 inference would not produce — an integer ID column the author declared
-`nominal` — and re-parsing re-infers it as `quantitative`, changing both the
-column's type and its values from strings to numbers.
-
-That is correct behaviour rather than a defect to design around, because the
-type the *chart* uses is not read from the table. `xType`/`yType`/`colourType`
-are independent state seeded from the spec, and `load()` never touches them —
-only picking a column afresh from a dropdown does. So a user who reopens a
-chart with an overridden type, edits the data text and commits still gets
-their override in the spec. The re-inferred table type is internal and
-unobserved. A test pins this, because it is exactly the kind of thing a later
+`nominal` — and re-parsing re-infers it as `quantitative`. That part is correct
+behaviour rather than a defect to design around, because the type the *chart*
+uses is not read from the table. `xType`/`yType`/`colourType` are independent
+state seeded from the spec, and `load()` never touches them — only picking a
+column afresh from a dropdown does. So a user who reopens a chart with an
+overridden type, edits the data text and commits still gets their override in
+the spec. A test pins this, because it is exactly the kind of thing a later
 refactor would break silently.
+
+But the re-inferred type is not merely internal and unobserved — it can change
+what a *different*, unrelated edit commits. `builderState.rows = table.rows`,
+so a re-parsed value reaches `data.values` in the document. A hand-authored
+`{ dose: '007' }` with `x.type: 'nominal'` prefills faithfully as `007`, but
+editing any *other* cell reparses the whole table text and re-infers every
+column fresh from its values: `007` looks numeric, so the column becomes
+`quantitative` and the value becomes `7`. The axis keeps its declared `nominal`
+type, but its labels change as a side effect of an edit the user made
+somewhere else entirely. A sparse row hits a related trap: `tableFromRows` on
+`[{a:1,b:2},{a:3}]` has no `b` key on the second row, but `toDelimited` writes
+`''` for the missing cell, and re-parsing commits an explicit `b: ''` rather
+than the absent key the original had. Vega-Lite filters a row with a missing
+quantitative field out of the chart; it renders one whose field is `''` as a
+real point at zero — so editing and committing can turn a gap in the data into
+a point on the axis.
 
 **Output is always CSV, even for a table pasted as TSV.** The original text is
 not kept, so the delimiter cannot be. This is a real, if small, loss: a user

@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cursor with the data inlined, so the document stays self-contained. Put the
   cursor back inside that block and Insert → Chart… reopens it with the
   controls filled in and the data box holding the chart's own table, so a
-  value can be corrected or a row added without re-pasting the lot. A chart
-  using anything the builder cannot express —
+  value can be corrected or a row added without re-pasting the lot. The box
+  always writes that data back comma-separated, even for a chart originally
+  built from a tab-separated paste — the delimiter itself isn't kept, only the
+  data. A chart using anything the builder cannot express —
   layers, transforms, a hand-set `title: null` — is left strictly alone, and
   says which feature stopped it rather than failing vaguely.
 - Figures: captioned, numbered, and consistently placed. A caption is what
