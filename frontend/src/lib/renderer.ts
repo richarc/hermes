@@ -2,12 +2,24 @@ import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
+import { chartWidthPx, type ChartWidth } from './figures'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
 // disagree on whether the default import is the plugin function or the CJS
 // exports object wrapping it. Unwrap so both environments get the function.
 const katexPlugin = ((katexPluginModule as { default?: unknown }).default ??
   katexPluginModule) as Parameters<MarkdownIt['use']>[0]
+
+/**
+ * The per-render environment markdown-it threads through to the rules. Typed
+ * once here rather than cast at each use: the fence renderer reads the chart
+ * width out of it, and the source_line rule reads the frontmatter offset.
+ */
+interface RenderEnv {
+  citations?: CitationCluster[]
+  sourceLineOffset: number
+  chartWidthPx: number
+}
 
 const md = new MarkdownIt({ html: false, linkify: true })
 
@@ -36,15 +48,37 @@ md.core.ruler.push('source_line', (state) => {
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
-  if (token.info.trim() === 'vega-lite') {
-    // This branch builds its own HTML and never calls renderAttrs, so the
-    // anchor the core rule set on the token has to be written out by hand.
-    // Charts are the largest source of height divergence — the very reason
-    // anchors beat a scroll ratio — so losing theirs would gut the feature.
-    const line = token.attrGet('data-source-line') ?? ''
-    return `<div class="vega-lite-chart" data-source-line="${md.utils.escapeHtml(line)}" data-spec="${md.utils.escapeHtml(token.content.trim())}"></div>\n`
+  if (token.info.trim() !== 'vega-lite') return defaultFence(tokens, idx, options, env, self)
+
+  // This branch builds its own HTML and never calls renderAttrs, so the
+  // anchor the core rule set on the token has to be written out by hand.
+  // Charts are the largest source of height divergence — the very reason
+  // anchors beat a scroll ratio — so losing theirs would gut the feature.
+  const line = token.attrGet('data-source-line') ?? ''
+  const spec = rewriteChartSpec(token.content.trim(), (env as RenderEnv).chartWidthPx)
+  return `<div class="vega-lite-chart" data-source-line="${md.utils.escapeHtml(line)}" data-spec="${md.utils.escapeHtml(spec)}"></div>\n`
+}
+
+/**
+ * Render-time only: the document's text is never touched, so the chart
+ * builder still reads the block's raw spec out of the editor. `width` is in
+ * chartSpec.ts's passthrough allowlist, which is what makes an author's own
+ * `"width": 300` survive a builder round trip and keep beating this default.
+ *
+ * Anything that is not a JSON object is returned verbatim, so a malformed
+ * spec still reaches the hydrator's error card unchanged.
+ */
+function rewriteChartSpec(text: string, widthPx: number): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return text
   }
-  return defaultFence(tokens, idx, options, env, self)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return text
+  const spec = { ...(parsed as Record<string, unknown>) }
+  if (!('width' in spec)) spec.width = widthPx
+  return JSON.stringify(spec)
 }
 
 // Same problem, same fix, for display math (`$$…$$`): @vscode/markdown-it-katex
@@ -66,12 +100,15 @@ md.use(citationPlugin)
 
 export interface RenderOptions {
   formatter?: CitationFormatter
+  /** Document-wide default width; a spec's own `width` still wins. */
+  chartWidth?: ChartWidth
 }
 
 export function render(markdown: string, opts?: RenderOptions): string {
   const { body, bodyStartLine } = parseFrontmatter(markdown)
-  const env: { citations?: CitationCluster[]; sourceLineOffset: number } = {
+  const env: RenderEnv = {
     sourceLineOffset: bodyStartLine - 1,
+    chartWidthPx: chartWidthPx(opts?.chartWidth),
   }
   let html = md.render(body, env)
   const clusters = env.citations ?? []
