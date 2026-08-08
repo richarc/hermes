@@ -9,3 +9,6 @@ build/ios/xcode/overlay.json
 build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/node_modules
+
+# Superpowers scratch: SDD ledgers and brainstorming mockups
+.superpowers/
