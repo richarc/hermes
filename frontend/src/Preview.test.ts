@@ -52,3 +52,26 @@ describe('Preview.syncToLine', () => {
     cleanup()
   })
 })
+
+describe('Preview figure alignment', () => {
+  it('publishes the alignment on the pane, in CSS spelling', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(Preview, {
+      target,
+      props: { html: '<p>x</p>', figureAlign: 'centre', collectAnchorsFn: () => [] },
+    })
+    flushSync()
+    const pane = target.querySelector('.preview-pane') as HTMLElement
+    // `centre` is Hermes' spelling; the stylesheet can only match `center`.
+    expect(pane.dataset.figureAlign).toBe('center')
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('defaults to centre when no alignment is supplied', () => {
+    const { pane, cleanup } = mountPreview('<p>x</p>')
+    expect(pane.dataset.figureAlign).toBe('center')
+    cleanup()
+  })
+})

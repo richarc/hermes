@@ -3,14 +3,21 @@
   import { Browser } from '@wailsio/runtime'
   import { createChartHydrator } from './lib/charts'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
+  import { cssTextAlign } from './lib/figures'
 
   let {
     html,
+    /** Hermes spelling ('left' | 'centre' | 'right'); mapped to CSS below. */
+    figureAlign = 'centre',
     // Injectable so tests can supply known anchors: jsdom has no layout engine
     // and would measure every element at zero. Mirrors createChartHydrator's
     // embed parameter, which exists for the same reason.
     collectAnchorsFn = collectAnchors,
-  }: { html: string; collectAnchorsFn?: (c: HTMLElement) => Anchor[] } = $props()
+  }: {
+    html: string
+    figureAlign?: string
+    collectAnchorsFn?: (c: HTMLElement) => Anchor[]
+  } = $props()
 
   let container: HTMLElement
   const hydrator = createChartHydrator()
@@ -69,4 +76,9 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -- link delegation only, not a keyboard-interactive control -->
 <!-- svelte-ignore a11y_no_static_element_interactions -- rendered content is read-only markdown output -->
-<div class="preview-pane" bind:this={container} onclick={onPreviewClick}></div>
+<div
+  class="preview-pane"
+  data-figure-align={cssTextAlign(figureAlign)}
+  bind:this={container}
+  onclick={onPreviewClick}
+></div>

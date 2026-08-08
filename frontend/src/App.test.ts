@@ -3,16 +3,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import { EditorView } from '@codemirror/view'
 
-const { DocumentService, listeners, recents, settings } = vi.hoisted(() => {
+const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.hoisted(() => {
   const listeners: Record<string, (ev: { data: unknown }) => void> = {}
   const recents = { current: [] as string[] }
-  const settings = {
-    current: { printOrientation: 'portrait', syncScrolling: false, theme: 'system' },
+  const DEFAULT_SETTINGS = {
+    printOrientation: 'portrait',
+    syncScrolling: false,
+    theme: 'system',
+    figureAlignment: 'centre',
+    chartWidth: 'medium',
   }
+  const settings = { current: { ...DEFAULT_SETTINGS } }
   return {
     listeners,
     recents,
     settings,
+    DEFAULT_SETTINGS,
     DocumentService: {
       RecentFiles: vi.fn(async () => recents.current),
       SetDirty: vi.fn(async () => {}),
@@ -202,7 +208,7 @@ describe('first launch', () => {
 
 describe('scroll sync', () => {
   it('does not move the preview while sync is off', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS }
     recents.current = []
     const { target } = mountApp()
     await vi.waitFor(() => expect(target.querySelector('.cm-scroller')).not.toBeNull())
@@ -217,20 +223,20 @@ describe('scroll sync', () => {
   })
 
   it('reads the persisted setting at startup', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: true, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS, syncScrolling: true }
     recents.current = []
     mountApp()
     await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
   })
 
   it('re-reads the setting when the menu changes it', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS }
     recents.current = []
     mountApp()
     await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
 
     const before = DocumentService.Settings.mock.calls.length
-    settings.current = { printOrientation: 'portrait', syncScrolling: true, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS, syncScrolling: true }
     listeners['settings:changed']({ data: null })
     await vi.waitFor(() =>
       expect(DocumentService.Settings.mock.calls.length).toBeGreaterThan(before),
@@ -240,7 +246,7 @@ describe('scroll sync', () => {
 
 describe('theme', () => {
   it('applies the persisted explicit theme', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'dark' }
+    settings.current = { ...DEFAULT_SETTINGS, theme: 'dark' }
     recents.current = []
     stubMatchMedia(false)
     mountApp()
@@ -251,7 +257,7 @@ describe('theme', () => {
   })
 
   it('follows the system preference when the setting is system', async () => {
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS }
     recents.current = []
     stubMatchMedia(true)
     mountApp()
@@ -264,7 +270,7 @@ describe('theme', () => {
   it('ignores the system preference when the setting is explicit', async () => {
     // The case most likely to regress: a system change must not override an
     // explicit choice.
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'light' }
+    settings.current = { ...DEFAULT_SETTINGS, theme: 'light' }
     recents.current = []
     const media = stubMatchMedia(false)
     mountApp()
@@ -283,7 +289,7 @@ describe('theme', () => {
     // listener is actually wired, not merely that firing it does nothing.
     // Without this, deleting the addEventListener call in App.svelte would
     // leave both tests passing for the wrong reason.
-    settings.current = { printOrientation: 'portrait', syncScrolling: false, theme: 'system' }
+    settings.current = { ...DEFAULT_SETTINGS }
     recents.current = []
     const media = stubMatchMedia(false)
     mountApp()
@@ -647,5 +653,52 @@ describe('chart builder', () => {
 
     expect(target.textContent).not.toContain('unsaved')
     expect(target.querySelector('.chart-builder')).not.toBeNull()
+  })
+})
+
+describe('figure settings', () => {
+  it('publishes the persisted alignment onto the preview pane', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, figureAlignment: 'right' }
+    recents.current = []
+    stubMatchMedia(false)
+    const { target } = mountApp()
+
+    await vi.waitFor(() =>
+      expect(
+        target.querySelector<HTMLElement>('.preview-pane')!.dataset.figureAlign,
+      ).toBe('right'),
+    )
+  })
+
+  it('re-renders the preview when the menu changes the chart width', async () => {
+    settings.current = { ...DEFAULT_SETTINGS }
+    recents.current = []
+    stubMatchMedia(false)
+    const { target } = mountApp()
+    const pane = target.querySelector<HTMLElement>('.preview-pane')!
+
+    // A chart in the document is what makes the width observable at all.
+    const editor = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    // Empty recents triggers App's own first-launch doNew(), which lands
+    // asynchronously (after refreshRecents/refreshSettings resolve) and would
+    // otherwise clobber a dispatch made before it settles. Wait for it first.
+    await vi.waitFor(() => expect(editor.state.doc.length).toBeGreaterThan(0))
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: '```vega-lite\n{"mark":"bar"}\n```\n' },
+    })
+    await vi.waitFor(() =>
+      expect(pane.querySelector('.vega-lite-chart')?.getAttribute('data-spec')).toContain(
+        '"width":400',
+      ),
+    )
+
+    settings.current = { ...DEFAULT_SETTINGS, chartWidth: 'large' }
+    listeners['settings:changed']({ data: null })
+
+    await vi.waitFor(() =>
+      expect(pane.querySelector('.vega-lite-chart')?.getAttribute('data-spec')).toContain(
+        '"width":560',
+      ),
+    )
   })
 })
