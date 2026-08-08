@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { parseDelimited, tableFromRows, type DataTable, type FieldType } from './lib/dataTable'
+  import { parseDelimited, tableFromRows, toDelimited, type DataTable, type FieldType } from './lib/dataTable'
   import { buildSpec, MARKS, AGGREGATES, type Mark, type Aggregate, type BuilderState } from './lib/chartSpec'
   import { embedChart, type ChartView } from './lib/charts'
   import { captionFromTitle } from './lib/figures'
@@ -41,7 +41,8 @@
   // `state_referenced_locally` warning instead of accepting it repeatedly.
   //
   // Reopening an existing chart arrives with rows already parsed, so the
-  // paste box starts empty and the table is seeded from the spec. The
+  // table is seeded from the spec and the paste box is seeded from the table
+  // (see `pasted` below). The
   // encoded columns (x/y/colour) already carry an authoritative type read
   // out of the spec — trust those rather than re-guessing, since a guess
   // from row values alone cannot tell a date column from a nominal one
@@ -72,7 +73,10 @@
     }
   })
 
-  let pasted = $state('')
+  // Reopening a chart seeds the box with its own data, so it can be edited
+  // rather than only replaced. Guarded because a table with no columns
+  // serializes to '', which is also what an unseeded builder wants.
+  let pasted = $state(seed.table ? toDelimited(seed.table) : '')
   let table: DataTable | null = $state(seed.table)
   let parseError = $state('')
   let importError = $state('')
@@ -283,8 +287,15 @@
     <h2>Chart</h2>
 
     <section class="data-step">
-      <label for="chart-paste">Paste a table</label>
-      <textarea id="chart-paste" bind:this={pasteEl} rows="6" value={pasted} oninput={onPaste}></textarea>
+      <label for="chart-paste">Data</label>
+      <textarea
+        id="chart-paste"
+        bind:this={pasteEl}
+        rows="12"
+        placeholder="Paste a comma- or tab-separated table with a header row"
+        value={pasted}
+        oninput={onPaste}
+      ></textarea>
       <button onclick={() => void chooseFile()}>Choose file…</button>
 
       {#if parseError}

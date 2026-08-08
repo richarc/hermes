@@ -609,3 +609,101 @@ describe('ChartBuilder caption', () => {
     b.cleanup()
   })
 })
+
+/** Mounts a builder reopened on an existing chart. */
+function reopened(
+  rows: Record<string, string | number>[],
+  overrides: { xType?: 'quantitative' | 'temporal' | 'nominal' } = {},
+  oncommit = vi.fn(),
+) {
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const cmp = mount(ChartBuilder, {
+    target,
+    props: {
+      initial: {
+        mark: 'bar' as const,
+        rows,
+        x: { field: 'dose', type: overrides.xType ?? ('quantitative' as const), title: '' },
+        y: {
+          field: 'response',
+          type: 'quantitative' as const,
+          title: '',
+          aggregate: 'none' as const,
+        },
+        colour: null,
+        extras: {},
+      },
+      oncommit,
+      oncancel: vi.fn(),
+    },
+  })
+  flushSync()
+  return {
+    target,
+    oncommit,
+    box: target.querySelector<HTMLTextAreaElement>('textarea')!,
+    update: () => {
+      ;[...target.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim() === 'Update chart')!
+        .click()
+      flushSync()
+    },
+    cleanup: () => {
+      unmount(cmp)
+      target.remove()
+    },
+  }
+}
+
+describe('ChartBuilder data box on reopen', () => {
+  it('prefills the box with the chart’s own data', () => {
+    // Without this the box opens empty and auto-focused, and the first
+    // keystroke replaces the seeded table with a one-column, no-row table.
+    const r = reopened([
+      { dose: 0, response: 1.5 },
+      { dose: 5, response: 3.25 },
+    ])
+    expect(r.box.value).toBe('dose,response\n0,1.5\n5,3.25')
+    r.cleanup()
+  })
+
+  it('still opens empty for a new chart', () => {
+    const { target, cleanup } = mountBuilder()
+    expect(target.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('')
+    cleanup()
+  })
+
+  it('commits a row added to the prefilled text', () => {
+    const r = reopened([{ dose: 0, response: 1.5 }])
+    paste(r.target, r.box.value + '\n5,3.25')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.data.values).toEqual([
+      { dose: 0, response: 1.5 },
+      { dose: 5, response: 3.25 },
+    ])
+    r.cleanup()
+  })
+
+  it('commits a value edited in the prefilled text', () => {
+    const r = reopened([{ dose: 0, response: 1.5 }])
+    paste(r.target, 'dose,response\n0,99')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.data.values).toEqual([{ dose: 0, response: 99 }])
+    r.cleanup()
+  })
+
+  it('keeps a declared type override when the data text is edited', () => {
+    // Re-parsing re-infers the TABLE's column type, but the chart's type is
+    // separate state that load() never touches. A refactor that started
+    // reading types off the table would break this silently.
+    const r = reopened([{ dose: 1, response: 1 }], { xType: 'nominal' })
+    paste(r.target, 'dose,response\n1,1\n2,2')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.encoding.x.type).toBe('nominal')
+    r.cleanup()
+  })
+})
