@@ -71,4 +71,31 @@ describe('Dialog', () => {
     expect(d.onclose).toHaveBeenCalledTimes(1)
     d.cleanup()
   })
+
+  it('does not double-fire onclose when a constant-open dialog unmounts', () => {
+    // ChartBuilder passes a literal `open` — always true, never toggled to
+    // false — so its Cancel button calls the shared handler directly
+    // (bypassing the dialog entirely), and separately, chartOpen going false
+    // unmounts the component. In a real browser the teardown effect's
+    // close() call fires a native `close` event synchronously; jsdom does
+    // not implement close() at all, so the bug this guards against (that
+    // close event reaching onNativeClose and calling onclose() a second
+    // time) is invisible without stubbing browser-like close()/showModal()
+    // semantics onto this one element. Stubbed on the instance, not the
+    // prototype, so the other tests keep exercising the real jsdom absence.
+    const onclose = vi.fn()
+    const d = mountDialog(true, onclose)
+    d.el.showModal = function (this: HTMLDialogElement) {
+      this.open = true
+    }
+    d.el.close = function (this: HTMLDialogElement) {
+      this.open = false
+      this.dispatchEvent(new Event('close'))
+    }
+
+    onclose() // Cancel's own handler, invoked directly — not through the dialog
+    d.cleanup() // unmount: the teardown effect calls close() on the still-open element
+
+    expect(onclose).toHaveBeenCalledTimes(1)
+  })
 })

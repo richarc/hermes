@@ -20,6 +20,12 @@
 
   let el: HTMLDialogElement | undefined = $state()
 
+  // True while the component is closing the element itself. `open` cannot
+  // carry this: ChartBuilder passes a constant `true`, so it never catches up
+  // and every self-initiated close would echo back through onNativeClose as
+  // though the user had pressed Esc.
+  let selfClosing = false
+
   // jsdom 30 implements <dialog> as an element but leaves showModal and close
   // undefined, so calling one throws and takes out every test that mounts a
   // dialog. Reflecting the `open` attribute is what jsdom does support, and is
@@ -40,7 +46,10 @@
         d.open = true
       }
     } else if (typeof d.close === 'function') {
-      if (d.open) d.close()
+      if (d.open) {
+        selfClosing = true
+        d.close()
+      }
     } else {
       d.open = false
     }
@@ -51,7 +60,10 @@
   // closed, so without this the caret does not return to the editor.
   $effect(() => () => {
     const d = el
-    if (d && typeof d.close === 'function' && d.open) d.close()
+    if (d && typeof d.close === 'function' && d.open) {
+      selfClosing = true
+      d.close()
+    }
   })
 
   // Esc fires `cancel`. Prevented, so the element does not close behind the
@@ -62,8 +74,16 @@
   }
 
   // The element closed without the prop asking. Tell the parent so `open` can
-  // catch up; guarded, so our own close() above does not echo back.
+  // catch up. Guarded against our own close() calls above via selfClosing,
+  // not `open`: ChartBuilder passes a constant `open={true}` that never
+  // transitions, so `open` alone can't tell a self-initiated close from an
+  // external one — every teardown-triggered close would otherwise echo back
+  // through here as though the user had pressed Esc.
   function onNativeClose() {
+    if (selfClosing) {
+      selfClosing = false
+      return
+    }
     if (open) onclose()
   }
 </script>
