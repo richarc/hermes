@@ -1,11 +1,16 @@
 /**
  * Figure presentation: what makes a block a figure, what its caption reads,
- * and the two document-wide settings that place and size it.
+ * the two document-wide settings that place and size it, and the markdown-it
+ * plugin that numbers figures and builds their markup.
  *
  * A caption is what makes a figure. Without one a chart or image renders
  * exactly as it did before this module existed, which is what keeps existing
  * documents untouched until their author adds a caption.
  */
+
+import type MarkdownIt from 'markdown-it'
+import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs'
+import type Token from 'markdown-it/lib/token.mjs'
 
 export type ChartWidth = 'small' | 'medium' | 'large'
 export type FigureAlignment = 'left' | 'centre' | 'right'
@@ -83,10 +88,6 @@ export function cssTextAlign(alignment: string | undefined): 'left' | 'center' |
   return 'center'
 }
 
-import type MarkdownIt from 'markdown-it'
-import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs'
-import type Token from 'markdown-it/lib/token.mjs'
-
 /** What the numbering pass stamps onto a token it decided is a figure. */
 export interface FigureMeta {
   number: number
@@ -141,9 +142,9 @@ function numberFigures(state: StateCore): boolean {
 
     // Exactly one child, and it an image: a linked image is [link_open,
     // image, link_close], and two images (or an image with prose) leave text
-    // tokens beside it. markdown-it's text_collapse rule has already removed
-    // empty text tokens by the time a pushed core rule runs, so a lone image
-    // really is a single child.
+    // tokens beside it. No empty text token ever sits next to a lone image
+    // either — the inline parser only flushes `pending` into a text token
+    // when it is non-empty — so a lone image really is a single child.
     const children = inline.children ?? []
     if (children.length !== 1 || children[0].type !== 'image') continue
 

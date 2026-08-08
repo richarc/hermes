@@ -7,6 +7,10 @@ import {
   cssTextAlign,
   figureLabel,
 } from './figures'
+// The plugin is exercised through render() rather than against tokens
+// directly: what matters is the HTML a document produces, and that is also
+// the only place the fence renderer's half of the work shows up.
+import { render } from './renderer'
 
 describe('captionFromTitle: the three shapes Vega-Lite allows', () => {
   it('takes a plain string title', () => {
@@ -90,11 +94,6 @@ describe('cssTextAlign', () => {
     expect(cssTextAlign('justified')).toBe('center')
   })
 })
-
-// The plugin is exercised through render() rather than against tokens
-// directly: what matters is the HTML a document produces, and that is also
-// the only place the fence renderer's half of the work shows up.
-import { render } from './renderer'
 
 const fence = (spec: string) => '```vega-lite\n' + spec + '\n```'
 
@@ -187,9 +186,13 @@ describe('figures: numbering', () => {
   it('renumbers everything below a figure inserted above them', () => {
     const below = '![Recovered map](map.png)\n'
     expect(render(below)).toContain('Figure 1 — Recovered map')
-    expect(render('![Overview](overview.png)\n\n' + below)).toContain(
-      'Figure 2 — Recovered map',
-    )
+    const html = render('![Overview](overview.png)\n\n' + below)
+    // Both figures must exist, not just the second one's number: a bug that
+    // dropped the first image as a figure while still incrementing the
+    // counter would make the lone 'Figure 2 —' assertion pass regardless.
+    expect(html.match(/<figure/g)).toHaveLength(2)
+    expect(html).toContain('Figure 1 — Overview')
+    expect(html).toContain('Figure 2 — Recovered map')
   })
 })
 
@@ -228,6 +231,37 @@ describe('figures: scroll-sync anchors', () => {
   it('anchors a figure past the frontmatter, like every other block', () => {
     const html = render('---\ncsl: apa\n---\n\n![Recovered map](map.png)\n')
     expect(html).toMatch(/<figure data-source-line="5"/)
+  })
+
+  it('gives every top-level block its own anchor in a mixed document', () => {
+    // Counting anchors on a document made only of figures (the tests above)
+    // would also pass if figures suppressed anchors everywhere else. This
+    // mixes figures in among ordinary blocks and checks each one still gets
+    // exactly its own anchor, on the right element.
+    const doc = [
+      '# Title',
+      '',
+      'Intro paragraph.',
+      '',
+      fence('{"title":"Sources","mark":"bar"}'),
+      '',
+      '![Recovered map](map.png)',
+      '',
+      'Another paragraph.',
+      '',
+      fence('{"mark":"line"}'),
+      '',
+    ].join('\n')
+    const html = render(doc)
+
+    // Six top-level blocks, six anchors — none doubled onto a figure's child.
+    expect(html.match(/data-source-line/g)).toHaveLength(6)
+    expect(html).toMatch(/<h1 data-source-line="1"/)
+    expect(html).toMatch(/<p data-source-line="3"/)
+    expect(html).toMatch(/<figure data-source-line="5"/)
+    expect(html).toMatch(/<figure data-source-line="9"/)
+    expect(html).toMatch(/<p data-source-line="11"/)
+    expect(html).toMatch(/<div class="vega-lite-chart" data-source-line="13"/)
   })
 })
 
