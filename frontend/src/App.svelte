@@ -585,12 +585,12 @@
       <h2>Recent files</h2>
       <ul>
         {#each recents as r (r)}
-          <li><button onclick={() => requestOpenRecent(r)}>{r}</button></li>
+          <li><button class="link-button" onclick={() => requestOpenRecent(r)}>{r}</button></li>
         {/each}
       </ul>
-      <div class="welcome-actions">
-        <button class="welcome-action" onclick={requestNew}>New document</button>
-        <button class="welcome-action" onclick={requestOpen}>Open…</button>
+      <div class="welcome-buttons">
+        <button onclick={requestNew}>New document</button>
+        <button onclick={requestOpen}>Open…</button>
       </div>
     </div>
   {/if}
@@ -600,7 +600,7 @@
       <div class="modal" role="alertdialog">
         <p>"{filename}" has unsaved changes.</p>
         <div class="modal-buttons">
-          <button onclick={() => void confirmSave()}>Save</button>
+          <button class="primary" onclick={() => void confirmSave()}>Save</button>
           <button onclick={() => void confirmDiscard()}>Don't Save</button>
           <button
             onclick={() => {

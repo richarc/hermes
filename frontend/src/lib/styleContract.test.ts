@@ -185,3 +185,29 @@ describe('figure alignment', () => {
     expect(print).toMatch(/figure[^{]*\{[^}]*break-inside: avoid/)
   })
 })
+
+describe('control styling', () => {
+  const css = stripComments(CSS)
+
+  it('gives every button a focus-visible ring, not just the browser default', () => {
+    // Styling a control removes the UA ring. Losing it is invisible in every
+    // automated check and obvious only to someone navigating by keyboard.
+    expect(css).toMatch(/button:focus-visible[^{]*\{[^}]*outline:/)
+  })
+
+  it('gives the pane divider a focus ring too', () => {
+    // .divider carries tabindex="0" for the WAI-ARIA splitter pattern, so it
+    // is a focus stop that is not a control and would otherwise be missed.
+    expect(css).toMatch(/\.divider:focus-visible[^{]*\{[^}]*outline:/)
+  })
+
+  it('styles disabled buttons', () => {
+    expect(css).toMatch(/button:disabled[^{]*\{/)
+  })
+
+  it('no longer carries the one-off welcome button rule', () => {
+    // Promoted to the base button style; a survivor would silently win on
+    // specificity and keep the welcome pane looking different from the rest.
+    expect(css).not.toContain('welcome-action')
+  })
+})

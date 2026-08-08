@@ -413,7 +413,7 @@
 
     <div class="modal-buttons">
       <button onclick={oncancel}>Cancel</button>
-      <button disabled={!ready} onclick={commit}>
+      <button class="primary" disabled={!ready} onclick={commit}>
         {initial ? 'Update chart' : 'Insert chart'}
       </button>
     </div>

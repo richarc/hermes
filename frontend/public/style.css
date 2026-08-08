@@ -132,6 +132,81 @@ html, body {
 }
 .toolbar button { -webkit-app-region: no-drag; }
 
+/* Controls. One vocabulary for every button and field in the chrome — the
+   preview pane renders markdown with html:false and emits none of these, so
+   element selectors are safe here.
+
+   Reach worth knowing: CodeMirror's find/replace panel (⌘F, from basicSetup's
+   searchKeymap) renders real <input> and <button> elements, so these rules
+   restyle it too. That is the intended gain, not an accident. */
+button {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+button:hover { border-color: var(--fg); }
+
+/* The default action of a dialog — what Return does. Deliberately not used in
+   the toolbar, where the five actions are peers and promoting one would claim
+   something about the user's intent that Hermes cannot know. */
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 500;
+}
+/* brightness() rather than an --accent-hover token: it reads as a darker blue
+   in light and a dimmer one in dark, and keeps --on-accent above 4.5:1 in
+   both, where a second token would need a value in three palette blocks and
+   its own contrast pair to say the same thing. */
+button.primary:hover { filter: brightness(0.92); border-color: var(--accent); }
+
+/* A button that is really a link — the welcome pane's recent files are a
+   column of paths, and bordered boxes would read worse than what is there
+   today. */
+button.link-button {
+  display: block;
+  padding: 6px 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+}
+button.link-button:hover { border-color: transparent; text-decoration: underline; }
+
+/* Opacity drops the filled button under 4.5:1. That is permitted — WCAG 1.4.3
+   exempts inactive controls — and is noted here so it does not read as a bug. */
+button:disabled { opacity: 0.45; cursor: default; }
+button:disabled:hover { border-color: var(--border-strong); filter: none; }
+
+input, select, textarea {
+  font: inherit;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 14px;
+}
+
+/* Styling a control removes the browser's focus ring, so it is put back
+   explicitly — including on .divider, which is tabindex="0" for the WAI-ARIA
+   window-splitter pattern and is a focus stop without being a control. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.divider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .panes { flex: 1; display: flex; min-height: 0; }
 .editor-pane { border-right: 1px solid var(--border); overflow: auto; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
@@ -248,13 +323,7 @@ html, body {
   padding: 48px; overflow: auto;
 }
 .welcome ul { list-style: none; margin-top: 12px; }
-.welcome button { display: block; padding: 6px 0; }
-.welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
-.welcome-actions button.welcome-action {
-  display: inline-block; padding: 8px 16px;
-  border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface);
-  color: var(--fg);
-}
+.welcome-buttons { display: flex; gap: 12px; margin-top: 24px; }
 
 .modal-backdrop {
   position: fixed; inset: 0; background: var(--backdrop);
@@ -318,16 +387,6 @@ html, body {
   gap: 4px;
   font-size: 13px;
   color: var(--muted);
-}
-
-.encode-step select,
-.encode-step input {
-  background: var(--surface);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 6px;
-  font-size: 14px;
 }
 
 .chart-preview {
