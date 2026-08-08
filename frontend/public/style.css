@@ -178,6 +178,57 @@ html, body {
   border-radius: var(--figure-radius);
 }
 
+/* A figure is a caption plus what it captions; the caption is real text in
+   the HTML, not a CSS counter, so it survives copy-paste and PDF extraction. */
+.preview-pane figure { margin-bottom: 0.9em; }
+.preview-pane figcaption {
+  margin-top: 0.5em;
+  font-size: 0.9em;
+  color: var(--muted-strong);
+}
+
+/* A fixed-width chart can exceed a narrowed preview pane, and .preview-pane
+   scrolls — so without this the whole pane scrolls sideways. Scaling an
+   oversized chart down shrinks its label text slightly at extreme pane
+   widths; that is the better failure. */
+.preview-pane .vega-lite-chart svg { max-width: 100%; height: auto; }
+
+/* Figure alignment, driven by one attribute on the preview root rather than a
+   class injected per element. Charts and images are listed alongside `figure`
+   so alignment applies whether or not the block is captioned — alignment is
+   about the figure, not the caption. A figure's own chart div matches twice,
+   which is harmless: text-align inherits and the inner value equals the outer.
+
+   `p:has(> img:only-child)` is how an UNcaptioned image gets aligned:
+   text-align positions a block's inline children, and an <img> is itself one,
+   so the property has to sit on the paragraph markdown-it wrapped it in. The
+   :only-child test is what keeps ordinary prose — and an image used inline in
+   a sentence — out of it.
+
+   `p:has(> a:only-child > img:only-child)` is the same case for a linked
+   image (`[![alt](img)](url)`): the <img> there is a child of the <a>, not of
+   the <p>, so the plain img selector above does not match it. A linked image
+   alone in a paragraph is correctly not numbered as a figure (figures.ts only
+   captions a bare image), but the design still calls for it to be aligned
+   like one.
+
+   The attribute value is CSS's `center`, not Hermes' `centre`;
+   Preview.svelte maps between them through cssTextAlign(). */
+.preview-pane[data-figure-align="left"] figure,
+.preview-pane[data-figure-align="left"] .vega-lite-chart,
+.preview-pane[data-figure-align="left"] p:has(> img:only-child),
+.preview-pane[data-figure-align="left"] p:has(> a:only-child > img:only-child) { text-align: left; }
+
+.preview-pane[data-figure-align="center"] figure,
+.preview-pane[data-figure-align="center"] .vega-lite-chart,
+.preview-pane[data-figure-align="center"] p:has(> img:only-child),
+.preview-pane[data-figure-align="center"] p:has(> a:only-child > img:only-child) { text-align: center; }
+
+.preview-pane[data-figure-align="right"] figure,
+.preview-pane[data-figure-align="right"] .vega-lite-chart,
+.preview-pane[data-figure-align="right"] p:has(> img:only-child),
+.preview-pane[data-figure-align="right"] p:has(> a:only-child > img:only-child) { text-align: right; }
+
 .divider { width: 4px; cursor: col-resize; background: var(--divider); flex-shrink: 0; }
 
 .status-bar {
@@ -241,8 +292,12 @@ html, body {
 
 /* Mark applies to the whole chart rather than to an axis, so it gets its own
    row above them. The select is held to one column's width so spanning the row
-   does not stretch a five-item dropdown across the dialog. */
-.encode-step .mark-row {
+   does not stretch a five-item dropdown across the dialog. .caption-row below
+   shares this row's span for the same reason (a full-width control on the
+   grid) but, being a sentence rather than a token, deliberately does NOT cap
+   its own width the way .mark-row select does. */
+.encode-step .mark-row,
+.encode-step .caption-row {
   grid-column: 1 / -1;
 }
 
@@ -274,6 +329,12 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
+}
+
+.chart-builder .chart-caption {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: var(--muted-strong);
 }
 
 .toast {
@@ -354,7 +415,7 @@ html, body {
     overflow: visible; padding: 0;
     font-size: 11pt; line-height: 1.5;
   }
-  .katex-display, .vega-lite-chart, .chart-error, .csl-entry { break-inside: avoid; }
+  .katex-display, .vega-lite-chart, figure, .chart-error, .csl-entry { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
   @page { margin: 2cm; }
 }

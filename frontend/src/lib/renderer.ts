@@ -2,12 +2,24 @@ import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
+import { chartWidthPx, figureLabel, figureOf, figurePlugin, type ChartWidth } from './figures'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
 // disagree on whether the default import is the plugin function or the CJS
 // exports object wrapping it. Unwrap so both environments get the function.
 const katexPlugin = ((katexPluginModule as { default?: unknown }).default ??
   katexPluginModule) as Parameters<MarkdownIt['use']>[0]
+
+/**
+ * The per-render environment markdown-it threads through to the rules. Typed
+ * once here rather than cast at each use: the fence renderer reads the chart
+ * width out of it, and the source_line rule reads the frontmatter offset.
+ */
+interface RenderEnv {
+  citations?: CitationCluster[]
+  sourceLineOffset: number
+  chartWidthPx: number
+}
 
 const md = new MarkdownIt({ html: false, linkify: true })
 
@@ -24,7 +36,7 @@ md.use(katexPlugin, { throwOnError: false, errorColor: '#cc0000' })
 // before markdown-it ever sees the text — without it every anchor in a
 // document with frontmatter is short by that block's length.
 md.core.ruler.push('source_line', (state) => {
-  const offset = (state.env as { sourceLineOffset?: number }).sourceLineOffset ?? 0
+  const offset = (state.env as RenderEnv).sourceLineOffset
   for (const token of state.tokens) {
     if (token.level === 0 && token.map) {
       token.attrSet('data-source-line', String(token.map[0] + 1 + offset))
@@ -33,18 +45,94 @@ md.core.ruler.push('source_line', (state) => {
   return true
 })
 
+// Pushed after source_line so a paragraph that becomes a <figure> already
+// carries its anchor, and the retag carries it along.
+md.use(figurePlugin)
+
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx]
-  if (token.info.trim() === 'vega-lite') {
-    // This branch builds its own HTML and never calls renderAttrs, so the
-    // anchor the core rule set on the token has to be written out by hand.
-    // Charts are the largest source of height divergence — the very reason
-    // anchors beat a scroll ratio — so losing theirs would gut the feature.
-    const line = token.attrGet('data-source-line') ?? ''
-    return `<div class="vega-lite-chart" data-source-line="${md.utils.escapeHtml(line)}" data-spec="${md.utils.escapeHtml(token.content.trim())}"></div>\n`
+  if (token.info.trim() !== 'vega-lite') return defaultFence(tokens, idx, options, env, self)
+
+  // This branch builds its own HTML and never calls renderAttrs, so the
+  // anchor the core rule set on the token has to be written out by hand.
+  // Charts are the largest source of height divergence — the very reason
+  // anchors beat a scroll ratio — so losing theirs would gut the feature.
+  const anchor = ` data-source-line="${md.utils.escapeHtml(token.attrGet('data-source-line') ?? '')}"`
+  const figure = figureOf(token)
+  const spec = md.utils.escapeHtml(
+    rewriteChartSpec(token.content.trim(), (env as RenderEnv).chartWidthPx, figure !== null),
+  )
+  if (!figure) return `<div class="vega-lite-chart"${anchor} data-spec="${spec}"></div>\n`
+
+  // The anchor moves ONTO the <figure> and must not stay on the child:
+  // collectAnchors takes every [data-source-line] as an anchor, and two at
+  // different offsets for one source line is a degenerate segment for
+  // previewOffsetForLine to interpolate across.
+  const caption = md.utils.escapeHtml(figureLabel(figure.number, figure.caption))
+  return (
+    `<figure${anchor}>` +
+    `<div class="vega-lite-chart" data-spec="${spec}"></div>` +
+    `<figcaption>${caption}</figcaption>` +
+    `</figure>\n`
+  )
+}
+
+/**
+ * Render-time only: the document's text is never touched, so the chart
+ * builder still reads the block's raw spec out of the editor. `title` and
+ * `width` are both in chartSpec.ts's passthrough allowlist, which is what
+ * makes a builder round trip preserve them and an author's own `"width": 300`
+ * keep beating the document default.
+ *
+ * The title TEXT is removed when the caption is being drawn below the chart —
+ * otherwise Vega-Lite draws it inside the SVG as well and it appears twice.
+ * Only `text` comes out: a title object can also carry a `subtitle` (and
+ * styling properties), and captionFromTitle only ever reads `text` for the
+ * figure caption, so deleting the whole key would silently take the subtitle
+ * with it — it would appear neither in the SVG nor in the caption, with
+ * nothing to tell the author. Vega-Lite's own schema marks `text` required on
+ * a title object, so a bare `{"subtitle":...}` is not strictly schema-valid —
+ * but this project's bundled Vega-Lite (checked against its compile step)
+ * does not validate specs against that schema and does not draw a title group
+ * at all when `text` is absent, subtitle included, so this cannot regress a
+ * working chart into a visible error card. It is the least-bad option: the
+ * subtitle at least survives into data-spec instead of being destroyed
+ * outright, even though it goes undrawn until the author gives the title back
+ * a `text`.
+ *
+ * An object left with nothing but `text` collapses to `delete spec.title`,
+ * same as a bare string title, rather than emitting an empty `{}`.
+ *
+ * Anything that is not a JSON object is returned verbatim, so a malformed
+ * spec still reaches the hydrator's error card unchanged.
+ */
+function rewriteChartSpec(text: string, widthPx: number, stripTitle: boolean): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return text
   }
-  return defaultFence(tokens, idx, options, env, self)
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return text
+  const spec = { ...(parsed as Record<string, unknown>) }
+  if (stripTitle) {
+    const title = spec.title
+    if (typeof title === 'object' && title !== null && !Array.isArray(title)) {
+      const rest = { ...(title as Record<string, unknown>) }
+      delete rest.text
+      if (Object.keys(rest).length > 0) spec.title = rest
+      else delete spec.title
+    } else {
+      delete spec.title
+    }
+  }
+  // `{"width":null}` reads as the author explicitly setting a width — an
+  // author's own choice always wins over the document default, `null`
+  // included — even though it is the one input where that produces a spec
+  // Vega-Lite may not accept. Deliberate, not an oversight.
+  if (!('width' in spec)) spec.width = widthPx
+  return JSON.stringify(spec)
 }
 
 // Same problem, same fix, for display math (`$$…$$`): @vscode/markdown-it-katex
@@ -66,12 +154,15 @@ md.use(citationPlugin)
 
 export interface RenderOptions {
   formatter?: CitationFormatter
+  /** Document-wide default width; a spec's own `width` still wins. */
+  chartWidth?: ChartWidth
 }
 
 export function render(markdown: string, opts?: RenderOptions): string {
   const { body, bodyStartLine } = parseFrontmatter(markdown)
-  const env: { citations?: CitationCluster[]; sourceLineOffset: number } = {
+  const env: RenderEnv = {
     sourceLineOffset: bodyStartLine - 1,
+    chartWidthPx: chartWidthPx(opts?.chartWidth),
   }
   let html = md.render(body, env)
   const clusters = env.citations ?? []

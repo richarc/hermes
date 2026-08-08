@@ -19,7 +19,8 @@ const ImportData = DocumentService.ImportData
 // immediately-null behaviour, same as the real thing under jsdom.
 const { embedChart } = vi.hoisted(() => ({
   embedChart: vi.fn(
-    (): Promise<{ finalize: () => void } | null> => Promise.resolve(null),
+    (_el: HTMLElement, _specText: string): Promise<{ finalize: () => void } | null> =>
+      Promise.resolve(null),
   ),
 }))
 vi.mock('./lib/charts', () => ({ embedChart }))
@@ -340,10 +341,14 @@ describe('ChartBuilder encoding step', () => {
     cleanup()
   })
 
-  it('clears a stale axis selection when a re-paste changes the columns', () => {
+  it('cannot commit once a re-paste changes the columns an axis selection names', () => {
     // Regression for: paste a table, pick both axes, then paste a table with
-    // entirely different columns. The old field names must not survive into
-    // readiness or a committed spec once they no longer exist.
+    // entirely different columns. Selections are no longer cleared when their
+    // column disappears (clearing on every keystroke is what discarded a
+    // declared type override mid-edit — see the header-rename test below), so
+    // this pins the property that clearing used to provide by a different
+    // route: `ready` must refuse a spec that would encode a column absent
+    // from the current data, whether or not the stale selection is cleared.
     const { target, cleanup } = mountBuilder()
     paste(target, 'dose,response\n0,1\n5,2\n')
     select(target, 'x', 'dose')
@@ -396,5 +401,348 @@ describe('ChartBuilder encoding step', () => {
 
     expect(finalize).toHaveBeenCalledTimes(1)
     target.remove()
+  })
+})
+
+/** Types into a text input the way a user would. */
+function typeInto(target: HTMLElement, field: string, value: string) {
+  const el = target.querySelector<HTMLInputElement>(`input[data-field="${field}"]`)!
+  el.value = value
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  flushSync()
+}
+
+/** A ready-to-commit builder: data pasted and both axes chosen. */
+function readyBuilder(oncommit = vi.fn()) {
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const cmp = mount(ChartBuilder, {
+    target,
+    props: { initial: null, oncommit, oncancel: vi.fn() },
+  })
+  flushSync()
+  paste(target, 'dose,response\n0,1\n5,2\n')
+  select(target, 'x', 'dose')
+  select(target, 'y', 'response')
+  return {
+    target,
+    oncommit,
+    commit: () => {
+      const button = [...target.querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Insert chart',
+      )!
+      button.click()
+      flushSync()
+    },
+    cleanup: () => {
+      unmount(cmp)
+      target.remove()
+    },
+  }
+}
+
+describe('ChartBuilder caption', () => {
+  it('writes the caption into the spec title, where the renderer reads it', () => {
+    const b = readyBuilder()
+    typeInto(b.target, 'caption', 'Recovered sources')
+    b.commit()
+    const spec = JSON.parse(b.oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toBe('Recovered sources')
+    b.cleanup()
+  })
+
+  it('commits no title at all when the caption is left empty', () => {
+    const b = readyBuilder()
+    b.commit()
+    const spec = JSON.parse(b.oncommit.mock.calls[0][0] as string)
+    expect('title' in spec).toBe(false)
+    b.cleanup()
+  })
+
+  it('prefills the caption when reopening a captioned chart', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: 'Recovered sources' },
+        },
+        oncommit: vi.fn(),
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    expect(target.querySelector<HTMLInputElement>('input[data-field="caption"]')!.value).toBe(
+      'Recovered sources',
+    )
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('clears the title when the caption is emptied', () => {
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: 'Recovered sources' },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    typeInto(target, 'caption', '')
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect('title' in spec).toBe(false)
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('leaves a title the field cannot show as text untouched', () => {
+    // An object title with styling is inert metadata readSpec preserved.
+    // Clearing it because the text box showed nothing would be silent loss.
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: { text: 42 } },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toEqual({ text: 42 })
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('leaves an unedited renderable object title as an object, not flattened to a string', () => {
+    // The realistic case a real user hits, unlike the exotic { text: 42 }
+    // above: the caption box shows 'X' and, left untouched, must commit the
+    // spec's title back exactly as it was — an object — not the plain string
+    // the box's own text would otherwise suggest.
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: { text: 'X' } },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toEqual({ text: 'X' })
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('previews the caption below the chart, not inside it', () => {
+    // Mirrors the document: the title is stripped from the embedded spec and
+    // the caption is drawn as text beneath.
+    const b = readyBuilder()
+    typeInto(b.target, 'caption', 'Recovered sources')
+    const lastSpec = JSON.parse(embedChart.mock.calls.at(-1)![1] as string)
+    expect('title' in lastSpec).toBe(false)
+    expect(b.target.querySelector('.chart-caption')?.textContent).toBe('Recovered sources')
+    b.cleanup()
+  })
+})
+
+/** Mounts a builder reopened on an existing chart. */
+function reopened(
+  rows: Record<string, string | number>[],
+  overrides: { xType?: 'quantitative' | 'temporal' | 'nominal' } = {},
+  oncommit = vi.fn(),
+) {
+  const target = document.createElement('div')
+  document.body.appendChild(target)
+  const cmp = mount(ChartBuilder, {
+    target,
+    props: {
+      initial: {
+        mark: 'bar' as const,
+        rows,
+        x: { field: 'dose', type: overrides.xType ?? ('quantitative' as const), title: '' },
+        y: {
+          field: 'response',
+          type: 'quantitative' as const,
+          title: '',
+          aggregate: 'none' as const,
+        },
+        colour: null,
+        extras: {},
+      },
+      oncommit,
+      oncancel: vi.fn(),
+    },
+  })
+  flushSync()
+  return {
+    target,
+    oncommit,
+    box: target.querySelector<HTMLTextAreaElement>('textarea')!,
+    update: () => {
+      ;[...target.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim() === 'Update chart')!
+        .click()
+      flushSync()
+    },
+    cleanup: () => {
+      unmount(cmp)
+      target.remove()
+    },
+  }
+}
+
+describe('ChartBuilder data box on reopen', () => {
+  it('prefills the box with the chart’s own data', () => {
+    // Without this the box opens empty and auto-focused, and the first
+    // keystroke replaces the seeded table with a one-column, no-row table.
+    const r = reopened([
+      { dose: 0, response: 1.5 },
+      { dose: 5, response: 3.25 },
+    ])
+    expect(r.box.value).toBe('dose,response\n0,1.5\n5,3.25')
+    r.cleanup()
+  })
+
+  it('still opens empty for a new chart', () => {
+    const { target, cleanup } = mountBuilder()
+    expect(target.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('')
+    cleanup()
+  })
+
+  it('commits a row added to the prefilled text', () => {
+    const r = reopened([{ dose: 0, response: 1.5 }])
+    paste(r.target, r.box.value + '\n5,3.25')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.data.values).toEqual([
+      { dose: 0, response: 1.5 },
+      { dose: 5, response: 3.25 },
+    ])
+    r.cleanup()
+  })
+
+  it('commits a value edited in the prefilled text', () => {
+    const r = reopened([{ dose: 0, response: 1.5 }])
+    paste(r.target, 'dose,response\n0,99')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.data.values).toEqual([{ dose: 0, response: 99 }])
+    r.cleanup()
+  })
+
+  it('keeps a declared type override when the data text is edited', () => {
+    // Re-parsing re-infers the TABLE's column type, but the chart's type is
+    // separate state that load() never touches. A refactor that started
+    // reading types off the table would break this silently.
+    const r = reopened([{ dose: 1, response: 1 }], { xType: 'nominal' })
+    paste(r.target, 'dose,response\n1,1\n2,2')
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.encoding.x.type).toBe('nominal')
+    r.cleanup()
+  })
+
+  it('keeps a declared type override through a keystroke-by-keystroke header rename back to the same name', () => {
+    // Important finding: load() runs on every keystroke, so selecting the
+    // header cell and retyping it renames the column away and back one
+    // character at a time. The old rule cleared xField the instant the name
+    // first changed and nothing ever restored it — re-picking the column from
+    // the dropdown afterwards re-inferred its type from scratch (quantitative,
+    // for a numeric-looking column), silently discarding the user's nominal
+    // override even though the final header text matches what it started as.
+    const r = reopened([{ dose: 1, response: 1 }], { xType: 'nominal' })
+    for (const partial of ['d', 'do', 'dos', 'dose']) {
+      paste(r.target, `${partial},response\n1,1`)
+    }
+    r.update()
+    const spec = JSON.parse(r.oncommit.mock.calls[0][0] as string)
+    expect(spec.encoding.x.field).toBe('dose')
+    expect(spec.encoding.x.type).toBe('nominal')
+    r.cleanup()
+  })
+
+  it('opens with an empty box rather than text that fails to re-parse, when a column name has no delimiter to sniff', () => {
+    // Important finding: toDelimited's claim that its output "always
+    // re-parses" is false for a table it did not itself produce. A
+    // single-column table whose header contains whitespace but neither a
+    // comma nor a tab serializes to text parseDelimited rejects as prose
+    // ("Expected a comma- or tab-separated table with a header row.") — the
+    // modal would open looking fine and then break on the very first
+    // keystroke with an error the user did not cause. seedPasteText must
+    // check before prefilling and fall back to '', same as an unseeded
+    // builder.
+    const r = reopened([{ 'Sales Region': 'North' }])
+    expect(r.box.value).toBe('')
+    expect(r.target.textContent).not.toContain('Expected a comma')
+    r.cleanup()
   })
 })

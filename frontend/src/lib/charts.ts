@@ -61,6 +61,15 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
           // the chart itself still looks perfectly correct.
           if (el.dataset.sourceLine !== undefined) {
             cached.dataset.sourceLine = el.dataset.sourceLine
+          } else {
+            // A captioned chart's placeholder carries no anchor: it moved to
+            // the wrapping <figure>. Since the caption is stripped out of
+            // data-spec, that placeholder's spec text is identical to the
+            // same chart uncaptioned — so a cached node from the uncaptioned
+            // form can legitimately be adopted here, still carrying its old
+            // line. Left on, the figure and its child are two anchors for one
+            // source line.
+            delete cached.dataset.sourceLine
           }
           el.replaceWith(cached)
           placedThisPass.add(cached)

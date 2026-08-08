@@ -143,6 +143,58 @@ The same bar chart again — a duplicate spec must render **both** copies
 While this document is open, type some text elsewhere in the file: the charts
 must **not** flicker while you type (cache check).
 
+## 8. Figures
+
+A captioned chart becomes a numbered figure, its caption drawn once below it —
+not a second time inside the SVG:
+
+```vega-lite
+{
+  "title": "Recovered sources",
+  "data": {
+    "values": [
+      {"category": "A", "value": 12}, {"category": "B", "value": 27},
+      {"category": "C", "value": 19}
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {"field": "category", "type": "nominal"},
+    "y": {"field": "value", "type": "quantitative"}
+  }
+}
+```
+
+A captioned image continues the same sequence — "Figure 2", not "Figure 1"
+again:
+
+![A placeholder photograph](https://placehold.co/400x250)
+
+An empty alt image must stay decorative: no figure number, no caption, and no
+`<figure>` wrapper — just the bare `<img>` an uncaptioned image always was:
+
+![](https://placehold.co/120x80)
+
+This chart sets its own `"width"`, which must win over whatever View → Chart
+Width is currently set to — switching that setting must not resize it, unlike
+every other chart on this page:
+
+```vega-lite
+{
+  "width": 150,
+  "data": {"values": [{"x": 0, "y": 1}, {"x": 1, "y": 2}, {"x": 2, "y": 4}]},
+  "mark": "point",
+  "encoding": {
+    "x": {"field": "x", "type": "quantitative"},
+    "y": {"field": "y", "type": "quantitative"}
+  }
+}
+```
+
+Cycle View → Figure Alignment through Left, Centre and Right: both figures
+above, and the decorative image despite carrying no caption, must move
+together each time.
+
 ## 9. Citations
 
 A simple citation [@smith2020], a multi-cite [@smith2020; @doe2021], a

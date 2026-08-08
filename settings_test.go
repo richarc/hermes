@@ -253,3 +253,98 @@ func TestThemeIsIndependentOfTheOtherSettings(t *testing.T) {
 		t.Errorf("changing the theme disturbed the other settings: %+v", got)
 	}
 }
+
+func TestFigureSettingsDefaults(t *testing.T) {
+	s := newTestService(t)
+	got := s.Settings()
+	if got.FigureAlignment != "centre" {
+		t.Errorf("want centre default, got %q", got.FigureAlignment)
+	}
+	if got.ChartWidth != "medium" {
+		t.Errorf("want medium default, got %q", got.ChartWidth)
+	}
+}
+
+func TestFigureSettingsPersist(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+
+	next := s.Settings()
+	next.FigureAlignment = "left"
+	next.ChartWidth = "large"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+
+	got := NewDocumentService(recentsPath).Settings()
+	if got.FigureAlignment != "left" || got.ChartWidth != "large" {
+		t.Errorf("want the pair persisted across instances, got %+v", got)
+	}
+}
+
+func TestFigureAlignmentNormalisesUnknownValues(t *testing.T) {
+	s := newTestService(t)
+	for _, bad := range []string{"", "center", "CENTRE", "justified"} {
+		if err := s.UpdateSettings(Settings{FigureAlignment: bad}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", bad, err)
+		}
+		if got := s.Settings().FigureAlignment; got != "centre" {
+			t.Errorf("want %q normalised to centre, got %q", bad, got)
+		}
+	}
+}
+
+func TestChartWidthNormalisesUnknownValues(t *testing.T) {
+	s := newTestService(t)
+	for _, bad := range []string{"", "enormous", "MEDIUM", "400"} {
+		if err := s.UpdateSettings(Settings{ChartWidth: bad}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", bad, err)
+		}
+		if got := s.Settings().ChartWidth; got != "medium" {
+			t.Errorf("want %q normalised to medium, got %q", bad, got)
+		}
+	}
+}
+
+func TestFigureSettingsAcceptEveryLegalValue(t *testing.T) {
+	s := newTestService(t)
+	for _, want := range []string{"left", "centre", "right"} {
+		if err := s.UpdateSettings(Settings{FigureAlignment: want}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", want, err)
+		}
+		if got := s.Settings().FigureAlignment; got != want {
+			t.Errorf("want %q preserved, got %q", want, got)
+		}
+	}
+	for _, want := range []string{"small", "medium", "large"} {
+		if err := s.UpdateSettings(Settings{ChartWidth: want}); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", want, err)
+		}
+		if got := s.Settings().ChartWidth; got != want {
+			t.Errorf("want %q preserved, got %q", want, got)
+		}
+	}
+}
+
+func TestFigureSettingsAreIndependentOfTheOthers(t *testing.T) {
+	s := newTestService(t)
+	if err := s.UpdateSettings(Settings{
+		PrintOrientation: "landscape",
+		SyncScrolling:    true,
+		Theme:            "dark",
+		FigureAlignment:  "right",
+		ChartWidth:       "small",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	next := s.Settings()
+	next.ChartWidth = "large"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	got := s.Settings()
+	if got.PrintOrientation != "landscape" || !got.SyncScrolling ||
+		got.Theme != "dark" || got.FigureAlignment != "right" {
+		t.Errorf("changing the chart width disturbed the other settings: %+v", got)
+	}
+}

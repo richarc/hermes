@@ -14,9 +14,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the chart update as you go; inserting writes a `vega-lite` block at the
   cursor with the data inlined, so the document stays self-contained. Put the
   cursor back inside that block and Insert → Chart… reopens it with the
-  controls filled in. A chart using anything the builder cannot express —
+  controls filled in and the data box holding the chart's own table, so a
+  value can be corrected or a row added without re-pasting the lot. The box
+  always writes that data back comma-separated, even for a chart originally
+  built from a tab-separated paste — the delimiter itself isn't kept, only the
+  data. A chart using anything the builder cannot express —
   layers, transforms, a hand-set `title: null` — is left strictly alone, and
   says which feature stopped it rather than failing vaguely.
+- Figures: captioned, numbered, and consistently placed. A caption is what
+  makes a figure — give a chart a `title` (or use the builder's new Caption
+  field) or an image some alt text, and it gains a numbered caption below it,
+  counted in document order across charts and images together. A block with
+  no caption renders exactly as before, and an image with empty alt stays
+  decorative and unnumbered. Captions are written where each format already
+  keeps them — a Vega-Lite `title`, an image's alt text — so a document
+  converted through Pandoc keeps them.
+- View → Figure Alignment (Left, Centre, Right) and View → Chart Width
+  (Small, Medium, Large) place and size every figure in the document. A chart
+  that sets its own `width` keeps it. An oversized chart scales down to the
+  preview pane rather than scrolling it sideways, and a caption stays on the
+  same page as its figure in an exported PDF.
 - Insert Citation… moved from the File menu to a new Insert menu, alongside
   Insert Chart…. ⌘⇧C is unchanged.
 - Block folding is now visible in the View menu: Fold Block and Unfold Block

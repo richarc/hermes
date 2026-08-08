@@ -179,6 +179,49 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		})
 	}
 
+	// Both read viewCurrent, the settings snapshot taken at the top of this
+	// View block. Each OnClick re-reads and read-modify-writes the whole
+	// value, so a submenu only ever changes the one field it owns.
+	alignmentMenu := view.AddSubmenu("Figure Alignment")
+	alignments := []struct {
+		label string
+		value string
+	}{
+		{"Left", "left"},
+		{"Centre", "centre"},
+		{"Right", "right"},
+	}
+	for _, a := range alignments {
+		value := a.value
+		alignmentMenu.AddRadio(a.label, viewCurrent.FigureAlignment == value).OnClick(func(*application.Context) {
+			next := docs.Settings()
+			next.FigureAlignment = value
+			if err := docs.UpdateSettings(next); err != nil {
+				log.Printf("could not save figure alignment: %v", err)
+			}
+		})
+	}
+
+	widthMenu := view.AddSubmenu("Chart Width")
+	widths := []struct {
+		label string
+		value string
+	}{
+		{"Small", "small"},
+		{"Medium", "medium"},
+		{"Large", "large"},
+	}
+	for _, w := range widths {
+		value := w.value
+		widthMenu.AddRadio(w.label, viewCurrent.ChartWidth == value).OnClick(func(*application.Context) {
+			next := docs.Settings()
+			next.ChartWidth = value
+			if err := docs.UpdateSettings(next); err != nil {
+				log.Printf("could not save chart width: %v", err)
+			}
+		})
+	}
+
 	view.AddSeparator()
 	// ⌘⌥[ and ⌘⌥] already fold and unfold the block at the cursor — CodeMirror's
 	// foldKeymap binds them, and the webview sees them before AppKit does. These

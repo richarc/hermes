@@ -1,8 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { parseDelimited, tableFromRows, type DataTable, type FieldType } from './lib/dataTable'
+  import { parseDelimited, tableFromRows, toDelimited, type DataTable, type FieldType } from './lib/dataTable'
   import { buildSpec, MARKS, AGGREGATES, type Mark, type Aggregate, type BuilderState } from './lib/chartSpec'
   import { embedChart, type ChartView } from './lib/charts'
+  import { captionFromTitle } from './lib/figures'
   import { DocumentService } from '../bindings/hermes'
 
   interface Props {
@@ -19,6 +20,7 @@
 
   interface Seed {
     table: DataTable | null
+    caption: string
     mark: Mark
     xField: string
     yField: string
@@ -39,11 +41,11 @@
   // `state_referenced_locally` warning instead of accepting it repeatedly.
   //
   // Reopening an existing chart arrives with rows already parsed, so the
-  // paste box starts empty and the table is seeded from the spec. The
-  // encoded columns (x/y/colour) already carry an authoritative type read
-  // out of the spec — trust those rather than re-guessing, since a guess
-  // from row values alone cannot tell a date column from a nominal one
-  // reliably.
+  // table is seeded from the spec and the paste box is seeded from the table
+  // (see `pasted` below). The encoded columns (x/y/colour) already carry an
+  // authoritative type read out of the spec — trust those rather than
+  // re-guessing, since a guess from row values alone cannot tell a date
+  // column from a nominal one reliably.
   const seed: Seed = untrack(() => {
     let seededTable: DataTable | null = null
     if (initial) {
@@ -56,6 +58,7 @@
     }
     return {
       table: seededTable,
+      caption: captionFromTitle(initial?.extras.title),
       mark: initial?.mark ?? 'line',
       xField: initial?.x.field ?? '',
       yField: initial?.y.field ?? '',
@@ -69,7 +72,29 @@
     }
   })
 
-  let pasted = $state('')
+  /**
+   * Serializes a seeded table for the paste box, but only if the result would
+   * actually read back as the same table. `toDelimited` only promises to
+   * reproduce text the box itself could have produced — a hand-authored spec
+   * can hold a column name `parseDelimited` would never write into a header
+   * (e.g. one containing whitespace with no comma or tab to sniff a delimiter
+   * from, or an empty name). Serializing that anyway would open the modal
+   * looking fine and then unmount the encode section on the very first
+   * keystroke, with a parse error the user did not cause and cannot fix
+   * without renaming a column they never touched. Falling back to '' here is
+   * exactly today's pre-fill-less behaviour for that case.
+   */
+  function seedPasteText(t: DataTable | null): string {
+    if (!t) return ''
+    const text = toDelimited(t)
+    return parseDelimited(text).ok ? text : ''
+  }
+
+  // Reopening a chart seeds the box with its own data, so it can be edited
+  // rather than only replaced. A table with no columns serializes to '',
+  // which is also what an unseeded builder wants — seedPasteText's guard
+  // covers both that case and the unparseable-header-name case above.
+  let pasted = $state(seedPasteText(seed.table))
   let table: DataTable | null = $state(seed.table)
   let parseError = $state('')
   let importError = $state('')
@@ -85,16 +110,18 @@
     if (result.ok) {
       table = result.table
       parseError = ''
-      // A fresh paste can replace the columns entirely (different header
-      // row). A selection that named a column from the old table is no
-      // longer meaningful once that column is gone — clear it rather than
-      // silently keeping a stale field name selected while the dropdown
-      // shows something else, which would let Insert commit a spec that
-      // encodes a column absent from the new data.
-      const names = new Set(table.columns.map((c) => c.name))
-      if (!names.has(xField)) xField = ''
-      if (!names.has(yField)) yField = ''
-      if (colourField && !names.has(colourField)) colourField = ''
+      // A fresh paste — or an in-progress edit of the header row — can
+      // rename or drop a column an axis selection names. This used to clear
+      // the selection on the spot, but load() runs on every keystroke:
+      // retyping a header character by character renames the column away
+      // and back on every intermediate keystroke, and clearing threw the
+      // user's selection (and any declared type override) away with nothing
+      // to restore it — re-picking the column from the dropdown re-infers
+      // its type from scratch. Leave the selection alone and let `ready`
+      // gate on the column actually existing instead: Insert/Update disables
+      // and the preview blanks while the reference is dangling, and both
+      // recover the moment the text is valid again, without discarding
+      // anything the user chose.
     } else {
       table = null
       parseError = result.message
@@ -133,6 +160,7 @@
   let xTitle = $state(seed.xTitle)
   let yTitle = $state(seed.yTitle)
   let aggregate: Aggregate = $state(seed.aggregate)
+  let caption = $state(seed.caption)
 
   // Types are seeded from inference when a column is picked, then owned by the
   // user: an ID column of integers infers as quantitative but is really
@@ -165,9 +193,39 @@
   // it commits carries neither a field nor a real aggregate.
   const effectiveAggregate = $derived<Aggregate>(mark === 'boxplot' ? 'none' : aggregate)
 
+  // load() no longer clears a selection whose column has vanished (see the
+  // comment there), so readiness has to check that a selected column still
+  // exists in the current table itself — otherwise Insert/Update would stay
+  // enabled for a spec that encodes a column absent from the data. `count`
+  // aggregate is exempt on y because canonicalise() drops y.field from the
+  // committed spec whenever it applies, so a dangling yField there is inert,
+  // not a hazard. colourField is optional throughout: '' is always fine, a
+  // non-empty value must still resolve.
+  const hasColumn = (name: string) => columns.some((c) => c.name === name)
   const ready = $derived(
-    table !== null && xField !== '' && (yField !== '' || effectiveAggregate === 'count'),
+    table !== null &&
+      xField !== '' &&
+      hasColumn(xField) &&
+      (effectiveAggregate === 'count' || (yField !== '' && hasColumn(yField))) &&
+      (colourField === '' || hasColumn(colourField)),
   )
+
+  // The caption lives in the spec's own `title` — Vega-Lite's native home for
+  // it, so the block stays portable and Pandoc keeps the caption. renderer.ts
+  // lifts it out and draws it below the chart.
+  //
+  // Only rewritten when the field actually changed: a title the box cannot
+  // show as text (an object with styling, say) is inert metadata readSpec
+  // preserved, and clearing it because the box looked empty would be silent
+  // data loss.
+  const extras = $derived.by(() => {
+    const base = { ...(initial?.extras ?? {}) }
+    const text = caption.trim()
+    if (text === seed.caption) return base
+    if (text === '') delete base.title
+    else base.title = text
+    return base
+  })
 
   // Named builderState rather than state: a local variable named `state`
   // collides with the `$state` rune elsewhere in the file — Svelte parses
@@ -182,12 +240,27 @@
           y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
           colour: colourField ? { field: colourField, type: colourType } : null,
           // Metadata the UI never shows — a description, a $schema line — that
-          // readSpec preserved when this chart was opened. Carrying it through
-          // is what stops reopening a chart from quietly stripping it.
-          extras: initial?.extras ?? {},
+          // readSpec preserved when this chart was opened, plus the caption
+          // the field above owns. Carrying the rest through is what stops
+          // reopening a chart from quietly stripping it.
+          extras,
         }
       : null,
   )
+
+  // The document draws the caption below the chart, so the preview must too —
+  // otherwise the builder shows it inside the chart and the document shows it
+  // underneath. No number is shown: numbering is a property of the document,
+  // assigned by position, and the builder cannot know it.
+  const previewSpec = $derived(
+    builderState ? buildSpec({ ...builderState, extras: withoutTitle(extras) }) : '',
+  )
+
+  function withoutTitle(e: Record<string, unknown>): Record<string, unknown> {
+    const rest = { ...e }
+    delete rest.title
+    return rest
+  }
 
   let previewEl: HTMLDivElement | undefined = $state()
   let view: ChartView | null = null
@@ -199,16 +272,16 @@
   // cleared takes the stale branch on arrival and finalizes itself, instead
   // of resurrecting a view for a chart that is no longer showing.
   $effect(() => {
-    const s = builderState
+    const spec = previewSpec
     const el = previewEl
-    if (!s || !el) {
+    if (spec === '' || !el) {
       generation++
       view?.finalize()
       view = null
       return
     }
     const gen = ++generation
-    void embedChart(el, buildSpec(s)).then((v) => {
+    void embedChart(el, spec).then((v) => {
       if (gen !== generation) {
         v?.finalize()
         return
@@ -247,8 +320,15 @@
     <h2>Chart</h2>
 
     <section class="data-step">
-      <label for="chart-paste">Paste a table</label>
-      <textarea id="chart-paste" bind:this={pasteEl} rows="6" value={pasted} oninput={onPaste}></textarea>
+      <label for="chart-paste">Data</label>
+      <textarea
+        id="chart-paste"
+        bind:this={pasteEl}
+        rows={initial ? 12 : 6}
+        placeholder="Paste a comma- or tab-separated table with a header row"
+        value={pasted}
+        oninput={onPaste}
+      ></textarea>
       <button onclick={() => void chooseFile()}>Choose file…</button>
 
       {#if parseError}
@@ -269,6 +349,10 @@
 
     {#if table}
       <section class="encode-step">
+        <label class="caption-row">Caption
+          <input data-field="caption" bind:value={caption} />
+        </label>
+
         <label class="mark-row">Mark
           <select data-field="mark" bind:value={mark}>
             {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
@@ -322,6 +406,9 @@
       </section>
 
       <div class="chart-preview" bind:this={previewEl}></div>
+      {#if caption.trim()}
+        <p class="chart-caption">{caption.trim()}</p>
+      {/if}
     {/if}
 
     <div class="modal-buttons">

@@ -32,6 +32,7 @@
   import { foldAllCodeBlocks } from './lib/foldCommands'
   import ChartBuilder from './ChartBuilder.svelte'
   import { readSpec, type BuilderState } from './lib/chartSpec'
+  import type { ChartWidth, FigureAlignment } from './lib/figures'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -47,6 +48,8 @@
   let preview: ReturnType<typeof Preview>
   let syncScrolling = $state(false)
   let themeSetting = $state<ThemeSetting>('system')
+  let chartWidth = $state<ChartWidth>('medium')
+  let figureAlign = $state<FigureAlignment>('centre')
   let systemPrefersDark = $state(false)
   let scrollFrame: number | null = null
   let toastTimer: ReturnType<typeof setTimeout>
@@ -69,7 +72,7 @@
   const fmCsl = $derived(fm.csl)
 
   const updatePreview = debounce((text: string) => {
-    html = render(text, { formatter })
+    html = render(text, { formatter, chartWidth })
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
@@ -130,12 +133,14 @@
     void reloadBibliography()
   })
 
-  // Re-render when the FORMATTER changes (bib loaded/reloaded, style change).
-  // content is read untracked: content changes flow through the debounced
-  // typing path, not this immediate effect.
+  // Re-render when the FORMATTER or the chart width changes (bib loaded or
+  // reloaded, style change, View → Chart Width). content is read untracked:
+  // content changes flow through the debounced typing path, not this
+  // immediate effect.
   $effect(() => {
     void formatter
-    html = render(untrack(() => content), { formatter })
+    void chartWidth
+    html = render(untrack(() => content), { formatter, chartWidth })
   })
 
   async function insertCitation() {
@@ -304,7 +309,7 @@
     // Render now rather than 250 ms from now, and drop the queued pass: it
     // would only re-render this same text.
     updatePreview.cancel()
-    html = render(docContent, { formatter })
+    html = render(docContent, { formatter, chartWidth })
     void refreshRecents()
   }
 
@@ -316,6 +321,10 @@
     const s: Settings = await DocumentService.Settings()
     syncScrolling = s.syncScrolling
     themeSetting = s.theme as ThemeSetting
+    // Go normalises both on the way out, so the cast is a spelling of what
+    // the binding cannot express rather than an unchecked assumption.
+    chartWidth = s.chartWidth as ChartWidth
+    figureAlign = s.figureAlignment as FigureAlignment
     applyTheme(resolveTheme(themeSetting, systemPrefersDark))
   }
 
@@ -363,7 +372,7 @@
     // user never edited.
     savedContent = NEW_DOCUMENT_TEMPLATE
     updatePreview.cancel() // the render below supersedes it
-    html = render(NEW_DOCUMENT_TEMPLATE, { formatter })
+    html = render(NEW_DOCUMENT_TEMPLATE, { formatter, chartWidth })
     welcomeDismissed = true
   }
 
@@ -564,7 +573,7 @@
       aria-valuemax={80}
       tabindex="0"
     ></div>
-    <Preview bind:this={preview} {html} />
+    <Preview bind:this={preview} {html} {figureAlign} />
   </main>
 
   <footer class="status-bar">

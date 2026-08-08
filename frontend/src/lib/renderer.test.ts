@@ -71,6 +71,42 @@ describe('render: vega-lite fences', () => {
   })
 })
 
+describe('render: chart width', () => {
+  const fence = (spec: string) => '```vega-lite\n' + spec + '\n```'
+
+  it('injects the default medium width when the spec declares none', () => {
+    const html = render(fence('{"mark":"bar"}'))
+    expect(html).toContain('&quot;width&quot;:400')
+  })
+
+  it('injects the requested width', () => {
+    expect(render(fence('{"mark":"bar"}'), { chartWidth: 'small' })).toContain(
+      '&quot;width&quot;:240',
+    )
+    expect(render(fence('{"mark":"bar"}'), { chartWidth: 'large' })).toContain(
+      '&quot;width&quot;:560',
+    )
+  })
+
+  it("leaves an author's explicit width alone", () => {
+    const html = render(fence('{"mark":"bar","width":300}'), { chartWidth: 'large' })
+    expect(html).toContain('&quot;width&quot;:300')
+    expect(html).not.toContain('560')
+  })
+
+  it('passes unparseable spec text through untouched', () => {
+    const html = render(fence('not json'))
+    expect(html).toContain('not json')
+    expect(html).not.toContain('width')
+  })
+
+  it('passes a spec that is not a JSON object through untouched', () => {
+    const html = render(fence('[1, 2]'))
+    expect(html).toContain('[1, 2]')
+    expect(html).not.toContain('width')
+  })
+})
+
 const ENTRIES: CSLEntry[] = [
   { id: 'smith2020', type: 'article-journal', title: 'A study',
     author: [{ family: 'Smith', given: 'John A.' }],
