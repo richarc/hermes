@@ -31,6 +31,7 @@
   import type { Command } from '@codemirror/view'
   import { foldAllCodeBlocks } from './lib/foldCommands'
   import ChartBuilder from './ChartBuilder.svelte'
+  import Dialog from './Dialog.svelte'
   import { readSpec, type BuilderState } from './lib/chartSpec'
   import type { ChartWidth, FigureAlignment } from './lib/figures'
 
@@ -595,23 +596,26 @@
     </div>
   {/if}
 
-  {#if pendingAction}
-    <div class="modal-backdrop">
-      <div class="modal" role="alertdialog">
-        <p>"{filename}" has unsaved changes.</p>
-        <div class="modal-buttons">
-          <button class="primary" onclick={() => void confirmSave()}>Save</button>
-          <button onclick={() => void confirmDiscard()}>Don't Save</button>
-          <button
-            onclick={() => {
-              pendingAction = null
-              pendingRecentPath = null
-            }}>Cancel</button
-          >
-        </div>
-      </div>
-    </div>
-  {/if}
+  <Dialog
+    open={pendingAction !== null}
+    label="Unsaved changes"
+    onclose={() => {
+      pendingAction = null
+      pendingRecentPath = null
+    }}
+  >
+    <p>"{filename}" has unsaved changes.</p>
+    {#snippet footer()}
+      <button onclick={() => void confirmDiscard()}>Don't Save</button>
+      <button
+        onclick={() => {
+          pendingAction = null
+          pendingRecentPath = null
+        }}>Cancel</button
+      >
+      <button class="primary" onclick={() => void confirmSave()}>Save</button>
+    {/snippet}
+  </Dialog>
 
   {#if toastMsg}
     <div class="toast" role="status">{toastMsg}</div>

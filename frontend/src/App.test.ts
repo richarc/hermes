@@ -651,7 +651,17 @@ describe('chart builder', () => {
     listeners['close:confirm']({ data: null })
     flushSync()
 
-    expect(target.textContent).not.toContain('unsaved')
+    // The unsaved-changes dialog is now a native <dialog> that App.svelte
+    // renders unconditionally (Dialog owns visibility via the `open` prop,
+    // not an {#if}), so its "has unsaved changes" text is always present in
+    // the DOM regardless of whether pendingAction is set — a textContent
+    // check can no longer distinguish shown from hidden. The guard under
+    // test (chartOpen, in the close:confirm handler) is unchanged; only the
+    // way to observe its effect changes: query the dialog's own open state.
+    const confirmDialog = target.querySelector<HTMLDialogElement>(
+      'dialog[aria-label="Unsaved changes"]',
+    )!
+    expect(confirmDialog.open).toBe(false)
     expect(target.querySelector('.chart-builder')).not.toBeNull()
   })
 })

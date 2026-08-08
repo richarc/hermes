@@ -333,18 +333,38 @@ textarea:focus-visible,
 .welcome ul { list-style: none; margin-top: 12px; }
 .welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
 
-.modal-backdrop {
-  position: fixed; inset: 0; background: var(--backdrop);
-  display: grid; place-items: center;
+/* The native element handles centring, the top layer and the backdrop, so the
+   old .modal-backdrop wrapper is gone. Padding lives on .dialog-body rather
+   than the dialog, so the sticky footer can sit flush against the edge. */
+dialog {
+  background: var(--overlay-bg);
+  color: var(--fg);
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
-.modal { background: var(--overlay-bg); border-radius: 8px; padding: 24px; max-width: 400px; }
-.modal-buttons { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+dialog::backdrop { background: var(--backdrop); }
+.dialog-body { padding: 24px; }
+
+/* Sticky, so a large pasted table cannot scroll the Insert button out of
+   sight. The background is the dialog's own, or the content shows through. */
+.modal-buttons {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  background: var(--overlay-bg);
+  border-top: 1px solid var(--border);
+}
 
 .chart-builder {
   width: min(56rem, 90vw);
   max-width: min(56rem, 90vw);
-  max-height: 90vh;
-  overflow-y: auto;
   text-align: left;
 }
 
@@ -480,7 +500,7 @@ textarea:focus-visible,
     --syn-meta: #888888;
   }
 
-  .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, .modal-backdrop {
+  .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog {
     display: none !important;
   }
   .panes { display: block; }
