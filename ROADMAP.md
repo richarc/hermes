@@ -196,6 +196,93 @@ then widening what a "figure" can be beyond statistical graphics.
       has to come from somewhere new, which is the one place this feature
       cannot simply follow the chart precedent.
 
+## v0.7.0 — Code blocks
+
+Fenced code is the one block type Hermes renders worse than the plain
+markdown it started from.
+
+- [ ] A simple Insert menu route to a code block — one that drops a fence with
+      placeholder text rather than making the author remember three backticks
+      and a language tag. The wiring is the established one: a `menu:insert-code`
+      event from `menu.go`, handled in `App.svelte`, writing through
+      `editor.insertBlockAtCursor`, and no accelerator (an invented chord
+      cannot be checked against every macOS binding — the same reasoning as
+      Insert → Chart… and Blockquote). Whether it needs a *builder* like the
+      chart one is worth questioning before building it: the chart builder
+      exists because a Vega-Lite spec is genuinely hard to hand-write, whereas
+      a code fence is a delimiter and a language name. The part with real value
+      is choosing the language — a picker, not a modal.
+- [ ] Syntax highlighting for code blocks. Half of this already exists and the
+      other half does not, which is the thing to know going in. The **editor**
+      already highlights nested languages: `Editor.svelte` configures
+      `markdown({ codeLanguages: languages })` from `@codemirror/language-data`,
+      so a ` ```python ` block is already coloured while you type. The
+      **preview** has nothing — `renderer.ts` constructs markdown-it with no
+      `highlight` option, so a fence renders as a bare `<pre><code>`. Closing
+      that gap needs a highlighter chosen against this project's constraints:
+      bundle size matters enough that `vega-embed` is dynamically imported, so
+      whatever is picked should load the same way, and the token colours must
+      go through the palette rather than a vendor stylesheet —
+      `styleContract.test.ts` fails the build on a literal colour in a rule and
+      requires the light, dark and print blocks to declare identical names. The
+      print block is the one that catches people out: an exported PDF is always
+      light, so a highlighter theming itself from the dark palette produces a
+      near-white listing on paper.
+
+## v0.8.0 — Design system
+
+The UI has grown feature by feature; this is the release that makes it look
+like one program.
+
+- [ ] Consistent UI elements — buttons, dialogs, form controls. Today each was
+      styled where it was needed: the welcome pane has its own
+      `.welcome-action` rule, the chart builder its own input and select
+      styling, and the modals share only `.modal`/`.modal-buttons`. The
+      backlog's note about a more readable, more prominent button style that
+      works in both themes belongs to this release and should move here when
+      it is scheduled.
+- [ ] A colour scheme for document source — markdown syntax and any embedded
+      text. The mechanism exists: `style.css` defines `--syn-heading`,
+      `--syn-emphasis`, `--syn-code`, `--syn-link`, `--syn-quote` and
+      `--syn-meta`, and `Editor.svelte`'s CodeMirror theme reads them through
+      `var()`. What is missing is a considered palette rather than an
+      incidental one, and coverage: embedded languages inside a fence are
+      highlighted by `@codemirror/language-data`'s own defaults, not by these
+      variables, so a Python block and a heading are currently coloured by two
+      unrelated schemes. Pairs naturally with v0.7's preview highlighting —
+      the two should agree, so the same code looks the same in the editor, the
+      preview and the PDF.
+- [ ] Settle the best styling and rendering approach for the preview and the
+      PDF. These are one problem, not two: the PDF is the preview under the
+      `@media print` palette, printed through the system panel. The open
+      questions are whether print should keep tracking the screen stylesheet
+      or diverge deliberately (it already overrides the whole palette and
+      hides the chrome), and whether the print panel remains the export route
+      — the backlog carries a dialog-free export idea if it proves clunky.
+
+## v0.9.0 — Bug fixes and pre-production
+
+- [ ] Work the deferred review findings below. The ⌘Z-after-File → New bug is
+      the one with real teeth: undo restores the previous document's text while
+      `path` is already `null`, so a following ⌘S writes the old content to a
+      new file.
+- [ ] Help documentation.
+- [ ] Tutorials, written using Hermes. The dogfooding is the point — a
+      tutorial that cannot be written comfortably in Hermes is a bug report
+      about Hermes, and the documents double as the manual visual-test corpus
+      that `docs/visual-test.md` currently stands in for.
+
+## v1.0.0 — Production
+
+- [ ] Installable binaries, macOS only. `build/darwin/Taskfile.yml` already
+      produces an `.app` bundle and ad-hoc signs it, which is enough to run
+      locally and not enough to hand to anyone: Gatekeeper rejects an ad-hoc
+      signature on a downloaded app. Distribution needs a Developer ID
+      certificate, a hardened-runtime signature, notarization through
+      `notarytool`, and stapling the ticket to the bundle — plus a decision
+      about the container (a DMG is conventional; a zip is simpler and
+      notarizes just as well). Windows and Linux stay in the backlog.
+
 ## Backlog (unscheduled)
 
 Ideas noted along the way, not yet committed to a release:
