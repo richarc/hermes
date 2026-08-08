@@ -205,19 +205,29 @@ html, body {
    :only-child test is what keeps ordinary prose — and an image used inline in
    a sentence — out of it.
 
+   `p:has(> a:only-child > img:only-child)` is the same case for a linked
+   image (`[![alt](img)](url)`): the <img> there is a child of the <a>, not of
+   the <p>, so the plain img selector above does not match it. A linked image
+   alone in a paragraph is correctly not numbered as a figure (figures.ts only
+   captions a bare image), but the design still calls for it to be aligned
+   like one.
+
    The attribute value is CSS's `center`, not Hermes' `centre`;
    Preview.svelte maps between them through cssTextAlign(). */
 .preview-pane[data-figure-align="left"] figure,
 .preview-pane[data-figure-align="left"] .vega-lite-chart,
-.preview-pane[data-figure-align="left"] p:has(> img:only-child) { text-align: left; }
+.preview-pane[data-figure-align="left"] p:has(> img:only-child),
+.preview-pane[data-figure-align="left"] p:has(> a:only-child > img:only-child) { text-align: left; }
 
 .preview-pane[data-figure-align="center"] figure,
 .preview-pane[data-figure-align="center"] .vega-lite-chart,
-.preview-pane[data-figure-align="center"] p:has(> img:only-child) { text-align: center; }
+.preview-pane[data-figure-align="center"] p:has(> img:only-child),
+.preview-pane[data-figure-align="center"] p:has(> a:only-child > img:only-child) { text-align: center; }
 
 .preview-pane[data-figure-align="right"] figure,
 .preview-pane[data-figure-align="right"] .vega-lite-chart,
-.preview-pane[data-figure-align="right"] p:has(> img:only-child) { text-align: right; }
+.preview-pane[data-figure-align="right"] p:has(> img:only-child),
+.preview-pane[data-figure-align="right"] p:has(> a:only-child > img:only-child) { text-align: right; }
 
 .divider { width: 4px; cursor: col-resize; background: var(--divider); flex-shrink: 0; }
 
@@ -282,8 +292,12 @@ html, body {
 
 /* Mark applies to the whole chart rather than to an axis, so it gets its own
    row above them. The select is held to one column's width so spanning the row
-   does not stretch a five-item dropdown across the dialog. */
-.encode-step .mark-row {
+   does not stretch a five-item dropdown across the dialog. .caption-row below
+   shares this row's span for the same reason (a full-width control on the
+   grid) but, being a sentence rather than a token, deliberately does NOT cap
+   its own width the way .mark-row select does. */
+.encode-step .mark-row,
+.encode-step .caption-row {
   grid-column: 1 / -1;
 }
 
@@ -315,12 +329,6 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
-}
-
-/* A caption is a sentence, not a token, so it takes the full dialog width —
-   unlike the axis controls, which line up in three columns. */
-.encode-step .caption-row {
-  grid-column: 1 / -1;
 }
 
 .chart-builder .chart-caption {

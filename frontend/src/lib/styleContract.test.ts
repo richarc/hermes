@@ -169,8 +169,12 @@ describe('figure alignment', () => {
   })
 
   it('styles all three alignments', () => {
+    // Comments are stripped first: the rules this guards sit right after a
+    // large explanatory comment block, and an uncommented selector there
+    // would make this pass even if the actual rule went missing.
+    const css = stripComments(CSS)
     for (const value of ['left', 'center', 'right']) {
-      expect(CSS).toContain(`[data-figure-align="${value}"]`)
+      expect(css).toContain(`[data-figure-align="${value}"]`)
     }
   })
 

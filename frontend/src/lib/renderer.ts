@@ -36,7 +36,7 @@ md.use(katexPlugin, { throwOnError: false, errorColor: '#cc0000' })
 // before markdown-it ever sees the text — without it every anchor in a
 // document with frontmatter is short by that block's length.
 md.core.ruler.push('source_line', (state) => {
-  const offset = (state.env as { sourceLineOffset?: number }).sourceLineOffset ?? 0
+  const offset = (state.env as RenderEnv).sourceLineOffset
   for (const token of state.tokens) {
     if (token.level === 0 && token.map) {
       token.attrSet('data-source-line', String(token.map[0] + 1 + offset))
@@ -85,8 +85,24 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
  * makes a builder round trip preserve them and an author's own `"width": 300`
  * keep beating the document default.
  *
- * The title is removed when the caption is being drawn below the chart —
+ * The title TEXT is removed when the caption is being drawn below the chart —
  * otherwise Vega-Lite draws it inside the SVG as well and it appears twice.
+ * Only `text` comes out: a title object can also carry a `subtitle` (and
+ * styling properties), and captionFromTitle only ever reads `text` for the
+ * figure caption, so deleting the whole key would silently take the subtitle
+ * with it — it would appear neither in the SVG nor in the caption, with
+ * nothing to tell the author. Vega-Lite's own schema marks `text` required on
+ * a title object, so a bare `{"subtitle":...}` is not strictly schema-valid —
+ * but this project's bundled Vega-Lite (checked against its compile step)
+ * does not validate specs against that schema and does not draw a title group
+ * at all when `text` is absent, subtitle included, so this cannot regress a
+ * working chart into a visible error card. It is the least-bad option: the
+ * subtitle at least survives into data-spec instead of being destroyed
+ * outright, even though it goes undrawn until the author gives the title back
+ * a `text`.
+ *
+ * An object left with nothing but `text` collapses to `delete spec.title`,
+ * same as a bare string title, rather than emitting an empty `{}`.
  *
  * Anything that is not a JSON object is returned verbatim, so a malformed
  * spec still reaches the hydrator's error card unchanged.
@@ -100,7 +116,21 @@ function rewriteChartSpec(text: string, widthPx: number, stripTitle: boolean): s
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return text
   const spec = { ...(parsed as Record<string, unknown>) }
-  if (stripTitle) delete spec.title
+  if (stripTitle) {
+    const title = spec.title
+    if (typeof title === 'object' && title !== null && !Array.isArray(title)) {
+      const rest = { ...(title as Record<string, unknown>) }
+      delete rest.text
+      if (Object.keys(rest).length > 0) spec.title = rest
+      else delete spec.title
+    } else {
+      delete spec.title
+    }
+  }
+  // `{"width":null}` reads as the author explicitly setting a width — an
+  // author's own choice always wins over the document default, `null`
+  // included — even though it is the one input where that produces a spec
+  // Vega-Lite may not accept. Deliberate, not an oversight.
   if (!('width' in spec)) spec.width = widthPx
   return JSON.stringify(spec)
 }

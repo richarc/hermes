@@ -559,6 +559,45 @@ describe('ChartBuilder caption', () => {
     target.remove()
   })
 
+  it('leaves an unedited renderable object title as an object, not flattened to a string', () => {
+    // The realistic case a real user hits, unlike the exotic { text: 42 }
+    // above: the caption box shows 'X' and, left untouched, must commit the
+    // spec's title back exactly as it was — an object — not the plain string
+    // the box's own text would otherwise suggest.
+    const oncommit = vi.fn()
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(ChartBuilder, {
+      target,
+      props: {
+        initial: {
+          mark: 'bar' as const,
+          rows: [{ dose: 0, response: 1 }],
+          x: { field: 'dose', type: 'quantitative' as const, title: '' },
+          y: {
+            field: 'response',
+            type: 'quantitative' as const,
+            title: '',
+            aggregate: 'none' as const,
+          },
+          colour: null,
+          extras: { title: { text: 'X' } },
+        },
+        oncommit,
+        oncancel: vi.fn(),
+      },
+    })
+    flushSync()
+    ;[...target.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Update chart')!
+      .click()
+    flushSync()
+    const spec = JSON.parse(oncommit.mock.calls[0][0] as string)
+    expect(spec.title).toEqual({ text: 'X' })
+    unmount(cmp)
+    target.remove()
+  })
+
   it('previews the caption below the chart, not inside it', () => {
     // Mirrors the document: the title is stripped from the embedded spec and
     // the caption is drawn as text beneath.

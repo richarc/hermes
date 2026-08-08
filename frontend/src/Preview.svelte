@@ -3,7 +3,7 @@
   import { Browser } from '@wailsio/runtime'
   import { createChartHydrator } from './lib/charts'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
-  import { cssTextAlign } from './lib/figures'
+  import { cssTextAlign, type FigureAlignment } from './lib/figures'
 
   let {
     html,
@@ -15,7 +15,7 @@
     collectAnchorsFn = collectAnchors,
   }: {
     html: string
-    figureAlign?: string
+    figureAlign?: FigureAlignment
     collectAnchorsFn?: (c: HTMLElement) => Anchor[]
   } = $props()
 

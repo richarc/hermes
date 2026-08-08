@@ -209,6 +209,16 @@ describe('figures: the title never renders twice', () => {
     const html = render(fence('{"title":42,"mark":"bar"}'))
     expect(html).toContain('&quot;title&quot;')
   })
+
+  it('keeps a subtitle in data-spec when the title text is lifted into the caption', () => {
+    // Only `text` comes out of the title object — deleting the whole key
+    // would silently take `subtitle` with it (see rewriteChartSpec).
+    const html = render(fence('{"title":{"text":"Sources","subtitle":"n=42"},"mark":"bar"}'))
+    // The caption is drawn exactly once, below the chart.
+    expect(html.match(/Figure 1 — Sources/g)).toHaveLength(1)
+    expect(html).not.toContain('&quot;text&quot;')
+    expect(html).toContain('&quot;subtitle&quot;:&quot;n=42&quot;')
+  })
 })
 
 describe('figures: scroll-sync anchors', () => {
