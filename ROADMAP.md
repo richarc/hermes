@@ -137,6 +137,31 @@ then widening what a "figure" can be beyond statistical graphics.
 
 - [x] Implement a Vega-Lite builder for importing data and creating the chart
       graphically.
+- [x] Figure presentation: captions, automatic numbering, alignment and width.
+      A caption is what makes a figure — a Vega-Lite `title` or an image's
+      non-empty alt text — so existing documents are untouched until their
+      author adds one, and both formats stay portable through Pandoc. Charts
+      and images share one number sequence in document order, recomputed each
+      render. View → Figure Alignment and View → Chart Width are document-wide;
+      a chart with its own `width` keeps it. Design:
+      [docs/superpowers/specs/2026-08-08-chart-presentation-design.md](docs/superpowers/specs/2026-08-08-chart-presentation-design.md).
+      Two limitations were accepted at review: a `title` object's `subtitle` is
+      not drawn anywhere (Vega-Lite's `TitleParams` requires `text`, so a
+      subtitle alone cannot render, and the design never considered folding it
+      into the figcaption), and in dark mode `.vega-lite-chart`'s light card
+      spans the full pane, so alignment moves the chart within the card rather
+      than moving the card.
+- [x] Editable chart data: reopening a chart prefills the builder's data box
+      from the spec's rows, so a value can be corrected or a row added instead
+      of re-pasting the whole table. Previously the box opened empty *and*
+      auto-focused, so the first keystroke silently destroyed the seeded table.
+      Design:
+      [docs/superpowers/specs/2026-08-08-chart-data-editing-design.md](docs/superpowers/specs/2026-08-08-chart-data-editing-design.md).
+      One disclosed asymmetry: the text is regenerated from the rows rather
+      than stored, so charts the builder inserted round-trip exactly, but a
+      hand-authored spec can shift — `{dose: '007'}` commits as `dose: 7` after
+      an unrelated edit, and a sparse row commits `b: ''` where it had no key,
+      which Vega-Lite draws as a point at zero rather than filtering out.
 - [ ] Support additional chart types essential to physics, and to quantum
       mechanics in particular — perhaps as multiple tabs in the builder, one
       per chart family. The tabs are the easy half; the question to settle
