@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the chart update as you go; inserting writes a `vega-lite` block at the
   cursor with the data inlined, so the document stays self-contained. Put the
   cursor back inside that block and Insert → Chart… reopens it with the
-  controls filled in. A chart using anything the builder cannot express —
+  controls filled in and the data box holding the chart's own table, so a
+  value can be corrected or a row added without re-pasting the lot. A chart
+  using anything the builder cannot express —
   layers, transforms, a hand-set `title: null` — is left strictly alone, and
   says which feature stopped it rather than failing vaguely.
 - Figures: captioned, numbered, and consistently placed. A caption is what
