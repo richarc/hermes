@@ -129,13 +129,47 @@ full, plus Zotero integration that was not in the original sketch:
       flashes white on launch in dark mode. The System/Light/Dark choice
       itself is now cheap: `Settings` takes a field, a default, and a clamp.
 
-## v0.6.0 — Vega-Lite
+## v0.6.0 — Figures and diagrams
 
-Charts get the attention citations got in v0.3: the release is entirely about
-making Vega-Lite usable without hand-writing a spec.
+Charts get the attention citations got in v0.3: making Vega-Lite usable
+without hand-writing a spec, presenting the result as a proper figure, and
+then widening what a "figure" can be beyond statistical graphics.
 
 - [x] Implement a Vega-Lite builder for importing data and creating the chart
       graphically.
+- [ ] Support additional chart types essential to physics, and to quantum
+      mechanics in particular — perhaps as multiple tabs in the builder, one
+      per chart family. The tabs are the easy half; the question to settle
+      first is how much of the wanted list Vega-Lite can express at all. It is
+      a grammar for *statistical* graphics: a polar plot is an awkward
+      composition of arc marks, a contour plot needs Vega's `isocontour`
+      transform rather than anything Vega-Lite offers, and 3-D surfaces,
+      vector fields and Bloch spheres are outside it entirely. So the honest
+      scoping question is whether this is "more builder tabs over one
+      renderer" or "a second renderer alongside Vega-Lite" — and the answer
+      probably differs per chart type. Worth starting from the actual list of
+      plots a QM paper needs (wavefunctions with complex amplitude, probability
+      densities, energy-level diagrams, Bloch spheres, band structures) and
+      sorting it into what Vega-Lite can do today, what it can do with a
+      hand-written spec the builder could template, and what needs something
+      else. Note the builder's own constraint too: `readSpec` decides
+      editability by rebuilding and comparing, so every new chart family needs
+      its round trip to be exact or reopening will refuse it.
+- [ ] Implement support for Mermaid diagrams. The renderer hook is the cheap
+      part — intercept a ` ```mermaid ` fence the way `renderer.ts` already
+      intercepts `vega-lite`, and hydrate it in `charts.ts` alongside the Vega
+      views. Four things need deciding beyond that. Mermaid is a large
+      dependency, so it must be dynamically imported like `vega-embed` or it
+      lands in the startup bundle. It carries its own theming, which has to be
+      driven from the palette and re-rendered on a theme change, and its
+      output is an SVG with baked-in colours rather than something
+      `style.css` can reach. It needs the same `data-source-line` treatment as
+      a chart, or scroll sync loses its anchor over what is often a tall
+      block. And `lib/figures.ts` currently decides figure-hood from a
+      Vega-Lite `title` or an image's alt text, so a captioned diagram needs
+      that extended — Mermaid has no `title` field of its own, so the caption
+      has to come from somewhere new, which is the one place this feature
+      cannot simply follow the chart precedent.
 
 ## Backlog (unscheduled)
 
