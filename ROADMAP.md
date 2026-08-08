@@ -260,7 +260,51 @@ like one program.
       hides the chrome), and whether the print panel remains the export route
       — the backlog carries a dialog-free export idea if it proves clunky.
 
-## v0.9.0 — Bug fixes and pre-production
+## v0.9.0 — Authoring and output
+
+Three features drawn from a review of Typora (2026-08-08), kept because they
+serve paper-writing specifically rather than because Typora has them. What was
+deliberately *not* taken: its seamless in-place WYSIWYG, which would replace
+the split view, scroll sync and the chart placeholders at once and fights a
+domain where a Vega-Lite spec and a citation key have no meaningful inline
+visual form; and its file-tree sidebar, which is the multi-part document idea
+dropped on 2026-08-06.
+
+- [ ] Export to DOCX and LaTeX through Pandoc. Hermes already builds toward
+      Pandoc without collecting the payoff: `![caption](img)` was chosen
+      because it is exactly Pandoc's figure convention, citations are `[@key]`,
+      and the figures design argues captions live in each format's native home
+      so a Pandoc conversion keeps them. Meanwhile the only output is PDF
+      through the print panel, and co-authors and journals want `.docx`. The
+      decision to settle first is the dependency: shell out to a Pandoc the
+      user installed (simple, but fails on a fresh machine and needs a
+      not-found path that explains itself), or bundle one (a much larger
+      binary, though v1.0 is already facing signing and notarization, so the
+      packaging conversation is open anyway). Bibliography handling needs
+      thought too — Pandoc can resolve citations itself from the same `.bib`,
+      which may mean handing it the raw markdown rather than anything Hermes
+      has already rendered.
+- [ ] An outline panel: the document's heading structure, with click-to-jump.
+      Cheaper than it looks, because the data already exists. `renderer.ts`'s
+      `source_line` core rule stamps every top-level block — headings
+      included — with its document line, so an outline is a second consumer of
+      the token pass `figures.ts` already walks, and jumping to an entry is
+      `scrollSync.ts`'s existing line-to-offset mapping run in reverse. The
+      open questions are where it lives (a third pane, or an overlay), whether
+      it is driven from the editor's syntax tree or the renderer's tokens, and
+      whether it scrolls the editor, the preview, or both.
+- [ ] A table builder. Markdown tables are the worst hand-editing experience
+      left in Hermes, and this is the same shape of problem the chart builder
+      already solved — with most of the parts already built. `lib/dataTable.ts`
+      parses delimited text into typed columns and rows, and `toDelimited`
+      (v0.6) renders a table back to text, so a builder is largely those two
+      plus a grid and a pipe-table serializer. Two things the chart builder
+      does not have to worry about: a markdown table is *editable as text* in
+      the document, so reopening one means parsing pipe-table syntax rather
+      than JSON, and alignment markers (`:---`, `---:`) have no equivalent in
+      `DataTable` and would need somewhere to live.
+
+## v0.10.0 — Bug fixes and pre-production
 
 - [ ] Work the deferred review findings below. The ⌘Z-after-File → New bug is
       the one with real teeth: undo restores the previous document's text while
