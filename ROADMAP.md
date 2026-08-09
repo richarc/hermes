@@ -236,13 +236,19 @@ markdown it started from.
 The UI has grown feature by feature; this is the release that makes it look
 like one program.
 
-- [ ] Consistent UI elements — buttons, dialogs, form controls. Today each was
-      styled where it was needed: the welcome pane has its own
-      `.welcome-action` rule, the chart builder its own input and select
-      styling, and the modals share only `.modal`/`.modal-buttons`. Includes
-      the button style carried in the backlog since before v0.5: a more
-      readable, more prominent button that works in both the light and dark
-      themes.
+- [x] Consistent UI elements — buttons, dialogs, form controls. One
+      vocabulary now covers every button and field in the chrome: a default
+      bordered style promoted from the welcome pane's old `.welcome-action`
+      rule, a filled `.primary` for a dialog's confirming action, and
+      `.link-button` for the recents list, each with real hover, active,
+      focus-visible and disabled states — none of which existed before this
+      release. `.encode-step`'s inputs and selects and the chart builder's
+      textarea are promoted the same way, so a control looks the same
+      wherever it appears. Both modals are now one `Dialog.svelte` on the
+      native `<dialog>` element, which traps Tab, closes on Esc, and keeps a
+      large chart's Insert button visible via a sticky footer instead of
+      scrolling it away. Design:
+      [docs/superpowers/specs/2026-08-08-ui-design-system-design.md](docs/superpowers/specs/2026-08-08-ui-design-system-design.md).
 - [ ] A colour scheme for document source — markdown syntax and any embedded
       text. The mechanism exists: `style.css` defines `--syn-heading`,
       `--syn-emphasis`, `--syn-code`, `--syn-link`, `--syn-quote` and
