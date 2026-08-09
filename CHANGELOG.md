@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release *behind* the Go module, is now pinned to the exact matching version
   so the two cannot drift apart again.
 
+### Added
+
 - A chart builder, from Insert → Chart… or the toolbar. Paste a table or
   import a CSV, choose a mark and which columns map to which axis, and watch
   the chart update as you go; inserting writes a `vega-lite` block at the
