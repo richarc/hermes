@@ -125,9 +125,11 @@ html, body {
   display: flex; gap: 8px; align-items: center;
   /* The window uses a hidden-inset title bar, so the traffic lights float
      over the content (centered ~26px down). Match their height and centre
-     the buttons on the same midline; left padding clears them. */
+     the buttons on the same midline; left padding clears them. The lights end
+     around 78px, so this is clearance rather than a fit — at the old 85px the
+     first button crowded them. */
   height: 52px;
-  padding: 0 12px 0 85px;
+  padding: 0 12px 0 104px;
   border-bottom: 1px solid var(--border); -webkit-app-region: drag;
 }
 .toolbar button { -webkit-app-region: no-drag; }
@@ -420,6 +422,25 @@ dialog::backdrop { background: var(--backdrop); }
   width: 100%;
   font-family: monospace;
 }
+
+/* Dialog content has to declare its own vertical rhythm. The reset on line 1
+   strips every default margin, and the preview pane's typography rules are
+   scoped to .preview-pane — so without these the title, the label, the box
+   and the button stack flush against each other. */
+.chart-builder h2 { margin-bottom: 16px; }
+
+/* The label reads as part of the control below it, so it sits closer to the
+   textarea than the textarea does to the button — same 4px pairing the
+   encode-step labels use. */
+.data-step label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.data-step textarea { margin-bottom: 12px; }
+.data-step .field-error,
+.data-step .data-summary { margin-top: 12px; }
 
 .chart-builder .field-error {
   color: var(--cite-error-fg);
