@@ -682,6 +682,68 @@ describe('chart builder', () => {
   })
 })
 
+describe('insert code block', () => {
+  async function openDoc(content: string) {
+    recents.current = ['/tmp/paper.md']
+    DocumentService.OpenPath.mockResolvedValueOnce({ path: '/tmp/paper.md', content })
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+    await vi.waitFor(() => expect(target.textContent).toContain('Results'))
+    return target
+  }
+
+  it('writes a fence carrying the language the menu named', async () => {
+    const target = await openDoc('# Results\n\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+
+    listeners['menu:insert-code']({ data: 'python' })
+    flushSync()
+
+    expect(view.state.doc.toString()).toContain('```python\n')
+  })
+
+  it('writes a bare fence for the Plain text item', async () => {
+    const target = await openDoc('# Results\n\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+
+    listeners['menu:insert-code']({ data: '' })
+    flushSync()
+
+    expect(view.state.doc.toString()).toContain('```\n\n```')
+  })
+
+  // Menu events arrive from AppKit through Go's event bus and never touch the
+  // DOM, so a modal cannot intercept them — the same reason applyFormat and
+  // applyFold carry this guard.
+  it('is refused while the chart builder is open', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+    const before = view.state.doc.toString()
+
+    listeners['menu:insert-code']({ data: 'python' })
+    flushSync()
+
+    expect(view.state.doc.toString()).toBe(before)
+  })
+
+  it('does nothing from the welcome screen', async () => {
+    recents.current = ['/tmp/paper.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const before = view.state.doc.toString()
+
+    listeners['menu:insert-code']({ data: 'python' })
+    flushSync()
+
+    expect(view.state.doc.toString()).toBe(before)
+  })
+})
+
 describe('figure settings', () => {
   it('publishes the persisted alignment onto the preview pane', async () => {
     settings.current = { ...DEFAULT_SETTINGS, figureAlignment: 'right' }

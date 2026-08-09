@@ -295,6 +295,15 @@
     if (cmd) editor.runCommand(cmd)
   }
 
+  function insertCodeBlock(language: string) {
+    // Same guard as applyFormat and applyFold: menu items fire regardless of
+    // focus, so without it this would write into the hidden document behind
+    // the welcome pane — or into the one behind the chart builder, which
+    // cannot intercept an event arriving through Go's bus.
+    if (showWelcome || chartOpen) return
+    editor.insertCodeBlockAtCursor(language)
+  }
+
   function onEditorChange(text: string) {
     content = text
     welcomeDismissed = true
@@ -515,6 +524,10 @@
     Events.On('bib:changed', () => void reloadBibliography())
     Events.On('menu:insert-citation', () => void insertCitation())
     Events.On('menu:insert-chart', () => openChartBuilder())
+    Events.On('menu:insert-code', (ev: { data: unknown }) => {
+      // '' is the Plain text item, and a legitimate payload — a bare fence.
+      if (typeof ev.data === 'string') insertCodeBlock(ev.data)
+    })
     Events.On('menu:format', (ev: { data: unknown }) => {
       if (typeof ev.data === 'string') applyFormat(ev.data)
     })
