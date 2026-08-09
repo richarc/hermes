@@ -5,6 +5,7 @@
   import { embedChart, type ChartView } from './lib/charts'
   import { captionFromTitle } from './lib/figures'
   import { DocumentService } from '../bindings/hermes'
+  import Dialog from './Dialog.svelte'
 
   interface Props {
     initial: BuilderState | null
@@ -315,107 +316,105 @@
   })
 </script>
 
-<div class="modal-backdrop">
-  <div class="chart-builder modal" role="dialog" aria-label="Chart builder">
-    <h2>Chart</h2>
+<Dialog open label="Chart builder" class="chart-builder" onclose={oncancel}>
+  <h2>Chart</h2>
 
-    <section class="data-step">
-      <label for="chart-paste">Data</label>
-      <textarea
-        id="chart-paste"
-        bind:this={pasteEl}
-        rows={initial ? 12 : 6}
-        placeholder="Paste a comma- or tab-separated table with a header row"
-        value={pasted}
-        oninput={onPaste}
-      ></textarea>
-      <button onclick={() => void chooseFile()}>Choose file…</button>
+  <section class="data-step">
+    <label for="chart-paste">Data</label>
+    <textarea
+      id="chart-paste"
+      bind:this={pasteEl}
+      rows={initial ? 12 : 6}
+      placeholder="Paste a comma- or tab-separated table with a header row"
+      value={pasted}
+      oninput={onPaste}
+    ></textarea>
+    <button onclick={() => void chooseFile()}>Choose file…</button>
 
-      {#if parseError}
-        <p class="field-error" role="alert">{parseError}</p>
+    {#if parseError}
+      <p class="field-error" role="alert">{parseError}</p>
+    {/if}
+    {#if importError}
+      <p class="field-error" role="alert">{importError}</p>
+    {/if}
+    {#if table}
+      <p class="data-summary">
+        {table.columns.length} columns, {table.rows.length} rows
+        {#if table.rows.length > ROW_WARNING}
+          — that is a large table to store in the document, but it will work.
+        {/if}
+      </p>
+    {/if}
+  </section>
+
+  {#if table}
+    <section class="encode-step">
+      <label class="caption-row">Caption
+        <input data-field="caption" bind:value={caption} />
+      </label>
+
+      <label class="mark-row">Mark
+        <select data-field="mark" bind:value={mark}>
+          {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
+        </select>
+      </label>
+
+      <label>X
+        <select data-field="x" value={xField} onchange={(e) => pickX(e.currentTarget.value)}>
+          <option value="" disabled>choose a column…</option>
+          {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
+        </select>
+      </label>
+      <label>X type
+        <select data-field="x-type" bind:value={xType}>
+          {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+        </select>
+      </label>
+      <label>X title <input data-field="x-title" bind:value={xTitle} /></label>
+
+      <label>Y
+        <select data-field="y" value={yField} onchange={(e) => pickY(e.currentTarget.value)}>
+          <option value="" disabled>choose a column…</option>
+          {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
+        </select>
+      </label>
+      <label>Y type
+        <select data-field="y-type" bind:value={yType}>
+          {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+        </select>
+      </label>
+      <label>Y title <input data-field="y-title" bind:value={yTitle} /></label>
+
+      {#if mark !== 'boxplot'}
+        <label>Aggregate
+          <select data-field="aggregate" bind:value={aggregate}>
+            {#each AGGREGATES as a (a)}<option value={a}>{a}</option>{/each}
+          </select>
+        </label>
       {/if}
-      {#if importError}
-        <p class="field-error" role="alert">{importError}</p>
-      {/if}
-      {#if table}
-        <p class="data-summary">
-          {table.columns.length} columns, {table.rows.length} rows
-          {#if table.rows.length > ROW_WARNING}
-            — that is a large table to store in the document, but it will work.
-          {/if}
-        </p>
-      {/if}
+
+      <label>Colour
+        <select
+          data-field="colour"
+          value={colourField}
+          onchange={(e) => pickColour(e.currentTarget.value)}
+        >
+          <option value="">none</option>
+          {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
+        </select>
+      </label>
     </section>
 
-    {#if table}
-      <section class="encode-step">
-        <label class="caption-row">Caption
-          <input data-field="caption" bind:value={caption} />
-        </label>
-
-        <label class="mark-row">Mark
-          <select data-field="mark" bind:value={mark}>
-            {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
-          </select>
-        </label>
-
-        <label>X
-          <select data-field="x" value={xField} onchange={(e) => pickX(e.currentTarget.value)}>
-            <option value="" disabled>choose a column…</option>
-            {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
-          </select>
-        </label>
-        <label>X type
-          <select data-field="x-type" bind:value={xType}>
-            {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
-          </select>
-        </label>
-        <label>X title <input data-field="x-title" bind:value={xTitle} /></label>
-
-        <label>Y
-          <select data-field="y" value={yField} onchange={(e) => pickY(e.currentTarget.value)}>
-            <option value="" disabled>choose a column…</option>
-            {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
-          </select>
-        </label>
-        <label>Y type
-          <select data-field="y-type" bind:value={yType}>
-            {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
-          </select>
-        </label>
-        <label>Y title <input data-field="y-title" bind:value={yTitle} /></label>
-
-        {#if mark !== 'boxplot'}
-          <label>Aggregate
-            <select data-field="aggregate" bind:value={aggregate}>
-              {#each AGGREGATES as a (a)}<option value={a}>{a}</option>{/each}
-            </select>
-          </label>
-        {/if}
-
-        <label>Colour
-          <select
-            data-field="colour"
-            value={colourField}
-            onchange={(e) => pickColour(e.currentTarget.value)}
-          >
-            <option value="">none</option>
-            {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
-          </select>
-        </label>
-      </section>
-
-      <div class="chart-preview" bind:this={previewEl}></div>
-      {#if caption.trim()}
-        <p class="chart-caption">{caption.trim()}</p>
-      {/if}
+    <div class="chart-preview" bind:this={previewEl}></div>
+    {#if caption.trim()}
+      <p class="chart-caption">{caption.trim()}</p>
     {/if}
+  {/if}
 
-    <div class="modal-buttons">
-      <button onclick={oncancel}>Cancel</button>
-      <button disabled={!ready} onclick={commit}>
-        {initial ? 'Update chart' : 'Insert chart'}
-      </button>
-    </div>
-  </div>
-</div>
+  {#snippet footer()}
+    <button onclick={oncancel}>Cancel</button>
+    <button class="primary" disabled={!ready} onclick={commit}>
+      {initial ? 'Update chart' : 'Insert chart'}
+    </button>
+  {/snippet}
+</Dialog>

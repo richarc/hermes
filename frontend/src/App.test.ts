@@ -632,7 +632,12 @@ describe('chart builder', () => {
 
     listeners['menu:new']({ data: null })
     flushSync()
-    expect(target.textContent).toContain('unsaved') // confirm dialog is up
+    // The confirm dialog's content is always in the DOM (see the fix below),
+    // so textContent can't tell shown from hidden — check the dialog's own
+    // open state instead.
+    expect(
+      target.querySelector<HTMLDialogElement>('dialog[aria-label="Unsaved changes"]')!.open,
+    ).toBe(true) // confirm dialog is up
 
     listeners['menu:insert-chart']({ data: null })
     flushSync()
@@ -651,8 +656,29 @@ describe('chart builder', () => {
     listeners['close:confirm']({ data: null })
     flushSync()
 
-    expect(target.textContent).not.toContain('unsaved')
+    // The unsaved-changes dialog is now a native <dialog> that App.svelte
+    // renders unconditionally (Dialog owns visibility via the `open` prop,
+    // not an {#if}), so its "has unsaved changes" text is always present in
+    // the DOM regardless of whether pendingAction is set — a textContent
+    // check can no longer distinguish shown from hidden. The guard under
+    // test (chartOpen, in the close:confirm handler) is unchanged; only the
+    // way to observe its effect changes: query the dialog's own open state.
+    const confirmDialog = target.querySelector<HTMLDialogElement>(
+      'dialog[aria-label="Unsaved changes"]',
+    )!
+    expect(confirmDialog.open).toBe(false)
     expect(target.querySelector('.chart-builder')).not.toBeNull()
+  })
+
+  // role="alertdialog" makes screen readers announce this dialog as a
+  // destructive interruption rather than a plain dialog — dropped once
+  // already in this branch and restored, hence a test to keep it that way.
+  it('marks the unsaved-changes confirm dialog as an alertdialog', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const confirmDialog = target.querySelector<HTMLDialogElement>(
+      'dialog[aria-label="Unsaved changes"]',
+    )!
+    expect(confirmDialog.getAttribute('role')).toBe('alertdialog')
   })
 })
 

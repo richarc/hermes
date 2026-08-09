@@ -185,3 +185,66 @@ describe('figure alignment', () => {
     expect(print).toMatch(/figure[^{]*\{[^}]*break-inside: avoid/)
   })
 })
+
+describe('control styling', () => {
+  const css = stripComments(CSS)
+
+  it('gives every button a focus-visible ring, not just the browser default', () => {
+    // Styling a control removes the UA ring. Losing it is invisible in every
+    // automated check and obvious only to someone navigating by keyboard.
+    expect(css).toMatch(/button:focus-visible[^{]*\{[^}]*outline:/)
+  })
+
+  it('gives the pane divider a focus ring too', () => {
+    // .divider carries tabindex="0" for the WAI-ARIA splitter pattern, so it
+    // is a focus stop that is not a control and would otherwise be missed.
+    expect(css).toMatch(/\.divider:focus-visible[^{]*\{[^}]*outline:/)
+  })
+
+  it('styles disabled buttons', () => {
+    // [^{:]* (not [^{]*) so this cannot be satisfied by button:disabled:hover
+    // or any other button:disabled:<pseudo> rule — only the bare selector's
+    // own declaration block, and specifically its opacity drop, counts.
+    // Confirmed by mutation: with the old [^{]* pattern, deleting
+    // `button:disabled { opacity: 0.45; cursor: default; }` outright still
+    // passed as long as some `button:disabled:hover { ... }` rule existed.
+    expect(css).toMatch(/button:disabled[^{:]*\{[^}]*opacity:/)
+  })
+
+  it('gives buttons a pressed state', () => {
+    // Setting background and border suppresses the platform's own pressed
+    // chrome, so it has to be put back explicitly — same reasoning as the
+    // focus ring above. Scoped :not(:disabled) (see style.css), so the
+    // selector is matched by substring rather than anchored to `button:active`
+    // literally.
+    expect(css).toMatch(/button:not\(:disabled\):active[^{]*\{[^}]*filter:/)
+  })
+
+  it('restores the margin the universal reset takes off the dialog', () => {
+    // A native <dialog> centres itself through the UA stylesheet's
+    // `margin: auto` against `inset: 0`. This file opens with
+    // `* { margin: 0 }`, and an AUTHOR rule beats the user-agent origin
+    // whatever its specificity — so without an explicit `margin: auto` here
+    // the dialog collapses to its inset origin in the top-left corner, where
+    // its content lands under the traffic lights. Shipped exactly that way
+    // once; jsdom has no layout engine, so this assertion is the only guard.
+    const dialogRule = stripComments(CSS).match(/\bdialog\s*\{[^}]*\}/)
+    expect(dialogRule).not.toBeNull()
+    expect(dialogRule![0]).toMatch(/margin:\s*auto/)
+  })
+
+  it('keeps the dialog footer visible when the body scrolls', () => {
+    // The branch's headline UX fix: a large pasted table used to scroll
+    // Insert chart out of sight along with the rest of the dialog body.
+    expect(css).toMatch(/\.modal-buttons[^{]*\{[^}]*position: sticky/)
+  })
+
+  it('no longer carries the one-off welcome button rule', () => {
+    // Promoted to the base button style; a survivor would silently win on
+    // specificity and keep the welcome pane looking different from the rest.
+    // A word boundary (rather than a plain substring match) so this does not
+    // false-positive on the surviving .welcome-actions layout wrapper, which
+    // starts with the same characters but is a different class.
+    expect(css).not.toMatch(/\bwelcome-action\b/)
+  })
+})
