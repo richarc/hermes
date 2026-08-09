@@ -263,9 +263,11 @@ like one program.
       `--syn-meta`, and `Editor.svelte`'s CodeMirror theme reads them through
       `var()`. What was missing was a considered palette rather than an
       incidental one, and coverage: embedded languages inside a fence were
-      highlighted by `@codemirror/language-data`'s own defaults, not by these
-      variables, so a Python block and a heading were coloured by two
-      unrelated schemes. Landed together with v0.7's highlighting: five more
+      tagged but coloured by nothing at all. There were never two competing
+      schemes — `hermesHighlight` has been a non-fallback highlighter since it
+      was written, so `defaultHighlightStyle` was displaced from the start and
+      language-data's own colours never applied. Landed together with v0.7's
+      highlighting: five more
       names — `--syn-keyword`, `--syn-string`, `--syn-number`, `--syn-type`
       and `--syn-function` — now cover the token roles, comments reuse
       `--syn-meta` rather than getting a name of their own, and the same code
