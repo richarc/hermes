@@ -8,6 +8,7 @@
   import { HighlightStyle, syntaxHighlighting, syntaxTree, forceParsing } from '@codemirror/language'
   import { tags } from '@lezer/highlight'
   import type { SyntaxNode } from '@lezer/common'
+  import { codeHighlightStyleSpecs } from './lib/syntaxTags'
 
   let {
     onchange,
@@ -124,6 +125,9 @@
     { tag: tags.url, color: 'var(--syn-link)' },
     { tag: tags.quote, color: 'var(--syn-quote)' },
     { tag: tags.meta, color: 'var(--syn-meta)' },
+    // Code tokens, from the table both panes share. Comments arrive through
+    // it too, carrying the --syn-meta colour above.
+    ...codeHighlightStyleSpecs(),
   ])
 
   let host: HTMLElement

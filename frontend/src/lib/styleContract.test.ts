@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CODE_TOKENS } from './syntaxTags'
 
 const CSS = readFileSync(
   join(fileURLToPath(import.meta.url), '../../../public/style.css'),
@@ -115,6 +116,22 @@ describe('style.css palette contract', () => {
     )
     const missing = [...used].filter((v) => !defined.has(v))
     expect(missing).toEqual([])
+  })
+})
+
+describe('code token styling', () => {
+  it('gives every CODE_TOKENS role a preview rule pointing at its palette variable', () => {
+    // syntaxTags.ts claims both panes derive from one list, but the preview
+    // half is six hand-written CSS lines the type system cannot check. A role
+    // added to CODE_TOKENS with no matching rule here would compile, pass
+    // every test above, and render completely uncoloured.
+    for (const role of CODE_TOKENS) {
+      const variable = role.palette ?? role.name
+      const re = new RegExp(
+        `\\.preview-pane\\s+\\.tok-${role.name}\\s*\\{[^}]*color:\\s*var\\(--syn-${variable}\\)`,
+      )
+      expect(CSS, `no preview rule for tok-${role.name}`).toMatch(re)
+    }
   })
 })
 

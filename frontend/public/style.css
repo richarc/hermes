@@ -52,6 +52,14 @@
   --syn-link: #0b57c2;
   --syn-quote: #4a4a4a;
   --syn-meta: #6b6b6b;
+  /* Code tokens. Applied by one table (lib/syntaxTags.ts) to both the editor's
+     HighlightStyle and the preview's hydrator, so the two panes cannot drift.
+     Comments deliberately reuse --syn-meta above: a comment is metadata. */
+  --syn-keyword: #7b2d8e;
+  --syn-string: #1a6b3a;
+  --syn-number: #9a4a00;
+  --syn-type: #0d6b6b;
+  --syn-function: #1a4fa0;
 }
 
 /* Must define exactly the same names as the light palette above — enforced by
@@ -110,6 +118,11 @@
   --syn-link: #7cb0ff;
   --syn-quote: #b4b4b4;
   --syn-meta: #949494;
+  --syn-keyword: #d6a3e8;
+  --syn-string: #8fd19e;
+  --syn-number: #e0a878;
+  --syn-type: #7fd0d0;
+  --syn-function: #8fb8f0;
 }
 
 html, body {
@@ -283,6 +296,15 @@ textarea:focus-visible,
 .preview-pane :not(pre) > code {
   background: var(--surface-code-inline); padding: 0.1em 0.3em; border-radius: 4px;
 }
+/* Code tokens in the preview. The class names come from lib/syntaxTags.ts and
+   the colours from the same palette variables the editor's HighlightStyle
+   uses, so a block looks identical in both panes and follows the theme. */
+.preview-pane .tok-keyword { color: var(--syn-keyword); }
+.preview-pane .tok-string { color: var(--syn-string); }
+.preview-pane .tok-number { color: var(--syn-number); }
+.preview-pane .tok-type { color: var(--syn-type); }
+.preview-pane .tok-function { color: var(--syn-function); }
+.preview-pane .tok-comment { color: var(--syn-meta); }
 .preview-pane table { border-collapse: collapse; }
 .preview-pane th, .preview-pane td { border: 1px solid var(--border); padding: 6px 10px; }
 .preview-pane hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
@@ -567,6 +589,14 @@ dialog::backdrop { background: var(--backdrop); }
     --syn-link: #0b62d6;
     --syn-quote: #555555;
     --syn-meta: #888888;
+    /* The light values: exported PDFs are always light, these are already dark
+       enough for paper, and contrast.test.ts does not check the print block —
+       a separate set would be five more numbers nothing verifies. */
+    --syn-keyword: #7b2d8e;
+    --syn-string: #1a6b3a;
+    --syn-number: #9a4a00;
+    --syn-type: #0d6b6b;
+    --syn-function: #1a4fa0;
   }
 
   .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog {
