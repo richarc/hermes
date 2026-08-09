@@ -53,6 +53,11 @@ const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
   ['syntax link', '--syn-link', '--editor-bg', 4.5],
   ['syntax quote', '--syn-quote', '--editor-bg', 4.5],
   ['syntax meta', '--syn-meta', '--editor-bg', 4.5],
+  ['syntax keyword', '--syn-keyword', '--editor-bg', 4.5],
+  ['syntax string', '--syn-string', '--editor-bg', 4.5],
+  ['syntax number', '--syn-number', '--editor-bg', 4.5],
+  ['syntax type', '--syn-type', '--editor-bg', 4.5],
+  ['syntax function', '--syn-function', '--editor-bg', 4.5],
 ]
 
 function check(selector: string) {
