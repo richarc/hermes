@@ -102,6 +102,47 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		app.Event.Emit("menu:insert-chart", nil)
 	})
 
+	// A submenu rather than a dialog: a code fence is a delimiter and a
+	// language name, and the only part carrying value is choosing the language
+	// — which a submenu does natively, needing no new UI. Curated rather than
+	// the ~150 language-data knows about, which would be unusable as a menu
+	// and would need a filter field, i.e. the dialog this avoids.
+	//
+	// Every token below was checked against loadGrammar's lookup (by name or
+	// alias) and resolves. One that did not would insert a block that silently
+	// never colours — which is why MATLAB is absent: no grammar ships for it.
+	codeBlock := insert.AddSubmenu("Code Block")
+	codeLanguages := []struct {
+		label string
+		token string
+	}{
+		{"Python", "python"},
+		{"R", "r"},
+		{"Julia", "julia"},
+		{"Fortran", "fortran"},
+		{"C++", "c++"},
+		{"JavaScript", "javascript"},
+		{"Go", "go"},
+		{"Rust", "rust"},
+		{"Shell", "shell"},
+		{"SQL", "sql"},
+		{"JSON", "json"},
+		{"YAML", "yaml"},
+		{"LaTeX", "latex"},
+	}
+	for _, l := range codeLanguages {
+		token := l.token
+		codeBlock.Add(l.label).OnClick(func(*application.Context) {
+			app.Event.Emit("menu:insert-code", token)
+		})
+	}
+	// Separated for the same reason Paragraph is separated from the headings
+	// below: it is the "no language" option, not another language.
+	codeBlock.AddSeparator()
+	codeBlock.Add("Plain text").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:insert-code", "")
+	})
+
 	format := menu.AddSubmenu("Format")
 	heading := format.AddSubmenu("Heading")
 	headings := []struct {
