@@ -17,6 +17,7 @@ interface EditorApi {
   setContent(text: string, cursor?: 'start' | 'end'): void
   insertAtCursor(text: string): void
   insertBlockAtCursor(text: string): void
+  insertCodeBlockAtCursor(language: string): void
   runCommand(cmd: Command): void
   lineCount(): number
   topVisibleLine(): number
@@ -181,6 +182,95 @@ describe('Editor.insertBlockAtCursor', () => {
     // The original sentence survives whole, on its own line, not merged
     // into the fence.
     expect(doc.split('\n')[0]).toBe('Just prose.')
+    cleanup()
+  })
+})
+
+describe('Editor.insertCodeBlockAtCursor', () => {
+  // The whole point of the feature. insertBlockAtCursor leaves the cursor
+  // *after* what it inserted, which would strand the author below a fence
+  // they have to arrow back into — barely better than typing the backticks.
+  it('leaves the cursor on the empty line between the fences, so typing goes into the block', () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('') // cursor defaults to the start
+    flushSync()
+
+    editor.insertCodeBlockAtCursor('python')
+    flushSync()
+    // Typing at wherever the cursor was left is the honest test of placement.
+    editor.insertAtCursor('print(1)')
+    flushSync()
+
+    expect(text()).toBe('```python\nprint(1)\n```\n')
+    cleanup()
+  })
+
+  it('writes a bare fence when given no language', () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('')
+    flushSync()
+
+    editor.insertCodeBlockAtCursor('')
+    flushSync()
+
+    expect(text()).toBe('```\n\n```\n')
+    cleanup()
+  })
+
+  // insertBlockAtCursor is built on replaceSelection, which DELETES the
+  // selection and puts the block in its place. For a code block the
+  // obviously-correct behaviour is the opposite: an author who selected three
+  // lines and reached for this menu means "wrap these".
+  it('wraps a selection in the fence rather than destroying it', () => {
+    const { editor, target, text, cleanup } = mountEditor()
+    editor.setContent('alpha\nbeta\n')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 0, head: 'alpha\nbeta'.length } })
+    flushSync()
+
+    editor.insertCodeBlockAtCursor('shell')
+    flushSync()
+
+    expect(text()).toBe('```shell\nalpha\nbeta\n```\n\n')
+    cleanup()
+  })
+
+  it('leaves the wrapped text selected, so it can be retyped in one keystroke', () => {
+    const { editor, target, text, cleanup } = mountEditor()
+    editor.setContent('alpha\n')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 0, head: 'alpha'.length } })
+    flushSync()
+
+    editor.insertCodeBlockAtCursor('shell')
+    flushSync()
+    // Replacing the selection proves it covers exactly the wrapped text and
+    // neither fence line.
+    editor.insertAtCursor('ls')
+    flushSync()
+
+    expect(text()).toBe('```shell\nls\n```\n\n')
+    cleanup()
+  })
+
+  // Same hazard insertBlockAtCursor exists to avoid: written at a column
+  // other than 0 it is not a fence at all, and markdown renders its contents
+  // as prose.
+  it('starts the fence on a fresh line when the cursor is mid-line', () => {
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('Some prose here.', 'end')
+    flushSync()
+
+    editor.insertCodeBlockAtCursor('go')
+    flushSync()
+
+    const doc = text()
+    expect(doc).toMatch(/(^|\n)```go/)
+    expect(doc.split('\n')[0]).toBe('Some prose here.')
     cleanup()
   })
 })

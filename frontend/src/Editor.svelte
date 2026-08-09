@@ -189,6 +189,42 @@
   }
 
   /**
+   * Writes a fenced code block and leaves the cursor *inside* it.
+   *
+   * insertBlockAtCursor leaves the cursor after the text it inserted, which
+   * for a fence strands the author below it needing two arrow keys to get in
+   * — barely better than typing the backticks. This one places the selection
+   * on the body line instead, which is the part that makes the menu route
+   * worth having.
+   *
+   * A selection is wrapped, not replaced. replaceSelection (what
+   * insertBlockAtCursor uses) would delete it, and an author who selected
+   * three lines and reached for this menu means "wrap these". The selected
+   * text is reused verbatim — no trimming, no re-indentation — and stays
+   * selected afterwards.
+   */
+  export function insertCodeBlockAtCursor(language: string): void {
+    const { from, to } = view.state.selection.main
+    const line = view.state.doc.lineAt(from)
+    // Same fresh-line guarantee, and the same reason, as insertBlockAtCursor:
+    // at a column other than 0 this is not a fence at all.
+    const prefix = from === line.from ? '' : '\n\n'
+    const body = view.state.doc.sliceString(from, to)
+    const open = '```' + language + '\n'
+    // The trailing newline keeps whatever followed the insertion point off
+    // the closing fence's line, which would otherwise break the fence.
+    const text = prefix + open + body + '\n```\n'
+    const bodyFrom = from + prefix.length + open.length
+    view.dispatch({
+      changes: { from, to, insert: text },
+      // Collapsed onto the empty line when there was no selection; spanning
+      // the wrapped text when there was.
+      selection: { anchor: bodyFrom, head: bodyFrom + body.length },
+    })
+    view.focus()
+  }
+
+  /**
    * Runs an editor command. Typed `Command` rather than `StateCommand` because
    * CodeMirror's fold commands need the view — and a `StateCommand` works when
    * handed a view too, so this one signature serves both kinds.
