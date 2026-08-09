@@ -179,8 +179,14 @@ want brainstorming before they want code.
       five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed
       encoding shape: an `x`, a `y`, and an optional `color`. That split is
       what decides the cost of each addition. A mark that fits the existing
-      shape is nearly free — `tick`, `rule`, `circle`, `square` and `trail`
-      are a list entry each. The ones worth having mostly do not fit it: a
+      shape is nearly free — a list entry each. `tick` (a strip plot) and
+      `rule` (a spike plot, *not* a horizontal reference line: that needs `y`
+      alone or a `datum`, and this shape always emits both `x` and `y`) landed
+      on 2026-08-09 for exactly that reason, two lines plus a round-trip case.
+      `circle`, `square` and `trail` are equally free and were deliberately
+      skipped: they are cosmetic variants of `point` and `line`, so they would
+      lengthen the dropdown without letting an author draw anything new. The
+      ones worth having mostly do not fit the shape: a
       histogram needs `bin` on an encoding, a pie needs `theta` instead of
       `x`/`y`, a heatmap needs `rect` plus a colour scale over a quantitative
       field, and error bars need an extent. Those are new encoding shapes, and

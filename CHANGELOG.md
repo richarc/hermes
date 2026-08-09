@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer leave a block silently uncoloured. The cursor lands inside the block,
   ready to type; text selected beforehand is wrapped in the fence rather than
   replaced by it.
+- Two more chart marks in the builder: **tick**, which draws a short stroke at
+  each point for a strip plot, and **rule**, which draws a line from the
+  baseline up to each point for a spike plot. Both fit the builder's existing
+  encoding, so an existing chart reopens for editing exactly as before.
 
 ## [0.6.0] - 2026-08-09
 

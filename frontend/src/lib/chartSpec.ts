@@ -1,7 +1,26 @@
 import type { FieldType } from './dataTable'
 
-export type Mark = 'line' | 'bar' | 'point' | 'area' | 'boxplot'
-export const MARKS: readonly Mark[] = ['line', 'bar', 'point', 'area', 'boxplot']
+// Only marks that fit buildSpec's one encoding shape — an `x`, a `y` and an
+// optional `color` — belong here. Adding one that does is exactly these two
+// lines: the builder's dropdown renders from MARKS, readSpec validates
+// against it, and buildSpec passes the name through untouched. A mark needing
+// its own shape (a histogram's `bin`, a pie's `theta`, a heatmap's colour
+// scale) is a different and much larger job — see the v0.7 roadmap entry.
+//
+// `tick` draws a short stroke at each point, which is a strip plot. `rule`
+// draws a line from the baseline up to each point — a spike or stem plot, NOT
+// the horizontal reference line the name suggests: that would need `y` alone
+// or a `datum`, and this shape always emits both `x` and `y`.
+export type Mark = 'line' | 'bar' | 'point' | 'area' | 'boxplot' | 'tick' | 'rule'
+export const MARKS: readonly Mark[] = [
+  'line',
+  'bar',
+  'point',
+  'area',
+  'boxplot',
+  'tick',
+  'rule',
+]
 
 export type Aggregate = 'none' | 'mean' | 'median' | 'sum' | 'count'
 export const AGGREGATES: readonly Aggregate[] = ['none', 'mean', 'median', 'sum', 'count']

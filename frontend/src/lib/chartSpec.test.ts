@@ -28,7 +28,7 @@ describe('buildSpec', () => {
   })
 
   it('emits every mark verbatim', () => {
-    for (const mark of ['line', 'bar', 'point', 'area', 'boxplot'] as const) {
+    for (const mark of ['line', 'bar', 'point', 'area', 'boxplot', 'tick', 'rule'] as const) {
       expect(parsed({ ...BASE, mark }).mark).toBe(mark)
     }
   })
@@ -326,6 +326,11 @@ describe('readSpec', () => {
       BASE,
       { ...BASE, mark: 'bar' },
       { ...BASE, mark: 'boxplot' },
+      // tick and rule fit the existing x/y encoding shape exactly, which is
+      // the whole reason they were cheap to add — if either ever needed a
+      // shape of its own, this round trip is what would catch it.
+      { ...BASE, mark: 'tick' },
+      { ...BASE, mark: 'rule' },
       { ...BASE, x: { ...BASE.x, title: 'Dose' } },
       { ...BASE, extras: { description: 'Recovered sources by condition' } },
       { ...BASE, extras: { $schema: 'https://vega.github.io/schema/vega-lite/v6.json' } },
