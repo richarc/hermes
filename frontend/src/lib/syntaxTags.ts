@@ -81,8 +81,10 @@ export function codeHighlightStyleSpecs(): { tag: Tag; color: string }[] {
 
 /**
  * The preview's half: the same table as classes, since a hydrated span cannot
- * carry a CodeMirror style. `style.css` maps each `.tok-<name>` to the same
- * `--syn-<name>` the editor uses.
+ * carry a CodeMirror style. `style.css` maps each `.tok-<name>` to the
+ * `--syn-<name>` the editor uses — except `.tok-comment`, which is styled
+ * from `--syn-meta` per `role.palette` above, not a nonexistent
+ * `--syn-comment`.
  */
 export function codeTagHighlighter(): Highlighter {
   return tagHighlighter(CODE_TOKENS.map((role) => ({ tag: role.tags, class: `tok-${role.name}` })))

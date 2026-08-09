@@ -61,4 +61,12 @@ describe('derivations', () => {
   it('gives the preview a highlighter', () => {
     expect(typeof codeTagHighlighter().style).toBe('function')
   })
+
+  it('colours the comment role from --syn-meta, not a variable that does not exist', () => {
+    // The override only matters if the DERIVATION honours it. Asserting the
+    // table's own `palette` field, as the test above does, passes just as
+    // happily when codeHighlightStyleSpecs ignores it — verified by mutation.
+    const spec = codeHighlightStyleSpecs().find((s) => s.tag === tags.comment)
+    expect(spec?.color).toBe('var(--syn-meta)')
+  })
 })
