@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Code blocks are syntax highlighted, in the editor and the preview, from one
+  shared table — so a block looks the same while you write it and after it
+  renders, and the same again in an exported PDF. Around 150 languages are
+  recognised, each grammar loaded only if a document uses it. Colouring is by
+  token type rather than by language, so a new language needs no new colours,
+  and a fence with an unknown language stays plain rather than erroring.
+
 ## [0.6.0] - 2026-08-09
 
 Charts get the attention citations got in v0.3: a graphical builder, so a

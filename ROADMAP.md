@@ -220,22 +220,24 @@ want brainstorming before they want code.
       exists because a Vega-Lite spec is genuinely hard to hand-write, whereas
       a code fence is a delimiter and a language name. The part with real value
       is choosing the language — a picker, not a modal.
-- [ ] Syntax highlighting for code blocks. Half of this already exists and the
-      other half does not, which is the thing to know going in. The **editor**
-      already highlights nested languages: `Editor.svelte` configures
-      `markdown({ codeLanguages: languages })` from `@codemirror/language-data`,
-      so a ` ```python ` block is already coloured while you type. The
-      **preview** has nothing — `renderer.ts` constructs markdown-it with no
-      `highlight` option, so a fence renders as a bare `<pre><code>`. Closing
-      that gap needs a highlighter chosen against this project's constraints:
-      bundle size matters enough that `vega-embed` is dynamically imported, so
-      whatever is picked should load the same way, and the token colours must
-      go through the palette rather than a vendor stylesheet —
-      `styleContract.test.ts` fails the build on a literal colour in a rule and
-      requires the light, dark and print blocks to declare identical names. The
-      print block is the one that catches people out: an exported PDF is always
-      light, so a highlighter theming itself from the dark palette produces a
-      near-white listing on paper.
+- [x] Syntax highlighting for code blocks. The editor loaded the grammars and
+      tagged the tokens, but coloured none of them: registering any
+      non-fallback highlighter displaces CodeMirror's `defaultHighlightStyle`
+      entirely, and `hermesHighlight` mapped only the six markdown tags. Both
+      panes showed monochrome code, so the work was additive in both — the
+      **preview** had nothing at all (`renderer.ts` constructed markdown-it
+      with no `highlight` option, so a fence rendered as a bare
+      `<pre><code>`), and the **editor** needed a highlighter that actually
+      applied colour rather than tagging alone. Both now colour a fence from
+      one shared table (`syntaxTags.ts`), so a language is registered once
+      rather than twice, and the same code looks the same while it's
+      written, after it renders, and in an exported PDF. Token colours go
+      through the palette rather than a vendor stylesheet —
+      `styleContract.test.ts` fails the build on a literal colour in a rule
+      and requires the light, dark and print blocks to declare identical
+      names, which is what kept the print block honest: an exported PDF is
+      always light, and a highlighter theming itself from the dark palette
+      would otherwise have produced a near-white listing on paper.
 
 ## v0.8.0 — Design system
 
@@ -255,17 +257,19 @@ like one program.
       large chart's Insert button visible via a sticky footer instead of
       scrolling it away. Design:
       [docs/superpowers/specs/2026-08-08-ui-design-system-design.md](docs/superpowers/specs/2026-08-08-ui-design-system-design.md).
-- [ ] A colour scheme for document source — markdown syntax and any embedded
+- [x] A colour scheme for document source — markdown syntax and any embedded
       text. The mechanism exists: `style.css` defines `--syn-heading`,
       `--syn-emphasis`, `--syn-code`, `--syn-link`, `--syn-quote` and
       `--syn-meta`, and `Editor.svelte`'s CodeMirror theme reads them through
-      `var()`. What is missing is a considered palette rather than an
-      incidental one, and coverage: embedded languages inside a fence are
+      `var()`. What was missing was a considered palette rather than an
+      incidental one, and coverage: embedded languages inside a fence were
       highlighted by `@codemirror/language-data`'s own defaults, not by these
-      variables, so a Python block and a heading are currently coloured by two
-      unrelated schemes. Pairs naturally with v0.7's preview highlighting —
-      the two should agree, so the same code looks the same in the editor, the
-      preview and the PDF.
+      variables, so a Python block and a heading were coloured by two
+      unrelated schemes. Landed together with v0.7's highlighting: five more
+      names — `--syn-keyword`, `--syn-string`, `--syn-number`, `--syn-type`
+      and `--syn-function` — now cover the token roles, comments reuse
+      `--syn-meta` rather than getting a name of their own, and the same code
+      looks the same in the editor, the preview and the PDF.
 - [ ] Settle the best styling and rendering approach for the preview and the
       PDF. These are one problem, not two: the PDF is the preview under the
       `@media print` palette, printed through the system panel. The open

@@ -67,9 +67,17 @@ def entropy(p):
     return -sum(x * math.log2(x) for x in p if x > 0)
 ```
 
-Syntax colours in the **preview** are not expected yet — that is v0.7. In the
-**editor** they are: the same block should be coloured as Python while you
-edit it, because CodeMirror loads nested language support.
+The **editor** and the **preview** should colour this block identically —
+`def`, `return`, `for` and `if` as keywords, the docstring as a string, `0`
+as a number — and the two must still agree after switching View → Appearance
+between Light and Dark.
+
+```notalang
+this fence names a language nobody has heard of
+```
+
+`notalang` is not a real language. The block above should render as plain,
+uncoloured text in both panes rather than erroring.
 
 ## 5. Inline maths
 
