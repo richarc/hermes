@@ -123,11 +123,20 @@ promoted to element-level selectors so a control looks the same wherever it
 appears. `.chart-builder textarea`'s full-width rule stays, being layout
 rather than appearance.
 
-**This reaches further than it looks.** CodeMirror's find/replace panel —
+**This reaches less far than it looks.** CodeMirror's find/replace panel —
 `basicSetup`'s `searchKeymap`, opened with ⌘F — renders real `<input>` and
-`<button>` elements inside the editor. App-wide element selectors restyle it.
-That is a gain, since it currently looks like nothing else in the app, but it
-is a place to look during the manual check rather than a surprise afterwards.
+`<button>` elements inside the editor, but it was already themed from the
+palette before this branch (`Editor.svelte`'s `hermesTheme`). CodeMirror
+compiles its own theme rules as `.ͼN .cm-textfield` / `.ͼN .cm-button`, at
+(0,2,0), which beats the bare element selectors here at (0,0,1); the app-wide
+rules do not restyle the panel's text field or buttons. The one exception is
+`button:not(:disabled):hover` at (0,2,1), which does beat `.ͼN .cm-button`
+and gives the panel's buttons a `--fg` hover border they did not have before —
+cosmetically fine, and a place to look during the manual check rather than a
+surprise afterwards. What the element selectors on `input` do reach are the
+panel's three unclassed `input[type=checkbox]` boxes (Match case / By word /
+regexp), which is why that selector excludes checkboxes and radios via
+`:not(:where(...))` rather than staying a bare `input`.
 
 Controls inside `.preview-pane` are not a concern: markdown-it runs with
 `html: false` and no plugin here emits a form control.
@@ -209,5 +218,7 @@ figures work already accepts.
    press Esc — it closes without committing.
 5. With the builder open, use a menu accelerator (⌘B, ⌘N): still refused, as
    before. The guards are unchanged and must remain effective.
-6. ⌘F in the editor: the find panel's input and buttons now match the app.
+6. ⌘F in the editor: the find panel's input and buttons still look like
+   CodeMirror's own theme, not the app's — only the buttons' hover border
+   picks up `--fg` (see Form controls, above).
 7. Export a PDF: chrome is hidden as before, and no accent colour appears.

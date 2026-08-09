@@ -137,15 +137,24 @@ html, body {
    element selectors are safe here.
 
    CodeMirror's find/replace panel (⌘F, from basicSetup's searchKeymap) also
-   renders real <input> and <button> elements, but these rules do not reach
-   them: CodeMirror compiles its own theme rules (Editor.svelte, hermesTheme)
-   as `.ͼN .cm-textfield` / `.ͼN .cm-button` — a generated class plus the
-   target, (0,2,0) — which beats the bare element selectors here at (0,0,1).
-   The panel was already themed from the palette before this branch (see
-   Editor.svelte); what these DO reach is the panel's three unclassed
-   `input[type=checkbox]` boxes (Match case / By word / regexp), which is why
-   the selector below excludes checkboxes and radios explicitly rather than
-   staying a bare `input`. */
+   renders real <input> and <button> elements, and it was already themed from
+   the palette before this branch (Editor.svelte's hermesTheme, plus the base
+   view/search themes) — CodeMirror compiles all of those as `.ͼN .cm-textfield`
+   / `.ͼN .cm-button`, a generated class plus the target, (0,2,0). Computed,
+   not assumed, per rule below:
+     button                              (0,0,1) — loses to .cm-button (0,2,0)
+     button:not(:disabled):hover         (0,2,1) — beats .cm-button (0,2,0):
+       the panel's buttons do gain this rule's --fg hover border
+     input:not(:where([type=checkbox],
+       [type=radio])), select, textarea  (0,0,1) — :where() is inert for
+       specificity, so this loses to .cm-textfield (0,2,0) the same as `button`
+   An earlier version of the exclusion used :not([type="checkbox"]):not(...)
+   instead of :where(...); each bare :not() argument counts as a class
+   selector, which pushed the rule to (0,2,1) and let it win the find field
+   away from CodeMirror — a real, observed regression, not a hypothetical.
+   :where() keeps the checkbox/radio exclusion (needed for the panel's three
+   unclassed `input[type=checkbox]` boxes: Match case / By word / regexp)
+   without adding specificity. */
 button {
   font: inherit;
   font-size: 13px;
@@ -216,7 +225,7 @@ button.link-button:not(:disabled):hover { border-color: transparent; text-decora
    that would otherwise beat it at (0,2,1). */
 button:disabled { opacity: 0.45; cursor: default; }
 
-input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+input:not(:where([type="checkbox"], [type="radio"])), select, textarea {
   font: inherit;
   background: var(--surface);
   color: var(--fg);
