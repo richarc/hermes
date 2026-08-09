@@ -14,6 +14,24 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu := application.NewMenu()
 	menu.AddRole(application.AppMenu)
 
+	// The AppMenu role wires Quit straight to application.Quit(), which is
+	// InvokeSync(impl.destroy) — it tears the app down without ever
+	// dispatching events.Common.WindowClosing. main.go's unsaved-changes guard
+	// is registered on exactly that event, so ⌘Q bypassed it and discarded the
+	// document while the red button and ⌘W prompted correctly. Replace the
+	// role's handler so the shortcut goes through the same confirm.
+	//
+	// DocumentService.Quit() deliberately still calls application.Quit()
+	// directly: it is what runs *after* the user chooses Save or Don't Save,
+	// and routing it back through here would loop.
+	if quit := menu.FindByRole(application.Quit); quit != nil {
+		quit.OnClick(func(*application.Context) {
+			quitRequest(docs.IsDirty(),
+				func() { app.Event.Emit("close:confirm") },
+				app.Quit)
+		})
+	}
+
 	file := menu.AddSubmenu("File")
 	file.Add("New").SetAccelerator("cmdorctrl+n").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:new")
@@ -256,4 +274,16 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)
+}
+
+// quitRequest decides what ⌘Q does: raise the unsaved-changes confirm, or
+// quit. Split out from the menu closure so the branch is reachable by a test —
+// getting it the wrong way round silently discards the user's document, and
+// AppKit menu construction cannot be exercised headlessly.
+func quitRequest(dirty bool, confirm func(), quit func()) {
+	if dirty {
+		confirm()
+		return
+	}
+	quit()
 }
