@@ -10,6 +10,7 @@ Wails v3 uses [Task](https://taskfile.dev) for orchestration; `wails3 task <name
 
 - `wails3 task common:generate:bindings` — regenerate the TypeScript bindings in `frontend/bindings/`
 - `go test ./. && go build -o /dev/null .` — run Go tests and verify build (use `.` not `./...`)
+- `wails3 task build && wails3 task run` — build and launch the app. **`run` does not build.** The `run` task in `build/<GOOS>/Taskfile.yml` has no `deps`, so it only copies the existing `bin/hermes` into the `.dev.app` bundle, re-signs it and launches it — after editing source, `run` alone silently launches the previous binary. Before reporting that a change works in the app, confirm the binary actually contains it (`strings bin/hermes | grep <a new symbol>`, or compare `ls -lT bin/hermes` against the source mtimes).
 
 ## Architecture
 
