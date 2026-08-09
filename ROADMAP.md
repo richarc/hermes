@@ -314,10 +314,14 @@ dropped on 2026-08-06.
 
 ## v0.10.0 — Bug fixes and pre-production
 
-- [ ] Work the deferred review findings below. The ⌘Z-after-File → New bug is
-      the one with real teeth: undo restores the previous document's text while
-      `path` is already `null`, so a following ⌘S writes the old content to a
-      new file.
+- [ ] Work the deferred review findings below. Two of them lose the user's
+      work. ⌘Q quits without prompting, because the unsaved-changes guard is
+      registered on a window event and Wails' Quit role never dispatches one —
+      that is the worst of them, since it needs no unlucky sequence, just the
+      standard quit shortcut. And ⌘Z immediately after File → New restores the
+      previous document's text while `path` is already `null`, so a following
+      ⌘S writes the old content to a new file. Neither should wait for v0.10 if
+      a release ships sooner.
 - [ ] Help documentation.
 - [ ] Tutorials, written using Hermes. The dogfooding is the point — a
       tutorial that cannot be written comfortably in Hermes is a bug report
@@ -381,9 +385,35 @@ Ideas noted along the way, not yet committed to a release:
 
 ### Deferred review findings
 
-Real findings from the v0.4 and v0.5 code reviews, judged not to block those
-releases. Recorded so they are not rediscovered from scratch:
+Real findings from the v0.4, v0.5 and v0.8 code reviews and from manual
+testing, judged not to block those releases. Recorded so they are not
+rediscovered from scratch:
 
+- Bug: **⌘Q quits without prompting, discarding unsaved changes.** The guard
+  in `main.go` is registered on `events.Common.WindowClosing`, which is a
+  *window* event: it cancels the close and emits `close:confirm` when the
+  document is dirty. ⌘Q is the standard App menu's Quit role, and Wails
+  hard-wires it to `globalApplication.Quit()`
+  (`menuitem_roles.go:128`), which is `InvokeSync(a.impl.destroy)` — it tears
+  the app down and never dispatches `WindowClosing`, so nothing consults
+  `IsDirty()`. Closing by the red button or ⌘W still prompts correctly, which
+  is what isolates it to the terminate path. Predates v0.8; found by manual
+  testing 2026-08-09.
+  The fix is small and the pieces are verified to exist: after
+  `menu.AddRole(application.AppMenu)` in `installMenu`, `Menu.FindByRole`
+  recurses into submenus, `application.Quit` is a real `Role` constant, and
+  role-built items do carry their role (`menuitem.go:231`) — so the Quit
+  item's handler can be replaced with one that emits `close:confirm` when
+  dirty and quits otherwise. The frontend already handles that event; it is
+  the same path the red button uses. Note `DocumentService.Quit()` must keep
+  calling `application.Quit()` directly — it is what runs *after* the user
+  chooses Save or Don't Save, and routing it back through the guard would
+  loop. **This displaces the ⌘Z item below as the most serious deferred bug:
+  that one needs an unlucky sequence, this one needs ⌘Q.**
+- Related, and wanting a different answer: `App.svelte`'s `close:confirm`
+  listener opens with `if (chartOpen) return`, so quitting with the chart
+  builder open does nothing at all, silently. True of the window-close path
+  today as well.
 - Bug: ⌘Z immediately after File → New restores the previous document's text
   while `path` is already `null`, so a following ⌘S runs Save As and writes the
   old document's content to a new file. `setContent` dispatches an ordinary
