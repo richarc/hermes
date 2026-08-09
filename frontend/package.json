@@ -19,7 +19,7 @@
     "@codemirror/view": "^6.43.7",
     "@retorquere/bibtex-parser": "^10.0.0",
     "@vscode/markdown-it-katex": "^1.1.2",
-    "@wailsio/runtime": "latest",
+    "@wailsio/runtime": "3.0.0-beta.5",
     "citeproc": "^2.4.63",
     "codemirror": "^6.0.2",
     "katex": "^0.16.47",

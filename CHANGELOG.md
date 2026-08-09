@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Changed
+
+- Upgraded Wails from `v3.0.0-alpha2.118` to `v3.0.0-beta.5`, trading an alpha
+  with no stability promise for a beta whose desktop API is declared stable.
+  No Hermes source changed: the Go build, vet and tests pass untouched, and
+  the beta CLI regenerates `frontend/bindings` byte-identically. The
+  `@wailsio/runtime` dependency, previously `"latest"` and resolving one
+  release *behind* the Go module, is now pinned to the exact matching version
+  so the two cannot drift apart again.
 
 - A chart builder, from Insert → Chart… or the toolbar. Paste a table or
   import a CSV, choose a mark and which columns map to which axis, and watch

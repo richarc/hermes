@@ -414,6 +414,31 @@ rediscovered from scratch:
   listener opens with `if (chartOpen) return`, so quitting with the chart
   builder open does nothing at all, silently. True of the window-close path
   today as well.
+- Bug: **the Zotero picker strands you on another Space in fullscreen.** Click
+  Cite while Hermes is fullscreen and macOS switches Spaces to wherever
+  Zotero's window lives — and never switches back, leaving the document behind
+  a fullscreen boundary. It does not happen windowed, because there every app
+  shares one Space and Zotero's picker simply appears alongside.
+  The outbound switch is not Hermes' doing and is not fixable: `PickCitations`
+  (`zotero.go:14`) only issues `client.Get(caywBase +
+  "/better-bibtex/cayw?format=pandoc")`, and Zotero activates itself to show
+  the picker — which, against a fullscreen window that owns its own Space,
+  forces a switch. You cannot use Zotero's picker without Zotero coming
+  forward.
+  The *return* is Hermes' to fix, and it is the actual bug: nothing reclaims
+  focus once the picker closes. There is no window-activation call anywhere in
+  the codebase. Wails exposes `WebviewWindow.Focus()`
+  (`webview_window.go:1467`, `activateIgnoringOtherApps` underneath) and
+  `DocumentService` already holds `s.window`, so a focus call after the GET
+  returns — on the cancelled path too, not just when citations were picked —
+  should bring Hermes back across the Space boundary. Two things to settle
+  while doing it: whether `Focus()` needs `application.InvokeAsync` like the
+  menu rebuild does, and whether it genuinely crosses a fullscreen Space,
+  which is the only case that matters and cannot be tested headlessly.
+  Investigated 2026-08-09 against Wails beta.5 and found **not** to be caused
+  by that upgrade: Hermes has no activation code for beta.5's activation-policy
+  change to have altered, and the request path is plain `net/http`. No
+  pre-upgrade baseline exists, though, since the case had never been tried.
 - Bug: ⌘Z immediately after File → New restores the previous document's text
   while `path` is already `null`, so a following ⌘S runs Save As and writes the
   old document's content to a new file. `setContent` dispatches an ordinary
