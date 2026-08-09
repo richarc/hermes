@@ -52,12 +52,18 @@ export function createCodeHydrator(load: LoadGrammar = loadGrammar): CodeHydrato
       const blocks = Array.from(
         container.querySelectorAll<HTMLElement>('pre > code[class*="language-"]'),
       )
+      // Every key this pass actually saw, live or cached. Anything left out
+      // of the cache after the loop belonged to a block no longer in the
+      // document — same eviction pattern as createChartHydrator's specs, so
+      // editing inside a fence does not retain a fragment per keystroke.
+      const liveKeys = new Set<string>()
 
       for (const el of blocks) {
-        const lang = /language-([^\s]+)/.exec(el.className)?.[1]
+        const lang = /(?:^|\s)language-(\S+)/.exec(el.className)?.[1]
         if (!lang) continue
         const code = el.textContent ?? ''
         const key = `${lang}\n${code}`
+        liveKeys.add(key)
 
         const cached = cache.get(key)
         if (cached) {
@@ -76,24 +82,37 @@ export function createCodeHydrator(load: LoadGrammar = loadGrammar): CodeHydrato
         if (gen !== generation) return // a newer pass owns the DOM now
         if (!parser) continue
 
-        const fragment = document.createDocumentFragment()
-        highlightCode(
-          code,
-          parser.parse(code),
-          HIGHLIGHTER,
-          (text, classes) => {
-            // Real nodes rather than an HTML string: the text is document
-            // content, and building nodes sidesteps escaping entirely.
-            if (!classes) return void fragment.append(text)
-            const span = document.createElement('span')
-            span.className = classes
-            span.textContent = text
-            fragment.append(span)
-          },
-          () => fragment.append('\n'),
-        )
+        let fragment: DocumentFragment
+        try {
+          fragment = document.createDocumentFragment()
+          highlightCode(
+            code,
+            parser.parse(code),
+            HIGHLIGHTER,
+            (text, classes) => {
+              // Real nodes rather than an HTML string: the text is document
+              // content, and building nodes sidesteps escaping entirely.
+              if (!classes) return void fragment.append(text)
+              const span = document.createElement('span')
+              span.className = classes
+              span.textContent = text
+              fragment.append(span)
+            },
+            () => fragment.append('\n'),
+          )
+        } catch {
+          // A grammar that throws mid-parse (StreamLanguage wrappers over
+          // legacy modes can, on pathological input) must not reject the
+          // whole pass and abandon every block after this one — it degrades
+          // to plain text exactly like an unavailable grammar does.
+          continue
+        }
         cache.set(key, fragment)
         el.replaceChildren(fragment.cloneNode(true))
+      }
+
+      for (const k of cache.keys()) {
+        if (!liveKeys.has(k)) cache.delete(k)
       }
     },
   }

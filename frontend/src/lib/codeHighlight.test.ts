@@ -28,16 +28,27 @@ describe('createCodeHydrator', () => {
     // and links are markdown's own tags, deliberately left uncoloured
     // (syntaxTags.test.ts pins that CODE_TOKENS must not claim tags.meta,
     // which Editor.svelte already owns). A link title does resolve, via
-    // markdown's own highlight config mapping LinkTitle to tags.string, one
-    // of the six CODE_TOKENS roles — so it is real evidence the hydrator
-    // wires spans onto matched tags, without depending on a second grammar.
-    const source = '[text](url "title")'
+    // markdown's own highlight config mapping LinkTitle to tags.string and
+    // the bare URL to tags.number (both are CODE_TOKENS roles) — so it is
+    // real evidence the hydrator wires spans onto matched tags, without
+    // depending on a second grammar. The second line is there so the
+    // putBreak callback (`() => fragment.append('\n')`) actually runs at
+    // least once: every other fixture in this file is one line, and real
+    // markdown-it output never is.
+    const source = '[text](url "title")\nmore text'
     const c = containerWith(block('markdown', source))
 
     await createCodeHydrator(load).hydrate(c)
 
     const code = c.querySelector('code')!
-    expect(code.querySelectorAll('span').length).toBeGreaterThan(0)
+    const spans = Array.from(code.querySelectorAll('span'))
+    expect(spans.length).toBeGreaterThan(0)
+    // Pinning the class names, not just their count: a span built with any
+    // other class (or none) would still pass a bare length check, silently
+    // breaking the link between syntaxTags.ts and what actually renders.
+    expect(spans.map((s) => s.className)).toEqual(
+      expect.arrayContaining(['tok-string', 'tok-number']),
+    )
     // The text must survive exactly — highlighting is presentation only.
     expect(code.textContent).toBe(source)
   })
@@ -91,5 +102,105 @@ describe('createCodeHydrator', () => {
     await h.hydrate(containerWith(block('markdown', '# Heading')))
 
     expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps serving highlighted content from the cache on a third pass', async () => {
+    // el.replaceChildren(cached.cloneNode(true)) — not
+    // el.replaceChildren(cached) — because a DocumentFragment's children move
+    // rather than copy into whatever adopts them. Reusing the cached fragment
+    // itself leaves it empty after the second pass, and the third pass would
+    // then hand an empty fragment to a perfectly live block.
+    const load = vi.fn(async () => markdownParser)
+    const h = createCodeHydrator(load as LoadGrammar)
+    const source = '[text](url "title")'
+
+    await h.hydrate(containerWith(block('markdown', source)))
+    await h.hydrate(containerWith(block('markdown', source)))
+    const third = containerWith(block('markdown', source))
+    await h.hydrate(third)
+
+    const code = third.querySelector('code')!
+    expect(code.innerHTML).not.toBe('')
+    expect(code.textContent).toBe(source)
+  })
+
+  it('does not share a cache entry across languages for identical text', async () => {
+    // The cache key is language plus text. Dropping the language half would
+    // let a fenced block under one language silently wear another's parse.
+    const load = vi.fn(async () => markdownParser)
+    const h = createCodeHydrator(load as LoadGrammar)
+    const source = '[text](url "title")'
+
+    await h.hydrate(containerWith(block('markdown', source)))
+    await h.hydrate(containerWith(block('otherlang', source)))
+
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('evicts a cached block once its source leaves the document', async () => {
+    // charts.ts drops cache entries whose spec is no longer live; this
+    // hydrator needs the same eviction, or every distinct edit inside a
+    // fence retains its own full fragment for the life of the document.
+    const load = vi.fn(async () => markdownParser)
+    const h = createCodeHydrator(load as LoadGrammar)
+
+    await h.hydrate(containerWith(block('markdown', 'one')))
+    await h.hydrate(containerWith(block('markdown', 'two')))
+    // 'one' was not live in the second pass, so it must have been evicted —
+    // hydrating it again has to load fresh, not serve a retained fragment.
+    await h.hydrate(containerWith(block('markdown', 'one')))
+
+    expect(load).toHaveBeenCalledTimes(3)
+  })
+
+  it('leaves a block plain when its grammar throws mid-parse, and still highlights the next one', async () => {
+    // language-data routes many languages through StreamLanguage wrappers
+    // over legacy CodeMirror 5 modes, whose token() can throw on pathological
+    // input. That must not reject the whole pass and abandon every block
+    // after the bad one.
+    const throwingParser = { parse: () => { throw new Error('parse boom') } } as unknown as Parser
+    const load: LoadGrammar = vi.fn(async (name) =>
+      name === 'bad' ? throwingParser : markdownParser,
+    )
+    const c = containerWith(
+      block('bad', 'boom') + block('markdown', '[text](url "title")'),
+    )
+
+    await expect(createCodeHydrator(load).hydrate(c)).resolves.toBeUndefined()
+
+    const codes = c.querySelectorAll('code')
+    expect(codes[0].querySelectorAll('span').length).toBe(0)
+    expect(codes[0].textContent).toBe('boom')
+    expect(codes[1].querySelectorAll('span').length).toBeGreaterThan(0)
+  })
+
+  it('abandons a stale pass entirely when a newer one starts mid-await', async () => {
+    // The generation guard: a pass whose load() resolves after a newer pass
+    // has already started must not touch the DOM at all, including the very
+    // block whose load just resolved, and must never even reach later blocks.
+    let resolveGate!: (p: Parser) => void
+    const gate = new Promise<Parser>((res) => { resolveGate = res })
+    const load: LoadGrammar = vi.fn(async (name) =>
+      name === 'gate' ? gate : markdownParser,
+    )
+    const h = createCodeHydrator(load)
+
+    const containerA = containerWith(
+      block('gate', 'first-code') + block('other', 'second-code'),
+    )
+    const hydrateA = h.hydrate(containerA) // suspends inside the loop awaiting `gate`
+    const containerB = containerWith(block('gate', '[text](url "title")'))
+    const hydrateB = h.hydrate(containerB) // newer generation, also awaits `gate`
+
+    resolveGate(markdownParser)
+    await hydrateA
+    await hydrateB
+
+    const codesA = containerA.querySelectorAll('code')
+    expect(codesA[0].querySelectorAll('span').length).toBe(0)
+    expect(codesA[1].querySelectorAll('span').length).toBe(0)
+    expect(load).not.toHaveBeenCalledWith('other')
+    // The newer pass was unaffected by the older one's abandonment.
+    expect(containerB.querySelector('code')!.querySelectorAll('span').length).toBeGreaterThan(0)
   })
 })

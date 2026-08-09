@@ -41,7 +41,10 @@
     // pass that created them.
     sync.invalidate()
     void hydrator.hydrate(container).then(() => sync.invalidate())
-    void codeHydrator.hydrate(container)
+    // Every failure inside the hydrator already degrades to plain text; this
+    // is a backstop against an unhandled rejection reaching the webview, not
+    // the primary defence.
+    void codeHydrator.hydrate(container).catch(() => {})
   })
 
   onMount(() => {
