@@ -14,17 +14,16 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu := application.NewMenu()
 	menu.AddRole(application.AppMenu)
 
-	// The AppMenu role wires Quit straight to application.Quit(), which is
-	// InvokeSync(impl.destroy) — it tears the app down without ever
-	// dispatching events.Common.WindowClosing. main.go's unsaved-changes guard
-	// is registered on exactly that event, so ⌘Q bypassed it and discarded the
-	// document while the red button and ⌘W prompted correctly. Replace the
-	// role's handler so the shortcut goes through the same confirm.
+	// ⌘Q used to discard unsaved work: main.go's guard is registered on
+	// events.Common.WindowClosing, a *window* event, and quitting never raises
+	// one. Route the shortcut through the same confirm the red button uses.
 	//
-	// DocumentService.Quit() deliberately still calls application.Quit()
-	// directly: it is what runs *after* the user chooses Save or Don't Save,
-	// and routing it back through here would loop.
-	if quit := menu.FindByRole(application.Quit); quit != nil {
+	// Replacing the handler is not enough on its own — see reclaimQuitItem.
+	//
+	// DocumentService.Quit() deliberately still quits outright: it is what runs
+	// *after* the user chooses Save or Don't Save, and sending it back through
+	// this confirm would loop.
+	if quit := reclaimQuitItem(menu); quit != nil {
 		quit.OnClick(func(*application.Context) {
 			quitRequest(docs.IsDirty(),
 				func() { app.Event.Emit("close:confirm") },
@@ -274,6 +273,24 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)
+}
+
+// reclaimQuitItem takes the App menu's Quit item back from AppKit so a Go
+// handler can run on it, and returns it — or nil if there is no Quit item.
+//
+// Attaching OnClick alone does nothing, which is how the first attempt at this
+// fix shipped without working. Wails builds a role-based item with the role's
+// native selector and target=nil (menuitem_selectors_darwin.go maps Quit to
+// "terminate:"), so AppKit sends the action up the responder chain to NSApp
+// and the callback is never invoked. Clearing the role drops the selector,
+// which puts the item back on the ordinary handleClick path. The label and the
+// ⌘Q accelerator are properties of the item, not the role, so both survive.
+func reclaimQuitItem(menu *application.Menu) *application.MenuItem {
+	quit := menu.FindByRole(application.Quit)
+	if quit == nil {
+		return nil
+	}
+	return quit.SetRole(application.NoRole)
 }
 
 // quitRequest decides what ⌘Q does: raise the unsaved-changes confirm, or

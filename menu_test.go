@@ -1,16 +1,70 @@
 package main
 
-import "testing"
+import (
+	"io"
+	"log/slog"
+	"sync"
+	"testing"
 
-// ⌘Q used to discard unsaved work. The guard in main.go is registered on
-// events.Common.WindowClosing, a *window* event, but the App menu's Quit role
-// calls application.Quit() directly — InvokeSync(impl.destroy) — which never
-// dispatches one, so nothing consulted IsDirty(). Closing by the red button
-// or ⌘W prompted correctly, which is what isolated it to the terminate path.
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
+
+// The App menu's role items are built by Wails against globalApplication, so
+// one has to exist before a menu can be constructed at all. Created once and
+// silenced — application.New logs three banner lines otherwise, and test
+// output should be pristine.
+var testApp = sync.OnceFunc(func() {
+	application.New(application.Options{
+		Name:   "Hermes Editor",
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+})
+
+// This is the test that the first attempt at the ⌘Q fix needed and did not
+// have. That attempt replaced the Quit item's OnClick and shipped, and ⌘Q went
+// on discarding documents: on macOS a role-based item is created with
+// target=nil and the role's own selector — Quit maps to `terminate:` in Wails'
+// roleToSelector table — so AppKit sends the action up the responder chain to
+// NSApp and the Go callback is never invoked. Clearing the role is what puts
+// the item back on the handleClick path.
 //
-// The branch below is the whole fix, and getting it backwards loses the
-// user's document, so it is a tested function rather than an inline `if`
-// inside a menu closure that no test can reach.
+// Testing quitRequest alone did not catch it, because quitRequest was never
+// reached. This tests the wiring instead.
+func TestReclaimQuitItemClearsTheRoleThatBypassesGo(t *testing.T) {
+	testApp()
+	menu := application.NewMenu()
+	menu.AddRole(application.AppMenu)
+
+	if menu.FindByRole(application.Quit) == nil {
+		t.Fatal("precondition failed: the App menu should carry a Quit role item")
+	}
+
+	quit := reclaimQuitItem(menu)
+	if quit == nil {
+		t.Fatal("want the Quit item back so a handler can be attached")
+	}
+	if menu.FindByRole(application.Quit) != nil {
+		t.Error("the Quit role must be cleared; while it is set, macOS binds " +
+			"terminate: and the Go handler never runs")
+	}
+	if got := quit.Label(); got == "" {
+		t.Error("the item must keep its label")
+	}
+	if got := quit.GetAccelerator(); got == "" {
+		t.Error("the item must keep ⌘Q, or the shortcut stops working entirely")
+	}
+}
+
+func TestReclaimQuitItemToleratesAMenuWithoutOne(t *testing.T) {
+	testApp()
+	if got := reclaimQuitItem(application.NewMenu()); got != nil {
+		t.Errorf("want nil for a menu with no Quit item, got %v", got)
+	}
+}
+
+// The branch ⌘Q takes once it does reach Go. Separate from the wiring above:
+// both have to be right, and the first attempt got the wiring wrong while this
+// half was already correct.
 func TestQuitRequestConfirmsWhenDirty(t *testing.T) {
 	confirmed, quit := 0, 0
 	quitRequest(true, func() { confirmed++ }, func() { quit++ })
