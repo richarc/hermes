@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { Browser } from '@wailsio/runtime'
   import { createChartHydrator } from './lib/charts'
+  import { createCodeHydrator } from './lib/codeHighlight'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
 
@@ -21,6 +22,7 @@
 
   let container: HTMLElement
   const hydrator = createChartHydrator()
+  const codeHydrator = createCodeHydrator()
 
   const sync = createScrollSync({
     getAnchors: () => collectAnchorsFn(container),
@@ -39,6 +41,7 @@
     // pass that created them.
     sync.invalidate()
     void hydrator.hydrate(container).then(() => sync.invalidate())
+    void codeHydrator.hydrate(container)
   })
 
   onMount(() => {

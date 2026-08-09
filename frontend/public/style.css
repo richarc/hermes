@@ -296,6 +296,15 @@ textarea:focus-visible,
 .preview-pane :not(pre) > code {
   background: var(--surface-code-inline); padding: 0.1em 0.3em; border-radius: 4px;
 }
+/* Code tokens in the preview. The class names come from lib/syntaxTags.ts and
+   the colours from the same palette variables the editor's HighlightStyle
+   uses, so a block looks identical in both panes and follows the theme. */
+.preview-pane .tok-keyword { color: var(--syn-keyword); }
+.preview-pane .tok-string { color: var(--syn-string); }
+.preview-pane .tok-number { color: var(--syn-number); }
+.preview-pane .tok-type { color: var(--syn-type); }
+.preview-pane .tok-function { color: var(--syn-function); }
+.preview-pane .tok-comment { color: var(--syn-meta); }
 .preview-pane table { border-collapse: collapse; }
 .preview-pane th, .preview-pane td { border: 1px solid var(--border); padding: 6px 10px; }
 .preview-pane hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
