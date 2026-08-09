@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import { EditorView, type Command } from '@codemirror/view'
 import { foldCode } from '@codemirror/language'
+import { undo } from '@codemirror/commands'
 import Editor from './Editor.svelte'
 import { toggleBold } from './lib/markdownCommands'
 
@@ -40,7 +41,13 @@ function mountEditor() {
     target,
     editor: cmp,
     text: () => latest,
-    cleanup: () => unmount(cmp as never),
+    // The target is removed as well as unmounted. Leaving it behind lets a
+    // finished test's .cm-editor linger in document.body, which is what made
+    // the document-wide queries below pick up the wrong editor.
+    cleanup: () => {
+      unmount(cmp as never)
+      target.remove()
+    },
   }
 }
 
@@ -66,6 +73,36 @@ describe('Editor.setContent', () => {
     flushSync()
 
     expect(text()).toBe('---\n# csl: apa\n---\nBODY')
+    cleanup()
+  })
+
+  it('does not let undo resurrect the document it replaced', () => {
+    // The bug this pins: setContent used to dispatch an ordinary transaction,
+    // and basicSetup bundles history(), so ⌘Z after File → New restored the
+    // PREVIOUS document's text while App.svelte's `path` was already null —
+    // and the next ⌘S then wrote that old content into a brand new file.
+    // Replacing the document has to replace its undo history with it.
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('first document')
+    flushSync()
+    editor.setContent('second document')
+    flushSync()
+
+    editor.runCommand(undo)
+    flushSync()
+
+    expect(text()).toBe('second document')
+    cleanup()
+  })
+
+  it('still reports the new text through onchange', () => {
+    // Guards the contract the fix must not break: every caller and every test
+    // above learns the document text from this callback, not from the DOM.
+    const { editor, text, cleanup } = mountEditor()
+    editor.setContent('reported')
+    flushSync()
+
+    expect(text()).toBe('reported')
     cleanup()
   })
 
@@ -301,9 +338,13 @@ describe('chart block lookup', () => {
 
   /** Mounts with DOC loaded and the cursor at `pos`. */
   function atPosition(pos: number) {
-    const { editor, cleanup } = mountEditor()
+    const { editor, target, cleanup } = mountEditor()
     editor.setContent(DOC)
-    const view = EditorView.findFromDOM(document.querySelector('.cm-editor')!)!
+    // Scoped to this test's own target. `document.querySelector` returned
+    // whichever editor happened to be first in the body, so these tests were
+    // passing on the incidental fact that no earlier one had outlived its
+    // cleanup — adding any test above them broke seven at once.
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
     view.dispatch({ selection: { anchor: pos } })
     return { editor, view, cleanup }
   }
@@ -344,9 +385,9 @@ describe('chart block lookup', () => {
   })
 
   it('reports an empty body for an empty chart block', () => {
-    const { editor, cleanup } = mountEditor()
+    const { editor, target, cleanup } = mountEditor()
     editor.setContent('```vega-lite\n```\n')
-    const view = EditorView.findFromDOM(document.querySelector('.cm-editor')!)!
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
     view.dispatch({ selection: { anchor: 13 } })
     expect(editor.enclosingChartBlock()!.spec).toBe('')
     cleanup()

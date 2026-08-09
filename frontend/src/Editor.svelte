@@ -4,7 +4,7 @@
   import { markdown } from '@codemirror/lang-markdown'
   import { languages } from '@codemirror/language-data'
   import { keymap, type Command } from '@codemirror/view'
-  import { Prec } from '@codemirror/state'
+  import { EditorState, Prec } from '@codemirror/state'
   import { HighlightStyle, syntaxHighlighting, syntaxTree, forceParsing } from '@codemirror/language'
   import { tags } from '@lezer/highlight'
   import type { SyntaxNode } from '@lezer/common'
@@ -137,10 +137,25 @@
   // behaviour; 'start' is also the default so every other/future caller gets
   // the safe behaviour without having to know about this distinction.
   export function setContent(text: string, cursor: 'start' | 'end' = 'start'): void {
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
-      selection: { anchor: cursor === 'end' ? text.length : 0 },
-    })
+    // A fresh state, not a transaction. basicSetup bundles history(), so
+    // dispatching the replacement left it sitting on the undo stack: ⌘Z after
+    // File → New restored the PREVIOUS document's text while App.svelte's
+    // `path` was already null, and the next ⌘S wrote that old content into a
+    // brand new file. A new state has no history to undo into — which is the
+    // honest model regardless, since this is a different document rather than
+    // an edit to the current one. It also discards the scroll position and
+    // any open find panel, both of which belonged to the old document.
+    view.setState(
+      EditorState.create({
+        doc: text,
+        selection: { anchor: cursor === 'end' ? text.length : 0 },
+        extensions: editorExtensions(),
+      }),
+    )
+    // setState swaps the state wholesale instead of applying a transaction,
+    // so the updateListener never sees docChanged and no caller would learn
+    // the document had changed. Report it here instead.
+    onchange(text)
     // Only the end-of-document placement (File → New) should steal focus:
     // that is the path where the user is about to type. Opening a file must
     // not steal focus, since that is not current behaviour and was not asked
@@ -274,20 +289,31 @@
     view.focus()
   }
 
+  /**
+   * The editor's full extension set.
+   *
+   * A function rather than an inline array because `setContent` rebuilds the
+   * state from scratch to drop the undo history, and needs the same
+   * extensions to build it with.
+   */
+  function editorExtensions() {
+    return [
+      stolenChords,
+      basicSetup,
+      hermesTheme,
+      syntaxHighlighting(hermesHighlight),
+      markdown({ codeLanguages: languages }),
+      EditorView.lineWrapping,
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged) onchange(u.state.doc.toString())
+      }),
+    ]
+  }
+
   onMount(() => {
     view = new EditorView({
       parent: host,
-      extensions: [
-        stolenChords,
-        basicSetup,
-        hermesTheme,
-        syntaxHighlighting(hermesHighlight),
-        markdown({ codeLanguages: languages }),
-        EditorView.lineWrapping,
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) onchange(u.state.doc.toString())
-        }),
-      ],
+      extensions: editorExtensions(),
     })
     const onScrollDOM = () => onscroll?.()
     view.scrollDOM.addEventListener('scroll', onScrollDOM, { passive: true })
