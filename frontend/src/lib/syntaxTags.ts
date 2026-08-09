@@ -63,6 +63,16 @@ export const CODE_TOKENS: TokenRole[] = [
     ],
   },
   {
+    // url descends from literal, which `number` claims. Every other literal
+    // descendant is claimed by some role, so without this one entry a URL
+    // took the number colour in the preview while the editor gave it
+    // --syn-link through its markdown rules — the two panes disagreeing,
+    // which is the thing this table exists to prevent.
+    name: 'link',
+    palette: 'link',
+    tags: [tags.url],
+  },
+  {
     name: 'comment',
     palette: 'meta',
     tags: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment],

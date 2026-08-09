@@ -10,6 +10,7 @@ describe('CODE_TOKENS', () => {
       'comment',
       'function',
       'keyword',
+      'link',
       'number',
       'string',
       'type',
@@ -37,10 +38,21 @@ describe('CODE_TOKENS', () => {
     // markdown `meta` colour. Deriving `var(--syn-comment)` would reference a
     // variable no palette block defines, and nothing in CSS would catch it,
     // because the name is built in TypeScript.
-    const defined = ['keyword', 'string', 'number', 'type', 'function', 'meta']
+    const defined = ['keyword', 'string', 'number', 'type', 'function', 'meta', 'link']
     for (const role of CODE_TOKENS) {
       expect(defined, `role "${role.name}"`).toContain(role.palette ?? role.name)
     }
+  })
+
+  it('claims url explicitly, so it does not inherit the number colour', () => {
+    // tags.url descends from tags.literal, which the `number` role claims —
+    // every other literal descendant (string, regexp, character, bool) is
+    // claimed by some role, so url was the one that fell through. The editor
+    // colours it --syn-link via its markdown rules, so the preview showed a
+    // URL in a ```markdown fence number-coloured while the editor showed it
+    // as a link: a pane disagreement, in a design built to prevent them.
+    const spec = codeHighlightStyleSpecs().find((s) => s.tag === tags.url)
+    expect(spec?.color).toBe('var(--syn-link)')
   })
 
   it('does not claim markdown\'s own meta tag', () => {

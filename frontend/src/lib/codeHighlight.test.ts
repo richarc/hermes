@@ -47,7 +47,7 @@ describe('createCodeHydrator', () => {
     // other class (or none) would still pass a bare length check, silently
     // breaking the link between syntaxTags.ts and what actually renders.
     expect(spans.map((s) => s.className)).toEqual(
-      expect.arrayContaining(['tok-string', 'tok-number']),
+      expect.arrayContaining(['tok-string', 'tok-link']),
     )
     // The text must survive exactly — highlighting is presentation only.
     expect(code.textContent).toBe(source)

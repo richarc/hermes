@@ -305,6 +305,7 @@ textarea:focus-visible,
 .preview-pane .tok-type { color: var(--syn-type); }
 .preview-pane .tok-function { color: var(--syn-function); }
 .preview-pane .tok-comment { color: var(--syn-meta); }
+.preview-pane .tok-link { color: var(--syn-link); }
 .preview-pane table { border-collapse: collapse; }
 .preview-pane th, .preview-pane td { border: 1px solid var(--border); padding: 6px 10px; }
 .preview-pane hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
