@@ -24,7 +24,7 @@
   `--syn-type` `#0d6b6b` / `#7fd0d0` / `#0d6b6b`;
   `--syn-function` `#1a4fa0` / `#8fb8f0` / `#1a4fa0`.
 - Comments reuse the existing `--syn-meta`. No sixth name.
-- **Do not add a runtime dependency.** `@lezer/highlight`, `@codemirror/language` and `@codemirror/language-data` are already direct dependencies.
+- **Do not add a runtime dependency.** `@codemirror/language` and `@codemirror/language-data` are already direct dependencies. `@lezer/highlight` is *not* — it resolves transitively, while `Editor.svelte` imports from it directly. Task 2 declares it, which is the same undeclared-direct-import shape that broke seven tests when `@codemirror/commands` was reached transitively.
 - **Do not import a concrete grammar package transitively.** If a test needs one, declare it in `devDependencies`. Importing `@codemirror/commands` transitively broke seven unrelated tests earlier in this project.
 - Style idiom: no semicolons, single quotes, 2-space indent, comments explaining *why*.
 - Tests: `(cd frontend && npx vitest run)`; type check `(cd frontend && npm run check)`; Go `go test ./.` (single dot).

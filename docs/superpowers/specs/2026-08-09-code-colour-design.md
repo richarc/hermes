@@ -59,7 +59,7 @@ hook nothing currently uses.
 | How many colours? | Five new, plus `--syn-meta` reused for comments |
 | Where does preview highlighting run? | A hydration pass, not during `render()` |
 | Which grammars? | The editor's own, via `@codemirror/language-data` |
-| New dependencies? | None |
+| New dependencies? | None at runtime; `@lezer/highlight` gets *declared* |
 | Markdown's existing colours | Untouched |
 
 **Colour is per token type, never per language.** Every Lezer grammar tags
