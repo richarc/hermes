@@ -296,8 +296,9 @@ frontend/src/
   lib/citations.ts    Citation parsing and CSL formatting
   lib/bibliography.ts BibTeX to CSL-JSON
 docs/
-  sample-paper.md     Sample document exercising every citation form
-  visual-test.md      Manual verification checklist
+  test-document.md    Manual verification document — every feature, in order
+  zotero-export-text.bib  Bibliography for it, auto-synced from Zotero
+  sample-data.csv     Table for exercising the chart builder's importer
   superpowers/        Design specs and implementation plans
 ```
 
@@ -312,9 +313,12 @@ go test ./. && go build -o /dev/null .   # note ./. not ./...
 wails3 task common:generate:bindings     # after changing a service API
 ```
 
-`docs/sample-paper.md` is the quickest way to see the citation feature working
-— open it in Hermes and every supported form renders, along with the deliberate
-error cases.
+`docs/test-document.md` is the manual counterpart to the test suites: open it
+in Hermes after any substantial change and work down it. Each section states
+what correct looks like, so a wrong result is visible without knowing the
+implementation, and the last section is meant to look broken. Section 10 is
+the quickest way to see citations working — every supported form, plus the
+deliberate error cases.
 
 ## Known limitations
 

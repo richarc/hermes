@@ -323,8 +323,8 @@ dropped on 2026-08-06.
 - [ ] Help documentation.
 - [ ] Tutorials, written using Hermes. The dogfooding is the point — a
       tutorial that cannot be written comfortably in Hermes is a bug report
-      about Hermes, and the documents double as the manual visual-test corpus
-      that `docs/visual-test.md` currently stands in for.
+      about Hermes, and the documents double as the manual-verification corpus
+      that `docs/test-document.md` currently stands in for.
 
 ## v1.0.0 — Production
 
