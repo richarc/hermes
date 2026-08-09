@@ -129,11 +129,16 @@ full, plus Zotero integration that was not in the original sketch:
       flashes white on launch in dark mode. The System/Light/Dark choice
       itself is now cheap: `Settings` takes a field, a default, and a clamp.
 
-## v0.6.0 — Figures and diagrams
+## v0.6.0 — Figures and charts ✅ (released 2026-08-09)
 
-Charts get the attention citations got in v0.3: making Vega-Lite usable
-without hand-writing a spec, presenting the result as a proper figure, and
-then widening what a "figure" can be beyond statistical graphics.
+Charts got the attention citations got in v0.3: making Vega-Lite usable
+without hand-writing a spec, and presenting the result as a proper figure.
+
+Two items that were scoped here moved to v0.7 rather than holding the release
+— more chart types and Mermaid diagrams both need a design decision before
+they need code, and what had shipped was already a coherent release. The
+control restyle from v0.8 went out in it too, taken early because everything
+queued behind it adds UI.
 
 - [x] Implement a Vega-Lite builder for importing data and creating the chart
       graphically.
@@ -162,6 +167,13 @@ then widening what a "figure" can be beyond statistical graphics.
       hand-authored spec can shift — `{dose: '007'}` commits as `dose: 7` after
       an unrelated edit, and a sparse row commits `b: ''` where it had no key,
       which Vega-Lite draws as a point at zero rather than filtering out.
+
+## v0.7.0 — Code blocks and diagrams
+
+Fenced code is the one block type Hermes renders worse than the plain
+markdown it started from — plus the two items v0.6 deferred, both of which
+want brainstorming before they want code.
+
 - [ ] Support more Vega-Lite chart types in the builder — perhaps as multiple
       tabs, one per chart family. Today `MARKS` in `lib/chartSpec.ts` offers
       five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed
@@ -197,12 +209,6 @@ then widening what a "figure" can be beyond statistical graphics.
       that extended — Mermaid has no `title` field of its own, so the caption
       has to come from somewhere new, which is the one place this feature
       cannot simply follow the chart precedent.
-
-## v0.7.0 — Code blocks
-
-Fenced code is the one block type Hermes renders worse than the plain
-markdown it started from.
-
 - [ ] A simple Insert menu route to a code block — one that drops a fence with
       placeholder text rather than making the author remember three backticks
       and a language tag. The wiring is the established one: a `menu:insert-code`

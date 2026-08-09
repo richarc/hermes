@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-09
+
+Charts get the attention citations got in v0.3: a graphical builder, so a
+Vega-Lite spec no longer has to be hand-written, and figures — captions,
+automatic numbering, alignment and width — so what the builder produces reads
+as part of a paper rather than an illustration dropped into one. The app's own
+chrome was given a single vocabulary along the way, ahead of its release,
+because the features queued behind it all add UI.
+
 ### Added
 
 - A chart builder, from Insert → Chart… or the toolbar. Paste a table or
