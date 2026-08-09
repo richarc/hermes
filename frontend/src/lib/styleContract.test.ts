@@ -202,14 +202,28 @@ describe('control styling', () => {
   })
 
   it('styles disabled buttons', () => {
-    expect(css).toMatch(/button:disabled[^{]*\{/)
+    // [^{:]* (not [^{]*) so this cannot be satisfied by button:disabled:hover
+    // or any other button:disabled:<pseudo> rule — only the bare selector's
+    // own declaration block, and specifically its opacity drop, counts.
+    // Confirmed by mutation: with the old [^{]* pattern, deleting
+    // `button:disabled { opacity: 0.45; cursor: default; }` outright still
+    // passed as long as some `button:disabled:hover { ... }` rule existed.
+    expect(css).toMatch(/button:disabled[^{:]*\{[^}]*opacity:/)
   })
 
   it('gives buttons a pressed state', () => {
     // Setting background and border suppresses the platform's own pressed
     // chrome, so it has to be put back explicitly — same reasoning as the
-    // focus ring above.
-    expect(css).toMatch(/button:active[^{]*\{[^}]*filter:/)
+    // focus ring above. Scoped :not(:disabled) (see style.css), so the
+    // selector is matched by substring rather than anchored to `button:active`
+    // literally.
+    expect(css).toMatch(/button:not\(:disabled\):active[^{]*\{[^}]*filter:/)
+  })
+
+  it('keeps the dialog footer visible when the body scrolls', () => {
+    // The branch's headline UX fix: a large pasted table used to scroll
+    // Insert chart out of sight along with the rest of the dialog body.
+    expect(css).toMatch(/\.modal-buttons[^{]*\{[^}]*position: sticky/)
   })
 
   it('no longer carries the one-off welcome button rule', () => {

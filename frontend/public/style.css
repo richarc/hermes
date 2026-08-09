@@ -136,9 +136,16 @@ html, body {
    preview pane renders markdown with html:false and emits none of these, so
    element selectors are safe here.
 
-   Reach worth knowing: CodeMirror's find/replace panel (⌘F, from basicSetup's
-   searchKeymap) renders real <input> and <button> elements, so these rules
-   restyle it too. That is the intended gain, not an accident. */
+   CodeMirror's find/replace panel (⌘F, from basicSetup's searchKeymap) also
+   renders real <input> and <button> elements, but these rules do not reach
+   them: CodeMirror compiles its own theme rules (Editor.svelte, hermesTheme)
+   as `.ͼN .cm-textfield` / `.ͼN .cm-button` — a generated class plus the
+   target, (0,2,0) — which beats the bare element selectors here at (0,0,1).
+   The panel was already themed from the palette before this branch (see
+   Editor.svelte); what these DO reach is the panel's three unclassed
+   `input[type=checkbox]` boxes (Match case / By word / regexp), which is why
+   the selector below excludes checkboxes and radios explicitly rather than
+   staying a bare `input`. */
 button {
   font: inherit;
   font-size: 13px;
@@ -149,7 +156,11 @@ button {
   color: var(--fg);
   cursor: pointer;
 }
-button:hover { border-color: var(--fg); }
+/* :not(:disabled) throughout this block, rather than on :disabled itself:
+   scoping the interactive states keeps a disabled control's own rule (below)
+   as the only thing that can ever style it, instead of relying on every
+   hover/active rule added later to remember to lose the tie-break. */
+button:not(:disabled):hover { border-color: var(--fg); }
 
 /* The default action of a dialog — what Return does. Deliberately not used in
    the toolbar, where the five actions are peers and promoting one would claim
@@ -164,15 +175,24 @@ button.primary {
    in light and a dimmer one in dark, and keeps --on-accent above 4.5:1 in
    both, where a second token would need a value in three palette blocks and
    its own contrast pair to say the same thing. */
-button.primary:hover { filter: brightness(0.92); border-color: var(--accent); }
+button.primary:not(:disabled):hover { filter: brightness(0.92); border-color: var(--accent); }
 
 /* Pressed. Setting background and border suppressed the platform's own pressed
    chrome, the same way it suppressed the focus ring — so it is put back, and
    deliberately understated: this is a document editor, not a toolbar of toys.
-   Placed after button.primary:hover: the two tie on specificity (0,1,1), so
-   source order is what makes a pressed primary read as pressed rather than
-   keeping its hover brightness. */
-button:active { filter: brightness(0.95); }
+   0.85 is darker than button.primary:hover's 0.92, so a mouse-pressed primary
+   reads as pressed rather than keeping its hover brightness (the previous
+   0.95 was the wrong direction — lighter than the hover state, not darker).
+   Specificity, computed rather than assumed:
+     button:not(:disabled):hover        (0,2,1)
+     button.primary:not(:disabled):hover (0,3,1)  — wins hover outright
+     button:not(:disabled):active        (0,2,1)
+     button.primary:not(:disabled):active (0,3,1) — ties primary's hover at
+       (0,3,1); this rule is declared after it, so source order gives the
+       pressed state the win over hover, same shape .primary:hover itself
+       wins over the plain hover rule above. */
+button:not(:disabled):active,
+button.primary:not(:disabled):active { filter: brightness(0.85); }
 
 /* A button that is really a link — the welcome pane's recent files are a
    column of paths, and bordered boxes would read worse than what is there
@@ -186,14 +206,17 @@ button.link-button {
   color: var(--fg);
   text-align: left;
 }
-button.link-button:hover { border-color: transparent; text-decoration: underline; }
+button.link-button:not(:disabled):hover { border-color: transparent; text-decoration: underline; }
 
 /* Opacity drops the filled button under 4.5:1. That is permitted — WCAG 1.4.3
-   exempts inactive controls — and is noted here so it does not read as a bug. */
+   exempts inactive controls — and is noted here so it does not read as a bug.
+   No separate disabled+hover rule: :not(:disabled) on every hover/active rule
+   above already keeps them from ever applying here, which also keeps
+   button.primary's accent border (0,1,1) from losing to a disabled-hover rule
+   that would otherwise beat it at (0,2,1). */
 button:disabled { opacity: 0.45; cursor: default; }
-button:disabled:hover { border-color: var(--border-strong); filter: none; }
 
-input, select, textarea {
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   font: inherit;
   background: var(--surface);
   color: var(--fg);
@@ -332,6 +355,14 @@ textarea:focus-visible,
 }
 .welcome ul { list-style: none; margin-top: 12px; }
 .welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
+
+/* An unknown element (a <dialog> on WebKit older than 15.4, where showModal
+   is absent — Info.plist's LSMinimumSystemVersion is 12.0, and 15.4 is the
+   macOS 12.3 point release) gets no UA `dialog:not([open]) { display: none }`
+   rule, so without this author rule an always-mounted <Dialog> — App.svelte
+   renders the confirm dialog unconditionally — would sit permanently visible.
+   Costs nothing on modern WebKit, where the UA rule already does this. */
+dialog:not([open]) { display: none; }
 
 /* The native element handles centring, the top layer and the backdrop, so the
    old .modal-backdrop wrapper is gone. Padding lives on .dialog-body rather

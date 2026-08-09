@@ -45,8 +45,17 @@ describe('Dialog', () => {
   })
 
   it('is closed when open is false', () => {
+    // A fresh <dialog> already has open === false before any effect runs, so
+    // asserting only the end state passes even with the whole $effect
+    // deleted — confirmed by mutation. Spying on removeAttribute proves the
+    // effect's fallback branch (jsdom has no close(), so the false path is
+    // `d.removeAttribute('open')`) actually executed, not that the initial
+    // DOM state happened to already agree with it.
+    const spy = vi.spyOn(HTMLElement.prototype, 'removeAttribute')
     const d = mountDialog(false)
+    expect(spy).toHaveBeenCalledWith('open')
     expect(d.el.open).toBe(false)
+    spy.mockRestore()
     d.cleanup()
   })
 
@@ -54,6 +63,55 @@ describe('Dialog', () => {
     const d = mountDialog(true)
     expect(d.el.getAttribute('aria-label')).toBe('Test dialog')
     d.cleanup()
+  })
+
+  it('carries alertdialog when passed, for a destructive confirm', () => {
+    // Screen readers announce alertdialog differently from the implicit
+    // dialog role. Dropped once already in this branch and restored, so it
+    // gets a test to keep that from happening a second time.
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(Dialog, {
+      target,
+      props: { open: true, label: 'Test dialog', role: 'alertdialog', onclose: vi.fn(), children: body },
+    })
+    flushSync()
+    expect(target.querySelector('dialog')!.getAttribute('role')).toBe('alertdialog')
+    unmount(cmp)
+    target.remove()
+  })
+
+  it('focuses the primary footer button on open, not the first footer button', () => {
+    // showModal() focuses the first focusable descendant in tree order when
+    // nothing has autofocus. The unsaved-changes footer reads left-to-right
+    // as "Don't Save, Cancel, Save" so the primary sits last — without this,
+    // the browser's default would land focus on "Don't Save", and a single
+    // Space or Return would discard the user's work.
+    //
+    // jsdom has no showModal, so the effect's real branch never runs there —
+    // stubbed on the prototype for this test only, the same technique as
+    // "does not double-fire onclose" above, and restored afterwards so every
+    // other test keeps exercising the real jsdom absence.
+    const originalShowModal = HTMLDialogElement.prototype.showModal
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '')
+    }
+    const footer = createRawSnippet(() => ({
+      render: () => '<span><button>Don’t Save</button><button class="primary">Save</button></span>',
+    }))
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const cmp = mount(Dialog, {
+      target,
+      props: { open: true, label: 'Test dialog', onclose: vi.fn(), children: body, footer },
+    })
+    flushSync()
+
+    expect(document.activeElement).toBe(target.querySelector('.primary'))
+
+    unmount(cmp)
+    target.remove()
+    HTMLDialogElement.prototype.showModal = originalShowModal
   })
 
   it('asks the parent to close on Esc rather than closing itself', () => {
@@ -97,5 +155,11 @@ describe('Dialog', () => {
     d.cleanup() // unmount: the teardown effect calls close() on the still-open element
 
     expect(onclose).toHaveBeenCalledTimes(1)
+    // The actual purpose of the teardown effect, not just its guard against a
+    // double-fired onclose: deleting the whole teardown $effect leaves the
+    // assertion above green (onclose is only called once either way) while
+    // the element stays open forever, because Dialog is unmounted rather
+    // than closed here. This is what proves the teardown ran at all.
+    expect(d.el.open).toBe(false)
   })
 })

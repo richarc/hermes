@@ -669,6 +669,17 @@ describe('chart builder', () => {
     expect(confirmDialog.open).toBe(false)
     expect(target.querySelector('.chart-builder')).not.toBeNull()
   })
+
+  // role="alertdialog" makes screen readers announce this dialog as a
+  // destructive interruption rather than a plain dialog — dropped once
+  // already in this branch and restored, hence a test to keep it that way.
+  it('marks the unsaved-changes confirm dialog as an alertdialog', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const confirmDialog = target.querySelector<HTMLDialogElement>(
+      'dialog[aria-label="Unsaved changes"]',
+    )!
+    expect(confirmDialog.getAttribute('role')).toBe('alertdialog')
+  })
 })
 
 describe('figure settings', () => {

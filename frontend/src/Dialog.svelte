@@ -43,17 +43,36 @@
       if (typeof d.showModal === 'function') {
         if (!d.open) d.showModal()
       } else {
-        d.open = true
+        d.setAttribute('open', '')
       }
+      focusDefaultButton(d)
     } else if (typeof d.close === 'function') {
       if (d.open) {
         selfClosing = true
         d.close()
       }
     } else {
-      d.open = false
+      d.removeAttribute('open')
     }
   })
+
+  // showModal() focuses the first focusable descendant in tree order when
+  // nothing has autofocus. The footer here reads left-to-right as "Don't
+  // Save, Cancel, Save" so the primary sits last visually — meaning the
+  // browser's default would land focus on the *non*-primary first button
+  // (e.g. "Don't Save" on the confirm dialog), and one Space or Return would
+  // fire it. The design's promise is that Return runs the default action, so
+  // focus has to be moved onto .primary explicitly once the dialog is open.
+  // Lives here, not at the call site, so every future dialog inherits it —
+  // an `autofocus` attribute on one button only fixes that one dialog.
+  function focusDefaultButton(d: HTMLDialogElement) {
+    // Only meaningful once the dialog is actually showing; also guards the
+    // jsdom fallback path above, where showModal is absent and there is no
+    // real focus containment to move into anyway.
+    if (typeof d.showModal !== 'function') return
+    const primary = d.querySelector<HTMLButtonElement>('.modal-buttons .primary')
+    primary?.focus()
+  }
 
   // Unmounting removes the element from the top layer, but skips the focus
   // restoration close() performs — ChartBuilder is unmounted rather than
