@@ -33,6 +33,9 @@ type DocumentService struct {
 	// Notified whenever the recents list changes (add or clear), so the
 	// native Open Recent menu can be rebuilt. Set once during startup.
 	onRecentsChanged func()
+	// Brings the window back to the front. Set once during startup; nil in
+	// tests, where there is no window. See PickCitations for why it exists.
+	onRefocus func()
 	// Serialises the read-modify-write of the recents file.
 	recentsMu      sync.Mutex
 	watchTick      time.Duration
@@ -219,6 +222,12 @@ func (s *DocumentService) storeRecentLocked(path string) error {
 func (s *DocumentService) notifyRecentsChanged() {
 	if s.onRecentsChanged != nil {
 		s.onRecentsChanged()
+	}
+}
+
+func (s *DocumentService) refocusWindow() {
+	if s.onRefocus != nil {
+		s.onRefocus()
 	}
 }
 

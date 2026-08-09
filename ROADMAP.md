@@ -314,19 +314,17 @@ dropped on 2026-08-06.
 
 ## v0.10.0 — Bug fixes and pre-production
 
-- [ ] Work the deferred review findings below. Two of them lose the user's
-      work. ⌘Q quits without prompting, because the unsaved-changes guard is
-      registered on a window event and Wails' Quit role never dispatches one —
-      that is the worst of them, since it needs no unlucky sequence, just the
-      standard quit shortcut. And ⌘Z immediately after File → New restores the
-      previous document's text while `path` is already `null`, so a following
-      ⌘S writes the old content to a new file. Neither should wait for v0.10 if
-      a release ships sooner.
+- [ ] Work the deferred review findings below. The three that lost the user's
+      work — ⌘Q quitting without a prompt, ⌘Z after File → New resurrecting the
+      previous document, and the Zotero picker stranding you on another Space —
+      were fixed on 2026-08-09 rather than waiting for this release, and have
+      been struck from the list. What remains is maintainability and test
+      coverage, none of it urgent.
 - [ ] Help documentation.
 - [ ] Tutorials, written using Hermes. The dogfooding is the point — a
       tutorial that cannot be written comfortably in Hermes is a bug report
-      about Hermes, and the documents double as the manual visual-test corpus
-      that `docs/visual-test.md` currently stands in for.
+      about Hermes, and the documents double as the manual-verification corpus
+      that `docs/test-document.md` currently stands in for.
 
 ## v1.0.0 — Production
 
@@ -389,63 +387,14 @@ Real findings from the v0.4, v0.5 and v0.8 code reviews and from manual
 testing, judged not to block those releases. Recorded so they are not
 rediscovered from scratch:
 
-- Bug: **⌘Q quits without prompting, discarding unsaved changes.** The guard
-  in `main.go` is registered on `events.Common.WindowClosing`, which is a
-  *window* event: it cancels the close and emits `close:confirm` when the
-  document is dirty. ⌘Q is the standard App menu's Quit role, and Wails
-  hard-wires it to `globalApplication.Quit()`
-  (`menuitem_roles.go:128`), which is `InvokeSync(a.impl.destroy)` — it tears
-  the app down and never dispatches `WindowClosing`, so nothing consults
-  `IsDirty()`. Closing by the red button or ⌘W still prompts correctly, which
-  is what isolates it to the terminate path. Predates v0.8; found by manual
-  testing 2026-08-09.
-  The fix is small and the pieces are verified to exist: after
-  `menu.AddRole(application.AppMenu)` in `installMenu`, `Menu.FindByRole`
-  recurses into submenus, `application.Quit` is a real `Role` constant, and
-  role-built items do carry their role (`menuitem.go:231`) — so the Quit
-  item's handler can be replaced with one that emits `close:confirm` when
-  dirty and quits otherwise. The frontend already handles that event; it is
-  the same path the red button uses. Note `DocumentService.Quit()` must keep
-  calling `application.Quit()` directly — it is what runs *after* the user
-  chooses Save or Don't Save, and routing it back through the guard would
-  loop. **This displaces the ⌘Z item below as the most serious deferred bug:
-  that one needs an unlucky sequence, this one needs ⌘Q.**
-- Related, and wanting a different answer: `App.svelte`'s `close:confirm`
-  listener opens with `if (chartOpen) return`, so quitting with the chart
-  builder open does nothing at all, silently. True of the window-close path
-  today as well.
-- Bug: **the Zotero picker strands you on another Space in fullscreen.** Click
-  Cite while Hermes is fullscreen and macOS switches Spaces to wherever
-  Zotero's window lives — and never switches back, leaving the document behind
-  a fullscreen boundary. It does not happen windowed, because there every app
-  shares one Space and Zotero's picker simply appears alongside.
-  The outbound switch is not Hermes' doing and is not fixable: `PickCitations`
-  (`zotero.go:14`) only issues `client.Get(caywBase +
-  "/better-bibtex/cayw?format=pandoc")`, and Zotero activates itself to show
-  the picker — which, against a fullscreen window that owns its own Space,
-  forces a switch. You cannot use Zotero's picker without Zotero coming
-  forward.
-  The *return* is Hermes' to fix, and it is the actual bug: nothing reclaims
-  focus once the picker closes. There is no window-activation call anywhere in
-  the codebase. Wails exposes `WebviewWindow.Focus()`
-  (`webview_window.go:1467`, `activateIgnoringOtherApps` underneath) and
-  `DocumentService` already holds `s.window`, so a focus call after the GET
-  returns — on the cancelled path too, not just when citations were picked —
-  should bring Hermes back across the Space boundary. Two things to settle
-  while doing it: whether `Focus()` needs `application.InvokeAsync` like the
-  menu rebuild does, and whether it genuinely crosses a fullscreen Space,
-  which is the only case that matters and cannot be tested headlessly.
-  Investigated 2026-08-09 against Wails beta.5 and found **not** to be caused
-  by that upgrade: Hermes has no activation code for beta.5's activation-policy
-  change to have altered, and the request path is plain `net/http`. No
-  pre-upgrade baseline exists, though, since the case had never been tried.
-- Bug: ⌘Z immediately after File → New restores the previous document's text
-  while `path` is already `null`, so a following ⌘S runs Save As and writes the
-  old document's content to a new file. `setContent` dispatches an ordinary
-  undoable transaction and never clears CodeMirror's history. This predates
-  v0.4, but ⌘N used to leave an empty editor where undoing was obviously a
-  mistake; it now produces a template, which makes the undo look legitimate.
-  The one deferred item with real teeth.
+- Quitting with the chart builder open does nothing at all, silently.
+  `App.svelte`'s `close:confirm` listener opens with `if (chartOpen) return`,
+  so the confirm never appears and the quit is simply swallowed. True of the
+  window-close path as well as ⌘Q. Surfaced while fixing the ⌘Q bug and
+  deliberately left alone: the guard is there so the unsaved-changes dialog
+  cannot open behind a modal that has no focus trap of its own, and the right
+  answer is probably to close or refuse the builder first rather than to drop
+  the guard.
 - Enforce the duplicated window background. The dark `--bg` is written both in
   `frontend/public/style.css` and in `main.go` as an `NewRGB` triple, because
   Go cannot read the CSS, and nothing checks that they agree — they have

@@ -14,6 +14,23 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu := application.NewMenu()
 	menu.AddRole(application.AppMenu)
 
+	// ⌘Q used to discard unsaved work: main.go's guard is registered on
+	// events.Common.WindowClosing, a *window* event, and quitting never raises
+	// one. Route the shortcut through the same confirm the red button uses.
+	//
+	// Replacing the handler is not enough on its own — see reclaimQuitItem.
+	//
+	// DocumentService.Quit() deliberately still quits outright: it is what runs
+	// *after* the user chooses Save or Don't Save, and sending it back through
+	// this confirm would loop.
+	if quit := reclaimQuitItem(menu); quit != nil {
+		quit.OnClick(func(*application.Context) {
+			quitRequest(docs.IsDirty(),
+				func() { app.Event.Emit("close:confirm") },
+				app.Quit)
+		})
+	}
+
 	file := menu.AddSubmenu("File")
 	file.Add("New").SetAccelerator("cmdorctrl+n").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:new")
@@ -256,4 +273,34 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	menu.AddRole(application.WindowMenu)
 
 	app.Menu.SetApplicationMenu(menu)
+}
+
+// reclaimQuitItem takes the App menu's Quit item back from AppKit so a Go
+// handler can run on it, and returns it — or nil if there is no Quit item.
+//
+// Attaching OnClick alone does nothing, which is how the first attempt at this
+// fix shipped without working. Wails builds a role-based item with the role's
+// native selector and target=nil (menuitem_selectors_darwin.go maps Quit to
+// "terminate:"), so AppKit sends the action up the responder chain to NSApp
+// and the callback is never invoked. Clearing the role drops the selector,
+// which puts the item back on the ordinary handleClick path. The label and the
+// ⌘Q accelerator are properties of the item, not the role, so both survive.
+func reclaimQuitItem(menu *application.Menu) *application.MenuItem {
+	quit := menu.FindByRole(application.Quit)
+	if quit == nil {
+		return nil
+	}
+	return quit.SetRole(application.NoRole)
+}
+
+// quitRequest decides what ⌘Q does: raise the unsaved-changes confirm, or
+// quit. Split out from the menu closure so the branch is reachable by a test —
+// getting it the wrong way round silently discards the user's document, and
+// AppKit menu construction cannot be exercised headlessly.
+func quitRequest(dirty bool, confirm func(), quit func()) {
+	if dirty {
+		confirm()
+		return
+	}
+	quit()
 }

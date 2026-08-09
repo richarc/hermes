@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- ⌘Q no longer discards unsaved changes. The unsaved-changes guard was
+  registered on a window-closing event, and the standard Quit menu item tears
+  the application down without raising one — so the prompt you get from the
+  red button never appeared for the keyboard shortcut.
+- Undo immediately after File → New no longer resurrects the previous
+  document. It used to bring back the old text while the app already
+  considered the document new, so the next save wrote the old content into a
+  new file.
+- Clicking Cite while full screen no longer strands you on another desktop.
+  Zotero's picker has to come forward to be used, which moves you to its
+  Space; Hermes now brings you back when the picker closes, whether you picked
+  a citation or cancelled.
+
 ### Changed
 
 - Upgraded Wails from `v3.0.0-alpha2.118` to `v3.0.0-beta.5`, trading an alpha

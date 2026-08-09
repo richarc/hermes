@@ -79,6 +79,9 @@ func main() {
 	})
 
 	docs.window = win
+	// Focus() dispatches to the main thread itself (InvokeSync) and no-ops on
+	// a destroyed window, so it needs no wrapping here.
+	docs.onRefocus = win.Focus
 
 	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if docs.IsDirty() {
