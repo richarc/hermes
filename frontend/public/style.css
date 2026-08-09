@@ -373,14 +373,22 @@ textarea:focus-visible,
    Costs nothing on modern WebKit, where the UA rule already does this. */
 dialog:not([open]) { display: none; }
 
-/* The native element handles centring, the top layer and the backdrop, so the
-   old .modal-backdrop wrapper is gone. Padding lives on .dialog-body rather
-   than the dialog, so the sticky footer can sit flush against the edge. */
+/* The native element handles the top layer and the backdrop, so the old
+   .modal-backdrop wrapper is gone. Padding lives on .dialog-body rather than
+   the dialog, so the sticky footer can sit flush against the edge.
+
+   `margin: auto` is not decoration and must not be dropped. A modal <dialog>
+   centres itself through the UA stylesheet's `margin: auto` resolving against
+   `inset: 0` — and line 1 of this file is `* { margin: 0 }`, an AUTHOR rule,
+   which beats the user-agent origin whatever its specificity. Without this the
+   dialog pins to the top-left corner and its first field sits under the
+   traffic lights. It shipped that way once. */
 dialog {
   background: var(--overlay-bg);
   color: var(--fg);
   border: none;
   border-radius: 8px;
+  margin: auto;
   padding: 0;
   max-width: 400px;
   max-height: 90vh;

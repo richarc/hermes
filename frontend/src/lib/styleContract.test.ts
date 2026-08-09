@@ -220,6 +220,19 @@ describe('control styling', () => {
     expect(css).toMatch(/button:not\(:disabled\):active[^{]*\{[^}]*filter:/)
   })
 
+  it('restores the margin the universal reset takes off the dialog', () => {
+    // A native <dialog> centres itself through the UA stylesheet's
+    // `margin: auto` against `inset: 0`. This file opens with
+    // `* { margin: 0 }`, and an AUTHOR rule beats the user-agent origin
+    // whatever its specificity — so without an explicit `margin: auto` here
+    // the dialog collapses to its inset origin in the top-left corner, where
+    // its content lands under the traffic lights. Shipped exactly that way
+    // once; jsdom has no layout engine, so this assertion is the only guard.
+    const dialogRule = stripComments(CSS).match(/\bdialog\s*\{[^}]*\}/)
+    expect(dialogRule).not.toBeNull()
+    expect(dialogRule![0]).toMatch(/margin:\s*auto/)
+  })
+
   it('keeps the dialog footer visible when the body scrolls', () => {
     // The branch's headline UX fix: a large pasted table used to scroll
     // Insert chart out of sight along with the rest of the dialog body.

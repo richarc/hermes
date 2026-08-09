@@ -208,17 +208,22 @@ figures work already accepts.
 
 ## Manual check
 
-1. Every button in the toolbar, both dialogs and the welcome pane has
+1. Both dialogs open centred in the window, not pinned to a corner. This one
+   is easy to assume: a modal `<dialog>` centres itself via the UA
+   stylesheet's `margin: auto`, but this app's `* { margin: 0 }` overrides it,
+   so the centring is ours to declare and ours to lose. It shipped broken
+   once, with the chart builder's first field under the traffic lights.
+2. Every button in the toolbar, both dialogs and the welcome pane has
    padding, a border and a hover state, in light and dark.
-2. Tab through the toolbar and the pane divider: every stop shows a focus
+3. Tab through the toolbar and the pane divider: every stop shows a focus
    ring, including the divider.
-3. Open the chart builder with a large pasted table: Insert chart stays
+4. Open the chart builder with a large pasted table: Insert chart stays
    visible while the body scrolls.
-4. With the builder open, press Tab repeatedly — focus stays inside it — and
+5. With the builder open, press Tab repeatedly — focus stays inside it — and
    press Esc — it closes without committing.
-5. With the builder open, use a menu accelerator (⌘B, ⌘N): still refused, as
+6. With the builder open, use a menu accelerator (⌘B, ⌘N): still refused, as
    before. The guards are unchanged and must remain effective.
-6. ⌘F in the editor: the find panel's input and buttons still look like
+7. ⌘F in the editor: the find panel's input and buttons still look like
    CodeMirror's own theme, not the app's — only the buttons' hover border
    picks up `--fg` (see Form controls, above).
-7. Export a PDF: chrome is hidden as before, and no accent colour appears.
+8. Export a PDF: chrome is hidden as before, and no accent colour appears.
