@@ -209,17 +209,24 @@ want brainstorming before they want code.
       that extended — Mermaid has no `title` field of its own, so the caption
       has to come from somewhere new, which is the one place this feature
       cannot simply follow the chart precedent.
-- [ ] A simple Insert menu route to a code block — one that drops a fence with
-      placeholder text rather than making the author remember three backticks
-      and a language tag. The wiring is the established one: a `menu:insert-code`
-      event from `menu.go`, handled in `App.svelte`, writing through
-      `editor.insertBlockAtCursor`, and no accelerator (an invented chord
-      cannot be checked against every macOS binding — the same reasoning as
-      Insert → Chart… and Blockquote). Whether it needs a *builder* like the
-      chart one is worth questioning before building it: the chart builder
-      exists because a Vega-Lite spec is genuinely hard to hand-write, whereas
-      a code fence is a delimiter and a language name. The part with real value
-      is choosing the language — a picker, not a modal.
+- [x] A simple Insert menu route to a code block. `Insert → Code Block` is a
+      submenu of thirteen curated languages plus Plain text, each emitting
+      `menu:insert-code` with the fence token it writes; `App.svelte` handles
+      it behind the same welcome-pane and chart-builder guards as every other
+      menu action, and there is no accelerator (an invented chord cannot be
+      checked against every macOS binding — the same reasoning as Insert →
+      Chart… and Blockquote). Not a builder: the chart builder exists because
+      a Vega-Lite spec is genuinely hard to hand-write, whereas a code fence is
+      a delimiter and a language name, and the only part carrying value is
+      choosing the language. Curated rather than all ~150 `language-data`
+      knows, which would need a filter field — the dialog this deliberately
+      avoided; every token was checked to resolve through `loadGrammar`, so no
+      item can offer a language that renders plain (MATLAB was dropped for
+      exactly that reason). It does not write through `insertBlockAtCursor`, as
+      sketched here: that leaves the cursor *after* what it inserted, stranding
+      the author below the fence, and is built on `replaceSelection`, so a
+      selection would be deleted rather than wrapped. A new
+      `insertCodeBlockAtCursor` does both the other way round.
 - [x] Syntax highlighting for code blocks. The editor loaded the grammars and
       tagged the tokens, but coloured none of them: registering any
       non-fallback highlighter displaces CodeMirror's `defaultHighlightStyle`
@@ -399,6 +406,16 @@ Real findings from the v0.4, v0.5 and v0.8 code reviews and from manual
 testing, judged not to block those releases. Recorded so they are not
 rediscovered from scratch:
 
+- Insert → Chart… destroys a selection. `commitChart`'s insert branch routes
+  through `editor.insertBlockAtCursor`, which is built on `replaceSelection`,
+  so selecting a paragraph and inserting a chart deletes the paragraph with no
+  prompt. Surfaced while designing Insert → Code Block, which had to avoid the
+  same trap and wraps the selection instead (`insertCodeBlockAtCursor`) — but
+  changing the chart path in passing was out of that design's scope. The fix is
+  presumably to decide what wrapping a selection in a chart block should even
+  mean, since unlike code there is no sense in which the selected prose belongs
+  inside the fence; refusing, or inserting below the selection, both beat
+  deleting it.
 - Quitting with the chart builder open does nothing at all, silently.
   `App.svelte`'s `close:confirm` listener opens with `if (chartOpen) return`,
   so the confirm never appears and the quit is simply swallowed. True of the

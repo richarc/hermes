@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recognised, each grammar loaded only if a document uses it. Colouring is by
   token type rather than by language, so a new language needs no new colours,
   and a fence with an unknown language stays plain rather than erroring.
+- Insert → Code Block writes the fence for you, from a submenu of thirteen
+  languages plus plain text — so the backticks and the language tag are one
+  menu choice rather than something to remember, and a misspelt tag can no
+  longer leave a block silently uncoloured. The cursor lands inside the block,
+  ready to type; text selected beforehand is wrapped in the fence rather than
+  replaced by it.
 
 ## [0.6.0] - 2026-08-09
 
