@@ -295,13 +295,13 @@ like one program.
 
 ## v0.9.0 — Authoring and output
 
-Three features drawn from a review of Typora (2026-08-08), kept because they
-serve paper-writing specifically rather than because Typora has them. What was
-deliberately *not* taken: its seamless in-place WYSIWYG, which would replace
-the split view, scroll sync and the chart placeholders at once and fights a
-domain where a Vega-Lite spec and a citation key have no meaningful inline
-visual form; and its file-tree sidebar, which is the multi-part document idea
-dropped on 2026-08-06.
+Three features drawn from a survey of similar products (2026-08-08), kept
+because they serve paper-writing specifically rather than because other
+editors have them. What was deliberately *not* taken: seamless in-place
+WYSIWYG editing, which would replace the split view, scroll sync and the
+chart placeholders at once and fights a domain where a Vega-Lite spec and a
+citation key have no meaningful inline visual form; and a file-tree sidebar,
+which is the multi-part document idea dropped on 2026-08-06.
 
 - [ ] Export to DOCX and LaTeX through Pandoc. Hermes already builds toward
       Pandoc without collecting the payoff: `![caption](img)` was chosen
