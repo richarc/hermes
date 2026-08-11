@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each point for a strip plot, and **rule**, which draws a line from the
   baseline up to each point for a spike plot. Both fit the builder's existing
   encoding, so an existing chart reopens for editing exactly as before.
+- Mermaid diagrams. A ` ```mermaid ` fence renders as a diagram in the preview
+  and in exported PDFs — flowcharts, sequence diagrams, state machines and the
+  rest. Give the diagram a `title:` in its frontmatter and it becomes a
+  numbered figure with a caption, sharing one sequence with charts and images.
+  In dark mode a diagram sits on the same white card a chart does, and an
+  invalid diagram shows an error card rather than breaking the preview. The
+  library loads only when a document actually contains a diagram.
 
 ## [0.6.0] - 2026-08-09
 

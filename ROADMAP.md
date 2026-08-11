@@ -200,21 +200,22 @@ want brainstorming before they want code.
       spec that is not valid Vega-Lite — so anything needing a transform or a
       layer (a regression line over a scatter, say) means extending the round
       trip first, not just adding a mark.
-- [ ] Implement support for Mermaid diagrams. The renderer hook is the cheap
-      part — intercept a ` ```mermaid ` fence the way `renderer.ts` already
-      intercepts `vega-lite`, and hydrate it in `charts.ts` alongside the Vega
-      views. Four things need deciding beyond that. Mermaid is a large
-      dependency, so it must be dynamically imported like `vega-embed` or it
-      lands in the startup bundle. It carries its own theming, which has to be
-      driven from the palette and re-rendered on a theme change, and its
-      output is an SVG with baked-in colours rather than something
-      `style.css` can reach. It needs the same `data-source-line` treatment as
-      a chart, or scroll sync loses its anchor over what is often a tall
-      block. And `lib/figures.ts` currently decides figure-hood from a
-      Vega-Lite `title` or an image's alt text, so a captioned diagram needs
-      that extended — Mermaid has no `title` field of its own, so the caption
-      has to come from somewhere new, which is the one place this feature
-      cannot simply follow the chart precedent.
+- [x] Mermaid diagrams. A ` ```mermaid ` fence is intercepted the way
+      `renderer.ts` already intercepts `vega-lite` and hydrated by
+      `lib/mermaid.ts`, with the library dynamically imported so a paper
+      without diagrams never loads it. Each of the four things this entry
+      expected to need deciding turned out to have a precedent already in the
+      codebase. Captions: the entry claimed Mermaid "has no `title` field of
+      its own" — it does, read from the fence's YAML frontmatter and drawn
+      into the SVG exactly as a Vega-Lite `title` is, so `figures.ts` gained a
+      `mermaidCaption` beside `chartCaption` and the title is stripped before
+      rendering so it does not appear twice. Theming: not needed at all — the
+      entry expected the palette driven into Mermaid and a re-render on every
+      theme change, but charts have the identical problem and Hermes already
+      answers it by putting a figure on a white card in dark mode, which
+      `.mermaid-diagram` simply joins. Scroll sync: the fence renderer writes
+      `data-source-line` by hand, as the chart branch does. Dependency size:
+      dynamic import, as with `vega-embed`.
 - [x] A simple Insert menu route to a code block. `Insert → Code Block` is a
       submenu of thirteen curated languages plus Plain text, each emitting
       `menu:insert-code` with the fence token it writes; `App.svelte` handles
