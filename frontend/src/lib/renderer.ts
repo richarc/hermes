@@ -1,8 +1,10 @@
 import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
+import type Token from 'markdown-it/lib/token.mjs'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
 import { chartWidthPx, figureLabel, figureOf, figurePlugin, type ChartWidth } from './figures'
+import { parseMermaidSource } from './mermaidSource'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
 // disagree on whether the default import is the plugin function or the CJS
@@ -51,9 +53,13 @@ md.use(figurePlugin)
 
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-  const token = tokens[idx]
-  if (token.info.trim() !== 'vega-lite') return defaultFence(tokens, idx, options, env, self)
+  const info = tokens[idx].info.trim()
+  if (info === 'vega-lite') return renderChartFence(tokens[idx], env as RenderEnv)
+  if (info === 'mermaid') return renderMermaidFence(tokens[idx])
+  return defaultFence(tokens, idx, options, env, self)
+}
 
+function renderChartFence(token: Token, env: RenderEnv): string {
   // This branch builds its own HTML and never calls renderAttrs, so the
   // anchor the core rule set on the token has to be written out by hand.
   // Charts are the largest source of height divergence — the very reason
@@ -61,7 +67,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const anchor = ` data-source-line="${md.utils.escapeHtml(token.attrGet('data-source-line') ?? '')}"`
   const figure = figureOf(token)
   const spec = md.utils.escapeHtml(
-    rewriteChartSpec(token.content.trim(), (env as RenderEnv).chartWidthPx, figure !== null),
+    rewriteChartSpec(token.content.trim(), env.chartWidthPx, figure !== null),
   )
   if (!figure) return `<div class="vega-lite-chart"${anchor} data-spec="${spec}"></div>\n`
 
@@ -76,6 +82,18 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     `<figcaption>${caption}</figcaption>` +
     `</figure>\n`
   )
+}
+
+/**
+ * A mermaid fence becomes a placeholder for the hydrator to fill.
+ *
+ * The source is stamped in with its frontmatter title removed: Mermaid draws
+ * a title into the SVG, and the caption below is where Hermes wants it.
+ */
+function renderMermaidFence(token: Token): string {
+  const anchor = ` data-source-line="${md.utils.escapeHtml(token.attrGet('data-source-line') ?? '')}"`
+  const source = md.utils.escapeHtml(parseMermaidSource(token.content).body)
+  return `<div class="mermaid-diagram"${anchor} data-source="${source}"></div>\n`
 }
 
 /**

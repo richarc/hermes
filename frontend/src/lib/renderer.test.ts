@@ -213,6 +213,33 @@ describe('render: bibliography content never becomes live markup', () => {
   })
 })
 
+describe('mermaid fences', () => {
+  it('emits a placeholder carrying the diagram source', () => {
+    const html = render('```mermaid\nflowchart LR\n  A --> B\n```\n')
+    expect(html).toContain('class="mermaid-diagram"')
+    expect(html).toContain('flowchart LR')
+  })
+
+  it('anchors the placeholder to its source line for scroll sync', () => {
+    const html = render('# Heading\n\n```mermaid\nflowchart LR\n```\n')
+    expect(html).toMatch(/<div class="mermaid-diagram" data-source-line="3"/)
+  })
+
+  // The title belongs in the caption, and Mermaid would otherwise draw it
+  // inside the SVG as well.
+  it('strips a frontmatter title out of the source it hands to Mermaid', () => {
+    const html = render('```mermaid\n---\ntitle: Stages\n---\nflowchart LR\n```\n')
+    expect(html).not.toContain('title: Stages')
+    expect(html).toContain('flowchart LR')
+  })
+
+  it('leaves a fence of another language to the default renderer', () => {
+    const html = render('```js\nconst x = 1\n```\n')
+    expect(html).not.toContain('mermaid-diagram')
+    expect(html).toContain('language-js')
+  })
+})
+
 describe('render: source-line anchors', () => {
   it('stamps every top-level block with its 1-based source line', () => {
     const html = render('# Title\n\nPara.\n\n| a |\n|---|\n| 1 |\n')

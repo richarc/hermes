@@ -318,6 +318,7 @@ textarea:focus-visible,
    variables resolve to transparent/0/0, so this is a no-op there, and print
    collapses the same way. The accepted cost: an image that already carries
    its own background (a photo, a screenshot) also gains the mount. */
+.preview-pane .mermaid-diagram,
 .preview-pane .vega-lite-chart,
 .preview-pane img {
   background: var(--figure-bg);
@@ -338,7 +339,7 @@ textarea:focus-visible,
    scrolls — so without this the whole pane scrolls sideways. Scaling an
    oversized chart down shrinks its label text slightly at extreme pane
    widths; that is the better failure. */
-.preview-pane .vega-lite-chart svg { max-width: 100%; height: auto; }
+.preview-pane .vega-lite-chart svg, .preview-pane .mermaid-diagram svg { max-width: 100%; height: auto; }
 
 /* Figure alignment, driven by one attribute on the preview root rather than a
    class injected per element. Charts and images are listed alongside `figure`
@@ -363,16 +364,19 @@ textarea:focus-visible,
    Preview.svelte maps between them through cssTextAlign(). */
 .preview-pane[data-figure-align="left"] figure,
 .preview-pane[data-figure-align="left"] .vega-lite-chart,
+.preview-pane[data-figure-align="left"] .mermaid-diagram,
 .preview-pane[data-figure-align="left"] p:has(> img:only-child),
 .preview-pane[data-figure-align="left"] p:has(> a:only-child > img:only-child) { text-align: left; }
 
 .preview-pane[data-figure-align="center"] figure,
 .preview-pane[data-figure-align="center"] .vega-lite-chart,
+.preview-pane[data-figure-align="center"] .mermaid-diagram,
 .preview-pane[data-figure-align="center"] p:has(> img:only-child),
 .preview-pane[data-figure-align="center"] p:has(> a:only-child > img:only-child) { text-align: center; }
 
 .preview-pane[data-figure-align="right"] figure,
 .preview-pane[data-figure-align="right"] .vega-lite-chart,
+.preview-pane[data-figure-align="right"] .mermaid-diagram,
 .preview-pane[data-figure-align="right"] p:has(> img:only-child),
 .preview-pane[data-figure-align="right"] p:has(> a:only-child > img:only-child) { text-align: right; }
 
@@ -525,7 +529,8 @@ dialog::backdrop { background: var(--backdrop); }
   background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
 }
 
-.chart-error {
+.chart-error,
+.mermaid-error {
   border: 1px solid var(--chart-error-fg); background: var(--chart-error-bg); color: var(--chart-error-fg);
   padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;
 }
@@ -608,7 +613,7 @@ dialog::backdrop { background: var(--backdrop); }
     overflow: visible; padding: 0;
     font-size: 11pt; line-height: 1.5;
   }
-  .katex-display, .vega-lite-chart, figure, .chart-error, .csl-entry { break-inside: avoid; }
+  .katex-display, .vega-lite-chart, .mermaid-diagram, figure, .chart-error, .csl-entry { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
   @page { margin: 2cm; }
 }

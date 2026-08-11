@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import { Browser } from '@wailsio/runtime'
   import { createChartHydrator } from './lib/charts'
+  import { createMermaidHydrator } from './lib/mermaid'
   import { createCodeHydrator } from './lib/codeHighlight'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
@@ -22,6 +23,7 @@
 
   let container: HTMLElement
   const hydrator = createChartHydrator()
+  const mermaidHydrator = createMermaidHydrator()
   const codeHydrator = createCodeHydrator()
 
   const sync = createScrollSync({
@@ -41,6 +43,10 @@
     // pass that created them.
     sync.invalidate()
     void hydrator.hydrate(container).then(() => sync.invalidate())
+    // Same reason the chart hydrator invalidates: a diagram changes its own
+    // height after the pass that placed it, so anchors measured before it
+    // rendered are wrong.
+    void mermaidHydrator.hydrate(container).then(() => sync.invalidate())
     // Every failure inside the hydrator already degrades to plain text; this
     // is a backstop against an unhandled rejection reaching the webview, not
     // the primary defence.
