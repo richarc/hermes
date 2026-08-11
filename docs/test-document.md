@@ -219,10 +219,42 @@ above and the decorative image must move together, captions included.
 Then narrow the preview pane until a chart would overflow it. The chart scales
 down; the pane must never scroll sideways.
 
-Known cosmetic issue, not a regression: in dark mode `.vega-lite-chart` is a
-full-width block with a light card behind it, so alignment moves the chart
-*within* the card rather than moving the card. Right alignment looks like a
-chart pushed to the right edge of a white panel.
+A titled Mermaid diagram joins the same numbered sequence as a chart or an
+image — this is "Figure 3", not "Figure 1" again:
+
+```mermaid
+---
+title: Pipeline stages
+---
+flowchart LR
+  A[Ingest] --> B[Parse]
+  B --> C[Render]
+```
+
+The caption reads once, below the diagram, and the title must **not** also be
+drawn inside it — the same double-caption check as a captioned chart. Check
+that the three node labels **Ingest**, **Parse** and **Render** are legible
+on screen, then ⌘E and check them again in the exported PDF: Mermaid draws a
+flowchart's labels as HTML inside the SVG (a `<foreignObject>`), which is the
+one part of a diagram most likely to go missing on export, so confirm the
+words themselves survive — not just the boxes and arrows connecting them.
+
+An untitled diagram of a different kind renders but stays out of the
+sequence, the same as the decorative image above — no "Figure 4", no caption:
+
+```mermaid
+sequenceDiagram
+  participant Author
+  participant Hermes
+  Author->>Hermes: Type a mermaid fence
+  Hermes-->>Author: Render diagram
+```
+
+Known cosmetic issue, not a regression: in dark mode `.vega-lite-chart` and
+`.mermaid-diagram` are both full-width blocks with a light card behind them,
+so alignment moves the chart or diagram *within* the card rather than moving
+the card. Right alignment looks like a chart or diagram pushed to the right
+edge of a white panel.
 
 ## 9. Chart builder
 
@@ -394,6 +426,13 @@ still renders:
 
 ```vega-lite
 { "mark": "bar", this is not valid JSON
+```
+
+Broken Mermaid syntax renders the same kind of error card, and everything
+after it still renders too:
+
+```mermaid
+this is not a valid diagram type
 ```
 
 If you can read this line with normal styling, error containment works. ✅

@@ -239,7 +239,7 @@ cosmetic gain, and was declined.
 | Mermaid module fails to load | The same card. The dynamic import sits *inside* the try, so "cannot load the renderer" and "cannot render" report identically — the choice `embedChart` documents at `charts.ts:132` |
 | Empty fence | An error card, since Mermaid rejects empty input. Consistent with an empty `vega-lite` fence, which reports `Invalid JSON` today. It does mean a card is visible while a diagram is being typed; charts already behave this way |
 | Diagram in a blockquote or list item | Renders, never numbered — `numberFigures` considers only level-0 tokens, matching charts |
-| Title present, rest of the YAML malformed | The title is read; Mermaid throws on the rest, so the error card shows. A caption is never displayed against a diagram that did not render |
+| Title present, rest of the YAML malformed | The title is read; Mermaid throws on the rest, so the error card shows. `renderDiagramError` only overwrites the placeholder's own `textContent` — the `<figcaption>` is its sibling inside `<figure>`, not something it touches — so the figure's caption stays visible **alongside** the error card. This matches `renderChartError`, which does the same thing for a chart, and it is the right behaviour, not an oversight: it keeps the figure's number stable while its author is mid-edit, rather than having the figure wink in and out as the YAML passes through invalid intermediate states |
 
 ### A recorded hazard
 
