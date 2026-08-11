@@ -38,7 +38,10 @@ export function parseMermaidSource(text: string): MermaidSource {
   const block = FRONTMATTER.exec(text)
   if (!block) return { title: '', body: text }
 
-  const lines = block[1].split('\n')
+  // A CRLF block still splits on '\n' alone, leaving a trailing '\r' on every
+  // line but the last; strip it so TITLE_LINE's unanchored '$' isn't defeated
+  // by an internal line's carriage return.
+  const lines = block[1].split('\n').map((line) => line.replace(/\r$/, ''))
   const index = lines.findIndex((line) => TITLE_LINE.test(line))
   if (index === -1) return { title: '', body: text }
 
@@ -63,5 +66,7 @@ function readScalar(raw: string): string {
   if (/^[|>[{]/.test(value)) return ''
   const quoted = /^"(.*)"$|^'(.*)'$/.exec(value)
   if (quoted) return (quoted[1] ?? quoted[2]).trim()
-  return value
+  // YAML treats a space-preceded '#' as starting a comment on an unquoted
+  // scalar; a quoted scalar (handled above) keeps its '#' verbatim.
+  return value.replace(/[ \t]+#.*$/, '').trim()
 }

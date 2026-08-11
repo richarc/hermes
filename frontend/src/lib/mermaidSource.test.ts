@@ -68,4 +68,32 @@ describe('parseMermaidSource', () => {
     const text = '---\ntitle:\n---\nflowchart LR\n'
     expect(parseMermaidSource(text)).toEqual({ title: '', body: text })
   })
+
+  // This is a public function with no "LF only" guard in its contract, so a
+  // CRLF frontmatter must be handled correctly regardless of key order.
+  it('recognises a title in a CRLF frontmatter block that also carries config', () => {
+    const text =
+      '---\r\ntitle: Pipeline stages\r\nconfig:\r\n  theme: forest\r\n---\r\nflowchart LR\r\n'
+    expect(parseMermaidSource(text)).toEqual({
+      title: 'Pipeline stages',
+      body: '---\nconfig:\n  theme: forest\n---\nflowchart LR\r\n',
+    })
+  })
+
+  it('drops a space-preceded comment from an unquoted title', () => {
+    const text = '---\ntitle: Run #3\n---\nflowchart LR\n'
+    expect(parseMermaidSource(text).title).toBe('Run')
+  })
+
+  it('keeps a quoted title verbatim, comment marker and all', () => {
+    const text = '---\ntitle: "Run #3"\n---\nflowchart LR\n'
+    expect(parseMermaidSource(text).title).toBe('Run #3')
+  })
+
+  // Not corruption: an empty block never matches FRONTMATTER, so the author's
+  // text is returned byte-for-byte, which is the declared decline behaviour.
+  it('passes an empty frontmatter block through unchanged', () => {
+    const text = '---\n---\nflowchart LR\n'
+    expect(parseMermaidSource(text)).toEqual({ title: '', body: text })
+  })
 })
