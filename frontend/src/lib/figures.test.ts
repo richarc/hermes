@@ -6,6 +6,7 @@ import {
   chartWidthPx,
   cssTextAlign,
   figureLabel,
+  mermaidCaption,
 } from './figures'
 // The plugin is exercised through render() rather than against tokens
 // directly: what matters is the HTML a document produces, and that is also
@@ -55,6 +56,18 @@ describe('chartCaption', () => {
   it('returns no caption for a spec that is not an object', () => {
     expect(chartCaption('[1, 2]')).toBe('')
     expect(chartCaption('null')).toBe('')
+  })
+})
+
+describe('mermaidCaption', () => {
+  it('reads the frontmatter title', () => {
+    expect(mermaidCaption('---\ntitle: Pipeline stages\n---\nflowchart LR\n')).toBe(
+      'Pipeline stages',
+    )
+  })
+
+  it('is empty for a diagram with no title', () => {
+    expect(mermaidCaption('flowchart LR\n  A --> B\n')).toBe('')
   })
 })
 

@@ -3,7 +3,14 @@ import katexPluginModule from '@vscode/markdown-it-katex'
 import type Token from 'markdown-it/lib/token.mjs'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
-import { chartWidthPx, figureLabel, figureOf, figurePlugin, type ChartWidth } from './figures'
+import {
+  chartWidthPx,
+  figureLabel,
+  figureOf,
+  figurePlugin,
+  type ChartWidth,
+  type FigureMeta,
+} from './figures'
 import { parseMermaidSource } from './mermaidSource'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
@@ -59,6 +66,20 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   return defaultFence(tokens, idx, options, env, self)
 }
 
+/**
+ * Wraps a chart's or diagram's child markup in a <figure>, with the anchor
+ * moved onto the figure and a numbered caption appended.
+ *
+ * The anchor moves ONTO the <figure> and must not stay on the child:
+ * collectAnchors takes every [data-source-line] as an anchor, and two at
+ * different offsets for one source line is a degenerate segment for
+ * previewOffsetForLine to interpolate across.
+ */
+function wrapAsFigure(anchor: string, child: string, figure: FigureMeta): string {
+  const caption = md.utils.escapeHtml(figureLabel(figure.number, figure.caption))
+  return `<figure${anchor}>` + child + `<figcaption>${caption}</figcaption>` + `</figure>\n`
+}
+
 function renderChartFence(token: Token, env: RenderEnv): string {
   // This branch builds its own HTML and never calls renderAttrs, so the
   // anchor the core rule set on the token has to be written out by hand.
@@ -71,17 +92,7 @@ function renderChartFence(token: Token, env: RenderEnv): string {
   )
   if (!figure) return `<div class="vega-lite-chart"${anchor} data-spec="${spec}"></div>\n`
 
-  // The anchor moves ONTO the <figure> and must not stay on the child:
-  // collectAnchors takes every [data-source-line] as an anchor, and two at
-  // different offsets for one source line is a degenerate segment for
-  // previewOffsetForLine to interpolate across.
-  const caption = md.utils.escapeHtml(figureLabel(figure.number, figure.caption))
-  return (
-    `<figure${anchor}>` +
-    `<div class="vega-lite-chart" data-spec="${spec}"></div>` +
-    `<figcaption>${caption}</figcaption>` +
-    `</figure>\n`
-  )
+  return wrapAsFigure(anchor, `<div class="vega-lite-chart" data-spec="${spec}"></div>`, figure)
 }
 
 /**
@@ -93,7 +104,10 @@ function renderChartFence(token: Token, env: RenderEnv): string {
 function renderMermaidFence(token: Token): string {
   const anchor = ` data-source-line="${md.utils.escapeHtml(token.attrGet('data-source-line') ?? '')}"`
   const source = md.utils.escapeHtml(parseMermaidSource(token.content).body)
-  return `<div class="mermaid-diagram"${anchor} data-source="${source}"></div>\n`
+  const figure = figureOf(token)
+  if (!figure) return `<div class="mermaid-diagram"${anchor} data-source="${source}"></div>\n`
+
+  return wrapAsFigure(anchor, `<div class="mermaid-diagram" data-source="${source}"></div>`, figure)
 }
 
 /**

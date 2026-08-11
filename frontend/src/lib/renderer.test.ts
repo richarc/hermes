@@ -238,6 +238,38 @@ describe('mermaid fences', () => {
     expect(html).not.toContain('mermaid-diagram')
     expect(html).toContain('language-js')
   })
+
+  it('wraps a titled diagram in a figure with a numbered caption', () => {
+    const html = render('```mermaid\n---\ntitle: Stages\n---\nflowchart LR\n```\n')
+    expect(html).toContain('<figcaption>Figure 1 — Stages</figcaption>')
+    expect(html).toContain('<figure')
+  })
+
+  // collectAnchors takes every [data-source-line] as an anchor, and two at
+  // different offsets for one source line is a degenerate segment for
+  // previewOffsetForLine to interpolate across.
+  it('puts the anchor on the figure and not on the diagram inside it', () => {
+    const html = render('```mermaid\n---\ntitle: Stages\n---\nflowchart LR\n```\n')
+    expect(html).toMatch(/<figure data-source-line="1">/)
+    expect(html).toMatch(/<div class="mermaid-diagram" data-source="/)
+  })
+
+  it('numbers diagrams, charts and images in one document-order sequence', () => {
+    const doc =
+      '![A photo](a.png)\n\n' +
+      '```mermaid\n---\ntitle: Stages\n---\nflowchart LR\n```\n\n' +
+      '```vega-lite\n{"title": "A chart", "mark": "line"}\n```\n'
+    const html = render(doc)
+    expect(html).toContain('Figure 1 — A photo')
+    expect(html).toContain('Figure 2 — Stages')
+    expect(html).toContain('Figure 3 — A chart')
+  })
+
+  it('leaves an untitled diagram unnumbered and unwrapped', () => {
+    const html = render('```mermaid\nflowchart LR\n```\n')
+    expect(html).not.toContain('<figure')
+    expect(html).not.toContain('figcaption')
+  })
 })
 
 describe('render: source-line anchors', () => {

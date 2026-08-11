@@ -11,6 +11,7 @@
 import type MarkdownIt from 'markdown-it'
 import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs'
 import type Token from 'markdown-it/lib/token.mjs'
+import { parseMermaidSource } from './mermaidSource'
 
 export type ChartWidth = 'small' | 'medium' | 'large'
 export type FigureAlignment = 'left' | 'centre' | 'right'
@@ -65,6 +66,11 @@ export function chartCaption(specText: string): string {
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return ''
   return captionFromTitle((parsed as Record<string, unknown>).title)
+}
+
+/** The caption a `mermaid` block's source carries, or '' for none. */
+export function mermaidCaption(source: string): string {
+  return parseMermaidSource(source).title
 }
 
 /**
@@ -129,6 +135,14 @@ function numberFigures(state: StateCore): boolean {
 
     if (token.type === 'fence' && token.info.trim() === 'vega-lite') {
       const caption = chartCaption(token.content)
+      if (caption === '') continue
+      count += 1
+      token.meta = { ...(token.meta ?? {}), figure: { number: count, caption } }
+      continue
+    }
+
+    if (token.type === 'fence' && token.info.trim() === 'mermaid') {
+      const caption = mermaidCaption(token.content)
       if (caption === '') continue
       count += 1
       token.meta = { ...(token.meta ?? {}), figure: { number: count, caption } }
