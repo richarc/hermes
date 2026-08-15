@@ -8,7 +8,7 @@
     !define INFO_PROJECTNAME "hermes"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "Hermes"
+    !define INFO_COMPANYNAME "Craig Richards"
 !endif
 !ifndef INFO_PRODUCTNAME
     !define INFO_PRODUCTNAME "Hermes Editor"
