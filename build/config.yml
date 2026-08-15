@@ -9,7 +9,7 @@ info:
   productName: "Hermes Editor" # The name of the application
   productIdentifier: "com.hermes.editor" # The unique product identifier
   description: "Academic markdown editor" # The application description
-  copyright: "(c) 2026 Hermes" # Copyright text
+  copyright: "(c) 2026 Craig Richards" # Copyright text
   comments: "Academic markdown editor with LaTeX math and Vega-Lite charts" # Comments
   version: "0.6.0" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)

@@ -17,7 +17,7 @@
     !define INFO_PRODUCTVERSION "0.6.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "(c) 2026 Hermes"
+    !define INFO_COPYRIGHT "(c) 2026 Craig Richards"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"
