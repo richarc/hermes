@@ -331,11 +331,25 @@ deliberate error cases.
 
 ## Licence and credits
 
-Citation formatting uses [citeproc-js](https://github.com/Juris-M/citeproc-js)
-(AGPL-3.0). The bundled CSL styles and locale come from the
-[Citation Style Language](https://github.com/citation-style-language) project
-under CC-BY-SA-3.0; see `frontend/src/assets/csl/LICENSE.md`.
+Hermes is licensed under the [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Craig Richards.
+
+Two bundled components carry obligations of their own, both recorded in
+[NOTICE](NOTICE):
+
+- Citation formatting uses [citeproc-js](https://github.com/Juris-M/citeproc-js),
+  copyright Frank Bennett, which is dual-licensed under **either** the Common
+  Public Attribution License v1+ **or** the GNU Affero General Public License
+  v3+, at the licensee's option. **Hermes elects the CPAL option**, which is
+  file-scoped copyleft and so does not extend to the rest of this codebase.
+  Its licence text is at `licenses/citeproc-js.LICENSE`.
+- The bundled CSL styles and locale come from the
+  [Citation Style Language](https://github.com/citation-style-language) project
+  under CC-BY-SA-3.0; see `frontend/src/assets/csl/LICENSE.md`.
+
+Every other dependency is permissively licensed (MIT, BSD-3-Clause or ISC).
 
 Built with [Wails v3](https://v3.wails.io), [Svelte 5](https://svelte.dev),
 [CodeMirror 6](https://codemirror.net), [markdown-it](https://github.com/markdown-it/markdown-it),
-[KaTeX](https://katex.org), and [Vega-Lite](https://vega.github.io/vega-lite/).
+[KaTeX](https://katex.org), [Vega-Lite](https://vega.github.io/vega-lite/), and
+[Mermaid](https://mermaid.js.org).

@@ -1,0 +1,35 @@
+Hermes
+Copyright 2026 Craig Richards
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file.
+
+This product bundles third-party software. The components below carry
+obligations that travel with any distribution of Hermes; the remaining
+dependencies are under permissive licences (MIT, BSD-3-Clause, ISC) and are
+credited in README.md.
+
+
+citeproc-js
+-----------
+Copyright (c) 2009-2019 Frank Bennett
+https://github.com/Juris-M/citeproc-js
+
+citeproc-js is dual-licensed. It may be used under EITHER the Common Public
+Attribution License (CPAL) version 1 or later, OR the GNU Affero General
+Public License (AGPL) version 3 or later, at the licensee's option.
+
+Hermes elects the CPAL option.
+
+citeproc-js is bundled unmodified. Its licence text is retained at
+licenses/citeproc-js.LICENSE.
+
+
+Citation Style Language styles and locale
+-----------------------------------------
+Copyright the Citation Style Language project and contributors
+https://github.com/citation-style-language
+
+The bundled CSL style files and the en-US locale are licensed under
+Creative Commons Attribution-ShareAlike 3.0 Unported (CC-BY-SA-3.0).
+They are bundled unmodified. Their licence text is retained at
+frontend/src/assets/csl/LICENSE.md.
