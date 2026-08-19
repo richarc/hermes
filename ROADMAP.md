@@ -174,6 +174,27 @@ Fenced code is the one block type Hermes renders worse than the plain
 markdown it started from — plus the two items v0.6 deferred, both of which
 want brainstorming before they want code.
 
+- [ ] **Bug: Export PDF truncates the document — the last page, and with it
+      the References section, is missing.** Reported from real use on
+      2026-08-19. Filed here rather than in v0.10 because it silently produces
+      a wrong document in the app's only output format, and the precedent is
+      set: the three v0.10 findings that lost the user's work were pulled
+      forward and fixed on 2026-08-09 rather than waiting for that release.
+      The prime suspect is a height chain the print stylesheet never unwinds.
+      `style.css` pins `html, body { height: 100% }` and
+      `.app { height: 100vh }`, and the `@media print` block relaxes only the
+      two innermost boxes — `.panes { display: block }` and
+      `.preview-pane { overflow: visible }` — leaving every ancestor still
+      constrained to one viewport height, which is exactly the shape of
+      failure that clips the tail of a paginated flow in WebKit. It also fits
+      the symptom precisely: `renderer.ts` appends the References heading and
+      the bibliography last, so the tail is the first thing to fall off. The
+      first thing to try is adding `.app { display: block; height: auto; }`
+      (and the same for `html, body`) to the print block. Not yet proven —
+      reproduce with a document long enough to span pages, confirm the cause,
+      then fix. Whatever the cause, this needs a regression test that survives
+      the fix: the print path is exercised by nothing today, which is why a
+      whole missing page reached a user.
 - [ ] Support more Vega-Lite chart types in the builder — perhaps as multiple
       tabs, one per chart family. Today `MARKS` in `lib/chartSpec.ts` offers
       five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed
@@ -337,6 +358,41 @@ which is the multi-part document idea dropped on 2026-08-06.
       the document, so reopening one means parsing pipe-table syntax rather
       than JSON, and alignment markers (`:---`, `---:`) have no equivalent in
       `DataTable` and would need somewhere to live.
+- [ ] A real New Document flow, rather than a template dropped into an
+      untitled buffer. Reported from real use on 2026-08-19. Today File → New
+      seeds `NEW_DOCUMENT_TEMPLATE` with the `bibliography` and `csl` keys
+      commented out, and the document stays unsaved and unnamed until the
+      first ⌘S — so a citation cannot resolve until the author has saved,
+      named a `.bib`, and created that file by hand elsewhere. The proposal:
+      ask for the filename up front, ask whether the document has a
+      bibliography, and if it does, create the `.bib` beside it and write a
+      live `bibliography:` key instead of a commented-out one. That removes
+      the step where the author has to know a `.bib` is resolved relative to
+      the document. Points to settle: whether this replaces File → New or
+      sits beside it (the current zero-friction path is worth keeping for a
+      scratch document); whether an empty `.bib` should be created or one
+      seeded with a comment, given `parseBib` warns on entries it cannot
+      parse; what happens when the file already exists; and whether the
+      dialog also takes the citation style, since `csl` is the other key and
+      the five bundled styles are otherwise discoverable only from the
+      template's comments. Related: `unsavedBibliographyMessage` exists
+      precisely because an unsaved document cannot load a bibliography — a
+      good flow here would make that message rare rather than routine.
+- [ ] A clickable table of contents in the exported PDF. The same heading
+      data the outline panel above needs, with a different consumer, so the
+      two should be designed together rather than twice. Two distinct pieces:
+      a rendered contents list at the top of the document (straightforward —
+      the headings are already stamped with `data-source-line`), and *internal
+      links that work in the PDF*, which is the part that needs proving. That
+      depends on anchor `id`s on the headings and on WebKit's print path
+      preserving intra-document links as PDF link annotations; whether it does
+      is an open question that should be answered with a spike before this is
+      scoped, since if it does not, the honest answer is that a clickable
+      index needs a real PDF writer and belongs with the Pandoc work above.
+      Also to settle: whether the contents list is opt-in per document (a
+      frontmatter key — which would be the third key Hermes reads, after
+      `bibliography` and `csl`) or a document-wide setting like figure
+      alignment.
 
 ## v0.10.0 — Bug fixes and pre-production
 
