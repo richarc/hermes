@@ -195,6 +195,44 @@ want brainstorming before they want code.
       then fix. Whatever the cause, this needs a regression test that survives
       the fix: the print path is exercised by nothing today, which is why a
       whole missing page reached a user.
+- [ ] **Bug: a local image beside the document does not display.** Confirmed
+      from real use on 2026-08-20 — `![caption](fig1.png)` with the file in
+      the document's own folder shows a broken image. Filed here with the PDF
+      truncation for the same reason: figures were v0.6's headline feature,
+      and a paper keeps its figures as files next to the document, so the
+      common case is the broken one.
+      The cause is that nothing maps a document-relative path to something the
+      webview can fetch. `renderer.ts` leaves markdown-it's default `<img>`
+      renderer alone, no Go code touches image paths, and the window loads
+      `URL: "/"` from `application.AssetFileServerFS(assets)` — the embedded
+      `frontend/dist`. So a relative `src` resolves against the asset server
+      rather than the document's directory and 404s. An absolute `file://`
+      would not rescue it either; a `file://` subresource on a page served
+      from another scheme is normally blocked.
+      This was never covered rather than recently broken: every image fixture
+      in `docs/test-document.md` is a remote `https://placehold.co` URL, so
+      the figure work shipped tested only against remote images and generated
+      charts. Fixing this needs a real local-file fixture committed beside the
+      test document, or the gap simply reopens.
+      An aggravating detail: figure-hood comes from non-empty alt text, so a
+      broken image still becomes a numbered figure — you get "Figure 1 —
+      caption" under a broken-image icon, and it consumes a number that
+      renumbers everything after it.
+      The fix has a clear shape. `application.AssetOptions` carries a
+      `Middleware` field (present in the pinned beta.5), so Go can serve files
+      from disk on a dedicated route, paired with a markdown-it image rule
+      that rewrites a relative `src` against the current document's directory.
+      Both halves already have precedent: `App.svelte` tracks `path`, and
+      `documentservice.go`'s `resolveAgainstDoc` is exactly the
+      resolve-relative-to-the-document helper `ReadBibliography` already uses.
+      Three things to settle. The route must be scoped to the document's own
+      directory subtree — a document should not be able to address arbitrary
+      files. Export must not race it: images have to be loaded before the
+      print panel opens, the same class of question the Mermaid PDF check
+      raised. And it interacts with the CSP item in the backlog, which
+      contemplates a `default-src 'self'` policy that would block remote
+      images; local and remote image policy should be decided together rather
+      than in two passes that contradict each other.
 - [ ] Support more Vega-Lite chart types in the builder — perhaps as multiple
       tabs, one per chart family. Today `MARKS` in `lib/chartSpec.ts` offers
       five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed
