@@ -393,6 +393,36 @@ which is the multi-part document idea dropped on 2026-08-06.
       frontmatter key — which would be the third key Hermes reads, after
       `bibliography` and `csl`) or a document-wide setting like figure
       alignment.
+- [ ] Spell checking. Nothing exists today and there is nothing to switch on,
+      for two independent reasons. `@codemirror/view` hardcodes the content
+      element's attributes as `spellcheck: "false"` (alongside `autocorrect`
+      and `autocapitalize` off) and `Editor.svelte` never overrides them, so
+      the editor's contenteditable tells WebKit not to check; and Wails'
+      `EditMenu` role builds Undo/Redo, Cut/Copy/Paste, Paste and Match Style,
+      Delete, Select All and Speech, with no Spelling and Grammar submenu — so
+      even with squiggles there would be no way to toggle continuous checking
+      or reach the spelling panel. The preview pane cannot help: WebKit only
+      checks editable regions and it is not one.
+      There is a genuine quick win to try first —
+      `EditorView.contentAttributes.of({ spellcheck: 'true' })` gives native
+      macOS squiggles and right-click corrections immediately — but it is
+      probably worse than nothing on its own, because CodeMirror does not know
+      what the text means: it would flag every citation key (`@alqedra2026`),
+      every LaTeX command inside `$…$`, every Vega-Lite field name, every
+      Mermaid node id, and the whole contents of every code fence. A paper is
+      heavy on all four. So try it, look at a real document, and expect to
+      need the prose-only version.
+      Doing it properly means checking prose and nothing else, which Hermes is
+      better placed for than most: `lib/markdownCommands.ts` already has
+      `isProtected` for the same "never touch fenced code or frontmatter"
+      question, and the syntax tree behind it knows where the code, maths and
+      citations are. The open questions are whether the native checker can be
+      scoped to regions at all (it works on the contenteditable as a whole, so
+      the answer may be no, and a JS dictionary becomes the alternative —
+      which is a much larger feature and a bundled dictionary per language),
+      whether a Spelling and Grammar submenu has to be built by hand in
+      `menu.go` since the role does not provide one, and whether the choice
+      persists in `Settings` like sync scrolling does.
 
 ## v0.10.0 — Bug fixes and pre-production
 
