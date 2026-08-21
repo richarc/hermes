@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invalid diagram shows an error card rather than breaking the preview. The
   library loads only when a document actually contains a diagram.
 
+### Fixed
+
+- An image stored beside the document now displays. `![Plot](fig1.png)` showed
+  a broken icon: the preview resolved the path against the application's own
+  bundle rather than the document's folder, so only remote images ever worked.
+  Paths now resolve exactly as `bibliography:` does — relative to the
+  document, with `../` and absolute paths allowed — and filenames containing
+  spaces or non-ASCII characters resolve correctly.
+
 ## [0.6.0] - 2026-08-09
 
 Charts get the attention citations got in v0.3: a graphical builder, so a

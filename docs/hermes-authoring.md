@@ -97,6 +97,19 @@ own, which is what keeps them through a Pandoc conversion:
 An image with empty alt text (`![](divider.png)`) stays decorative and is not
 numbered — use that for rules and spacers.
 
+Image paths resolve **relative to the document**, the same way `bibliography:`
+does, so a figure stored beside the file is just its filename. `../shared/`
+and absolute paths work too. A remote URL works as well.
+
+```markdown
+![Recovered sources](fig1.png)
+![Recovered sources](figures/fig1.png)
+![Recovered sources](https://example.org/fig1.png)
+```
+
+A document that has never been saved has no folder to resolve against, so save
+it before referring to a local image.
+
 Do not also write "Figure 1 — …" in prose; Hermes numbers and renders the
 caption itself, and the number would be wrong as soon as a figure is inserted
 above it.
