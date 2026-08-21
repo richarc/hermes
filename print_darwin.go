@@ -47,10 +47,32 @@ static int hermesPrintWebView(int landscape) {
 		pInfo.topMargin = 30;
 		pInfo.bottomMargin = 30;
 
+		// Run the panel BEFORE building the operation.
+		//
+		// This ordering is the whole fix. Wails (and our first version) created
+		// the operation first, which makes WKPrintingView paginate against the
+		// print info we supplied; the panel then replaced paper size and
+		// imageable area with the chosen printer's, the content reflowed to
+		// need more room, and the operation still rendered only the pages it
+		// had originally counted. An 11-page count applied to a now-longer
+		// document silently dropped the tail — a bibliography ending four
+		// entries early. Paginating after the settings are final cannot go
+		// stale, because there is nothing left to change.
+		//
+		// The cost is the panel's live preview, which is drawn BY the print
+		// operation — with no operation yet created there is nothing to draw
+		// it from, and asking for NSPrintPanelShowsPreview on a standalone
+		// panel does nothing (verified). That is the trade: no preview inside
+		// the panel, in exchange for a PDF that contains the whole document.
+		// The panel's PDF menu still offers Open in Preview.
+		NSPrintPanel *panel = [NSPrintPanel printPanel];
+		if ([panel runModalWithPrintInfo:pInfo] != NSModalResponseOK) {
+			return 1; // cancelled
+		}
+
 		NSPrintOperation *po = [webView printOperationWithPrintInfo:pInfo];
-		po.showsPrintPanel = YES;
+		po.showsPrintPanel = NO; // already shown, above
 		po.showsProgressPanel = YES;
-		po.view.frame = webView.bounds;
 		[po runOperationModalForWindow:window
 		                      delegate:nil
 		                didRunSelector:nil

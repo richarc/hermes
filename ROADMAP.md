@@ -174,27 +174,39 @@ Fenced code is the one block type Hermes renders worse than the plain
 markdown it started from — plus the two items v0.6 deferred, both of which
 want brainstorming before they want code.
 
-- [ ] **Bug: Export PDF truncates the document — the last page, and with it
-      the References section, is missing.** Reported from real use on
-      2026-08-19. Filed here rather than in v0.10 because it silently produces
-      a wrong document in the app's only output format, and the precedent is
-      set: the three v0.10 findings that lost the user's work were pulled
-      forward and fixed on 2026-08-09 rather than waiting for that release.
-      The prime suspect is a height chain the print stylesheet never unwinds.
-      `style.css` pins `html, body { height: 100% }` and
-      `.app { height: 100vh }`, and the `@media print` block relaxes only the
-      two innermost boxes — `.panes { display: block }` and
-      `.preview-pane { overflow: visible }` — leaving every ancestor still
-      constrained to one viewport height, which is exactly the shape of
-      failure that clips the tail of a paginated flow in WebKit. It also fits
-      the symptom precisely: `renderer.ts` appends the References heading and
-      the bibliography last, so the tail is the first thing to fall off. The
-      first thing to try is adding `.app { display: block; height: auto; }`
-      (and the same for `html, body`) to the print block. Not yet proven —
-      reproduce with a document long enough to span pages, confirm the cause,
-      then fix. Whatever the cause, this needs a regression test that survives
-      the fix: the print path is exercised by nothing today, which is why a
-      whole missing page reached a user.
+- [x] **Bug: Export PDF truncated the document — the last page, and with it
+      the References section, was missing.** Reported 2026-08-19, fixed
+      2026-08-21.
+      The cause was an ordering mistake inherited from Wails' own print
+      implementation, not a stylesheet problem. `printWithOrientation` created
+      the `NSPrintOperation` first, which makes `WKPrintingView` paginate
+      against the print info we supplied; the panel was shown afterwards, the
+      printer chosen there brought its own paper size and imageable area, the
+      content reflowed to need more room — and the operation still rendered
+      only the pages it had already counted. An 11-page count applied to a
+      now-longer document dropped the tail, ending a bibliography four entries
+      early. The fix is to run `NSPrintPanel` first and build the operation
+      from the settings the user actually chose, so pagination cannot go stale.
+      This entry previously blamed the print stylesheet's height chain
+      (`html, body { height: 100% }`, `.app { height: 100vh }` never relaxed
+      for paging). That was wrong and is withdrawn: relaxing it changed
+      nothing, not even the page at which the document stopped. Also
+      disproved along the way — the `po.view.frame = webView.bounds` override,
+      a stale page range inherited from `sharedPrintInfo`, and the panel's
+      Save as PDF workflow, which produced identical output to a panel-free
+      direct write. What identified it was that a direct write was *complete*
+      at the same page count the panel produced *truncated*: same pages,
+      different content, which only a layout changing after pagination
+      explains.
+      Known cost: the panel no longer shows its live preview, because the
+      preview is drawn by the print operation and there is no longer one in
+      existence while the panel is open. `NSPrintPanelShowsPreview` on a
+      standalone panel does nothing — verified. Printing to paper and Save as
+      PDF both work, and the panel's PDF menu still offers Open in Preview.
+      Still untested by anything automated: the print path has no coverage,
+      and AppKit print operations are not exercisable headlessly. The
+      regression guard is `docs/test-document.md` — export it and check the
+      bibliography reaches its last entry.
 - [x] **Bug: a local image beside the document did not display.** Reported
       2026-08-20, fixed 2026-08-21. The webview loads the embedded frontend
       bundle, so a document-relative `<img src>` resolved against that bundle

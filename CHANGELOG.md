@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Paths now resolve exactly as `bibliography:` does — relative to the
   document, with `../` and absolute paths allowed — and filenames containing
   spaces or non-ASCII characters resolve correctly.
+- Export PDF no longer loses the end of the document. A long paper exported
+  with its bibliography cut off part-way, because the page count was worked
+  out before the print panel was shown and then applied to a document that had
+  reflowed to the chosen printer's paper size. The settings are now settled
+  before the document is paginated. One consequence: the print panel no longer
+  shows a live preview — use its PDF menu's Open in Preview instead.
 
 ## [0.6.0] - 2026-08-09
 
