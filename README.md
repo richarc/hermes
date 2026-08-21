@@ -30,14 +30,18 @@ macOS; Windows and Linux support is on the backlog.
 | macOS | Apple silicon or Intel |
 | [Go](https://go.dev) 1.25 or newer | Backend |
 | [Node.js](https://nodejs.org) 20 or newer | Frontend build |
-| [Wails v3 CLI](https://v3.wails.io) | Alpha (`v3.0.0-alpha2.118`) |
+| [Wails v3 CLI](https://v3.wails.io) | Beta (`v3.0.0-beta.5`) — match `go.mod` |
 | [Zotero](https://www.zotero.org) + Better BibTeX | Optional — only for citation picking |
 
 Install the Wails v3 CLI:
 
 ```bash
-go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.5
 ```
+
+The CLI, the `github.com/wailsapp/wails/v3` module in `go.mod` and the
+`@wailsio/runtime` package all need to be on the same version — `@latest`
+previously resolved one release behind the Go module, so they are pinned.
 
 ## Building and running
 

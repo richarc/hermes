@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Hermes is a desktop app built with **Wails v3 (alpha)**: a Go backend with a Svelte 5 + TypeScript + Vite frontend rendered in a native webview. The Go module is named `hermes`, so generated bindings live under `frontend/bindings/hermes`.
+Hermes is a desktop app built with **Wails v3 (beta)** — `v3.0.0-beta.5`, pinned identically across `go.mod`, the `wails3` CLI and `@wailsio/runtime`, which must be bumped together: a Go backend with a Svelte 5 + TypeScript + Vite frontend rendered in a native webview. The Go module is named `hermes`, so generated bindings live under `frontend/bindings/hermes`.
 
 ## Commands
 
