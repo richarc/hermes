@@ -198,6 +198,13 @@ wrapper:
 
 ![](https://placehold.co/120x80)
 
+A **local** image, resolved relative to this document's own folder. Every
+other image fixture here is a remote URL, which is exactly why local paths
+shipped broken until 2026-08-21 — this one must display, not show a broken
+icon, and it must survive into an exported PDF:
+
+![A locally stored figure](sample-figure.png)
+
 This chart sets its own `"width"`, which must win over View → Chart Width —
 changing that setting resizes every other chart on this page but not this one:
 

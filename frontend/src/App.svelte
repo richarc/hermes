@@ -73,7 +73,7 @@
   const fmCsl = $derived(fm.csl)
 
   const updatePreview = debounce((text: string) => {
-    html = render(text, { formatter, chartWidth })
+    html = render(text, { formatter, chartWidth, docPath: path })
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
@@ -141,7 +141,7 @@
   $effect(() => {
     void formatter
     void chartWidth
-    html = render(untrack(() => content), { formatter, chartWidth })
+    html = render(untrack(() => content), { formatter, chartWidth, docPath: path })
   })
 
   async function insertCitation() {
@@ -319,7 +319,7 @@
     // Render now rather than 250 ms from now, and drop the queued pass: it
     // would only re-render this same text.
     updatePreview.cancel()
-    html = render(docContent, { formatter, chartWidth })
+    html = render(docContent, { formatter, chartWidth, docPath: path })
     void refreshRecents()
   }
 
@@ -382,7 +382,7 @@
     // user never edited.
     savedContent = NEW_DOCUMENT_TEMPLATE
     updatePreview.cancel() // the render below supersedes it
-    html = render(NEW_DOCUMENT_TEMPLATE, { formatter, chartWidth })
+    html = render(NEW_DOCUMENT_TEMPLATE, { formatter, chartWidth, docPath: path })
     welcomeDismissed = true
   }
 

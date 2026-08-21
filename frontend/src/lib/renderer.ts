@@ -28,6 +28,8 @@ interface RenderEnv {
   citations?: CitationCluster[]
   sourceLineOffset: number
   chartWidthPx: number
+  /** Absolute path of the open document; '' when it has never been saved. */
+  docPath: string
 }
 
 const md = new MarkdownIt({ html: false, linkify: true })
@@ -57,6 +59,69 @@ md.core.ruler.push('source_line', (state) => {
 // Pushed after source_line so a paragraph that becomes a <figure> already
 // carries its anchor, and the retag carries it along.
 md.use(figurePlugin)
+
+/**
+ * A document-relative image source is rewritten onto the local-image route.
+ *
+ * The webview loads the embedded frontend bundle, so `![](fig1.png)` would
+ * otherwise fetch fig1.png from that bundle rather than from beside the
+ * document — which is precisely what it did until this existed. The route
+ * carries the document and the source separately so Go resolves the pair with
+ * resolveAgainstDoc, the same rule `bibliography:` uses.
+ *
+ * The token's attribute is rewritten and the default renderer still does the
+ * rendering, so markdown-it's own attribute escaping continues to apply.
+ */
+const defaultImage = md.renderer.rules.image!
+md.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const token = tokens[idx]
+  const src = token.attrGet('src') ?? ''
+  const doc = (env as RenderEnv).docPath
+  // No document means nothing to resolve against — an unsaved document is in
+  // the same position as one naming a `bibliography:` before it is saved.
+  if (doc && isDocumentRelative(src)) {
+    token.attrSet(
+      'src',
+      `${LOCAL_IMAGE_ROUTE}?doc=${encodeURIComponent(doc)}&src=${encodeURIComponent(decodePath(src))}`,
+    )
+  }
+  return defaultImage(tokens, idx, options, env, self)
+}
+
+/**
+ * The real filesystem path behind a markdown link destination.
+ *
+ * markdown-it percent-encodes destinations before a renderer ever sees them,
+ * so `my figure.png` arrives as `my%20figure.png`. Encoding that again for the
+ * query string would send `%2520` and have Go look for a file literally named
+ * `my%20figure.png` — which is what the first version of this did. Decoding
+ * first restores the name on disk. A malformed escape is left as written
+ * rather than throwing; it will simply fail to resolve, like any other bad
+ * path.
+ */
+function decodePath(src: string): string {
+  try {
+    return decodeURIComponent(src)
+  } catch {
+    return src
+  }
+}
+
+/** Kept in step with `localImageRoute` in localimages.go. */
+const LOCAL_IMAGE_ROUTE = '/_hermes/image'
+
+/**
+ * Whether a source names a file on disk rather than somewhere else entirely.
+ *
+ * Anything carrying a scheme (`https:`, `data:`, `file:`), a protocol-relative
+ * `//host`, or a bare fragment is left exactly as written — remote images
+ * already worked and are the only kind the test corpus had before this.
+ */
+function isDocumentRelative(src: string): boolean {
+  if (src === '') return false
+  if (src.startsWith('//') || src.startsWith('#')) return false
+  return !/^[a-z][a-z0-9+.-]*:/i.test(src)
+}
 
 const defaultFence = md.renderer.rules.fence!
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
@@ -188,6 +253,11 @@ export interface RenderOptions {
   formatter?: CitationFormatter
   /** Document-wide default width; a spec's own `width` still wins. */
   chartWidth?: ChartWidth
+  /**
+   * Absolute path of the open document. Image sources are resolved against
+   * its folder; an unsaved document has none, so they are left as written.
+   */
+  docPath?: string | null
 }
 
 export function render(markdown: string, opts?: RenderOptions): string {
@@ -195,6 +265,7 @@ export function render(markdown: string, opts?: RenderOptions): string {
   const env: RenderEnv = {
     sourceLineOffset: bodyStartLine - 1,
     chartWidthPx: chartWidthPx(opts?.chartWidth),
+    docPath: opts?.docPath ?? '',
   }
   let html = md.render(body, env)
   const clusters = env.citations ?? []

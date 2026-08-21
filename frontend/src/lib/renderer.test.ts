@@ -310,3 +310,66 @@ describe('render: source-line anchors', () => {
     expect(html).toContain(`<h2 data-source-line="${lines}">References</h2>`)
   })
 })
+
+describe('local images', () => {
+  const DOC = '/papers/thesis/main.md'
+
+  it('rewrites a document-relative source onto the local-image route', () => {
+    const html = render('![Plot](fig1.png)\n', { docPath: DOC })
+    expect(html).toContain(
+      'src="/_hermes/image?doc=%2Fpapers%2Fthesis%2Fmain.md&amp;src=fig1.png"',
+    )
+  })
+
+  // markdown-it percent-encodes destinations before a renderer sees them, so
+  // a naive re-encode sends %2520 and Go looks for a file literally called
+  // "my%20figure.png". These pin the decoded round trip.
+  it('sends a spaced filename as the name on disk, not double-encoded', () => {
+    const html = render('![Plot](<my figure.png>)\n', { docPath: DOC })
+    expect(html).toContain('src=my%20figure.png')
+    expect(html).not.toContain('%2520')
+  })
+
+  it('sends a non-ASCII filename as the name on disk', () => {
+    const html = render('![Plot](résumé.png)\n', { docPath: DOC })
+    // encodeURIComponent('résumé.png'), i.e. one round of encoding only.
+    expect(html).toContain('src=r%C3%A9sum%C3%A9.png')
+    expect(html).not.toContain('%25')
+  })
+
+  // Remote images already worked and are the only kind the test corpus had,
+  // so breaking them would be the easiest regression to ship unnoticed.
+  it('leaves an https source alone', () => {
+    const html = render('![Plot](https://example.com/a.png)\n', { docPath: DOC })
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html).not.toContain('_hermes/image')
+  })
+
+  it('leaves a data URI alone', () => {
+    const html = render('![Plot](data:image/png;base64,AAAA)\n', { docPath: DOC })
+    expect(html).toContain('src="data:image/png;base64,AAAA"')
+  })
+
+  // An unsaved document has no folder to resolve against, so rewriting would
+  // only produce a URL that cannot resolve. Same position bibliography: is in.
+  it('leaves the source alone when the document is unsaved', () => {
+    const html = render('![Plot](fig1.png)\n', { docPath: null })
+    expect(html).toContain('src="fig1.png"')
+    expect(html).not.toContain('_hermes/image')
+  })
+
+  // src and alt text are handled by different code — the image renderer and
+  // figures.ts — so a rewrite that quietly cost the caption would pass every
+  // test above.
+  it('still becomes a captioned figure after the rewrite', () => {
+    const html = render('![Recovered sources](fig1.png)\n', { docPath: DOC })
+    expect(html).toContain('<figcaption>Figure 1 — Recovered sources</figcaption>')
+    expect(html).toContain('_hermes/image')
+  })
+
+  it('leaves an empty-alt image decorative and unnumbered', () => {
+    const html = render('![](spacer.png)\n', { docPath: DOC })
+    expect(html).not.toContain('figcaption')
+    expect(html).toContain('_hermes/image')
+  })
+})

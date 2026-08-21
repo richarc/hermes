@@ -39,6 +39,10 @@ func main() {
 		Services:    []application.Service{application.NewService(docs)},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
+			// Serves images living beside the user's document. Without it a
+			// document-relative <img src> resolves against the embedded
+			// bundle and 404s. See localimages.go.
+			Middleware: localImages,
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,

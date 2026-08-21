@@ -231,7 +231,11 @@ func (s *DocumentService) refocusWindow() {
 	}
 }
 
-func (s *DocumentService) resolveAgainstDoc(path, docPath string) string {
+// resolveAgainstDoc resolves a path named inside a document — a bibliography
+// or an image — against the document's own location. Package-level rather than
+// a method because it never touched the receiver and the local-image route
+// needs the same rule; one copy is the point, so the two cannot diverge.
+func resolveAgainstDoc(path, docPath string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
@@ -239,7 +243,7 @@ func (s *DocumentService) resolveAgainstDoc(path, docPath string) string {
 }
 
 func (s *DocumentService) ReadBibliography(path, docPath string) (string, error) {
-	data, err := os.ReadFile(s.resolveAgainstDoc(path, docPath))
+	data, err := os.ReadFile(resolveAgainstDoc(path, docPath))
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +263,7 @@ func (s *DocumentService) WatchBibliography(path, docPath string) {
 	if path == "" {
 		return
 	}
-	resolved := s.resolveAgainstDoc(path, docPath)
+	resolved := resolveAgainstDoc(path, docPath)
 	ctx, cancel := context.WithCancel(context.Background())
 	s.watchCancel = cancel
 
