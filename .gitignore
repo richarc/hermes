@@ -12,3 +12,6 @@ build/android/gen/node_modules
 
 # Superpowers scratch: SDD ledgers and brainstorming mockups
 .superpowers/
+
+# macOS Finder metadata
+.DS_Store
