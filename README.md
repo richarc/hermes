@@ -7,16 +7,32 @@ Hermes keeps markdown as the source of truth. There is no hidden document
 format: what you type is a plain `.md` file you can put in git, and everything
 on screen is rendered from it.
 
-- **Split view** — markdown source on the left, live preview on the right.
+- **Split view** — markdown source on the left, live preview on the right,
+  with optional scroll sync.
 - **Maths** — LaTeX via KaTeX, inline and display.
-- **Charts** — Vega-Lite specs in fenced code blocks become live charts.
+- **Charts** — Vega-Lite specs in fenced blocks become live charts, and a
+  graphical builder writes them for you: paste a table, pick a chart type,
+  insert. Eleven types, including histograms, heatmaps, error bars and pie.
+- **Diagrams** — Mermaid flowcharts, sequence diagrams, state machines and the
+  rest, from a ` ```mermaid ` fence.
+- **Figures** — a caption makes a figure: give a chart a title, a diagram a
+  title, or an image alt text, and it is numbered automatically in document
+  order, with alignment and width set document-wide.
 - **Citations** — `[@key]` against a BibTeX file, formatted through CSL with
   five bundled styles and an automatic References section.
 - **Zotero** — insert citations straight from your library via Better BibTeX.
-- **PDF export** — the preview, including charts and references, printed to PDF.
+- **Code** — fenced blocks are syntax highlighted in both panes from one shared
+  table, so a block looks the same as you write it, after it renders, and in
+  the PDF. Insert → Code Block writes the fence for you.
+- **Writing tools** — formatting commands with shortcuts, block folding, an
+  Insert menu, recent files, and a templated new document.
+- **Dark theme** — System, Light or Dark, remembered between sessions. Exported
+  PDFs stay light regardless.
+- **PDF export** — the preview, including charts, diagrams and references.
 
-Current release: **v0.3.0**. See [CHANGELOG.md](CHANGELOG.md) for what shipped
-and [ROADMAP.md](ROADMAP.md) for what is planned.
+Latest release: **v0.6.0**; v0.7 is in progress. See
+[CHANGELOG.md](CHANGELOG.md) for what shipped and [ROADMAP.md](ROADMAP.md) for
+what is planned.
 
 ---
 
@@ -84,7 +100,13 @@ $$\int_{-\infty}^{\infty} e^{-x^2}\,dx = \sqrt{\pi}$$
 
 ### Charts
 
-A fenced code block tagged `vega-lite` containing a
+You do not have to write a chart by hand: **Insert → Chart…** opens a builder.
+Paste a table or import a CSV, choose a chart type — line, bar, point, area,
+boxplot, tick, rule, histogram, heatmap, error bars or pie — and pick which
+column goes where. Put the cursor back inside a chart block and the same menu
+reopens it for editing.
+
+Written by hand, a fenced block tagged `vega-lite` containing a
 [Vega-Lite](https://vega.github.io/vega-lite/) spec renders as a live chart:
 
 ````markdown
@@ -99,6 +121,37 @@ A fenced code block tagged `vega-lite` containing a
 }
 ```
 ````
+
+### Diagrams
+
+A fence tagged `mermaid` renders as a [Mermaid](https://mermaid.js.org)
+diagram. Give it a `title:` in its own frontmatter and it becomes a numbered
+figure, sharing one sequence with charts and images:
+
+````markdown
+```mermaid
+---
+title: Pipeline stages
+---
+flowchart LR
+  A[Ingest] --> B[Parse]
+```
+````
+
+### Figures and images
+
+An image path is resolved relative to the document, so a figure stored beside
+the file is just its filename. Non-empty alt text becomes a numbered caption;
+empty alt text keeps the image decorative and unnumbered.
+
+```markdown
+![Recovered sources by condition](fig1.png)
+```
+
+For the full set of conventions — including the ones that silently do nothing,
+like raw HTML or a `title:` in the document's frontmatter — see
+[docs/hermes-authoring.md](docs/hermes-authoring.md). It is written to be
+pasted into an AI assistant as instructions.
 
 ---
 
@@ -263,6 +316,15 @@ Orientation** and is remembered between sessions.
 | ⌘⇧S | Save As… |
 | ⌘⇧C | Insert Citation… (Zotero picker) |
 | ⌘E | Export PDF… |
+| ⌘B / ⌘I | Bold / italic |
+| ⌘⇧K / ⌘⇧X | Inline code / strikethrough |
+| ⌘1 … ⌘6 | Heading level; ⌘0 back to paragraph |
+| ⌘⇧8 / ⌘⇧7 | Bulleted / numbered list |
+| ⌘⌥[ / ⌘⌥] | Fold / unfold the block at the cursor |
+
+Blockquote, Insert → Chart…, Insert → Code Block and the fold-all commands
+have menu items but no shortcut: an invented chord cannot be checked against
+every macOS binding.
 
 ---
 
@@ -283,26 +345,55 @@ exactly `---` on a line of their own.
 **Charts do not render.** The fence must be tagged exactly `vega-lite` and the
 block must contain valid JSON.
 
+**A diagram shows an error card.** The fence must be tagged exactly `mermaid`
+and the diagram must parse. The card names what Mermaid objected to.
+
+**A local image shows a broken icon.** Its path is resolved relative to the
+document, so the document must have been saved — an unsaved one has no folder
+to resolve against.
+
+**Insert → Chart… refuses to reopen a chart.** It says which property stopped
+it. The builder only reopens charts it could have written itself; anything
+else would have to be discarded silently to make it editable.
+
 ---
 
 ## Project layout
 
 ```
-main.go               Wails app setup, services, window, events
-menu.go               Application menu
+main.go               Wails app setup, services, window, events, asset routes
+menu.go               Application menu and accelerators
 documentservice.go    File I/O, recents, dirty tracking, bibliography, PDF
+settings.go           Persisted preferences, behind Settings/UpdateSettings
+localimages.go        Serves images stored beside the document
+print_darwin.go       PDF export: panel first, then the print operation
 zotero.go             Better BibTeX picker (CAYW) client
 frontend/src/
-  App.svelte          Orchestrates panes, toolbar, status bar
-  Editor.svelte       CodeMirror instance
-  Preview.svelte      Rendered output and chart hydration
-  lib/renderer.ts     markdown-it + KaTeX + citation pipeline
+  App.svelte          Orchestrates panes, toolbar, status bar, menu events
+  Editor.svelte       CodeMirror instance and its theme
+  Preview.svelte      Rendered output; chart, diagram and code hydration
+  ChartBuilder.svelte The graphical chart editor
+  Dialog.svelte       The shared modal shell, on native <dialog>
+  lib/renderer.ts     markdown-it + KaTeX + fence dispatch + citations
+  lib/figures.ts      What counts as a figure, and figure numbering
   lib/citations.ts    Citation parsing and CSL formatting
   lib/bibliography.ts BibTeX to CSL-JSON
+  lib/charts.ts       Vega-Lite hydration
+  lib/chartSpec.ts    BuilderState <-> Vega-Lite JSON, the round trip
+  lib/dataTable.ts    Delimited-text parsing and type inference
+  lib/mermaid.ts      Mermaid hydration
+  lib/mermaidSource.ts  A diagram's frontmatter title
+  lib/codeHighlight.ts  Syntax highlighting in the preview
+  lib/syntaxTags.ts   The token table both panes share
+  lib/markdownCommands.ts  Formatting commands as CodeMirror StateCommands
+  lib/foldCommands.ts Fold-all-code-blocks
+  lib/scrollSync.ts   Editor/preview anchoring
 docs/
   test-document.md    Manual verification document — every feature, in order
+  hermes-authoring.md How to write a document Hermes reads, for humans or AI
   zotero-export-text.bib  Bibliography for it, auto-synced from Zotero
   sample-data.csv     Table for exercising the chart builder's importer
+  sample-figure.png   Local image fixture
   superpowers/        Design specs and implementation plans
 ```
 
@@ -327,11 +418,20 @@ deliberate error cases.
 ## Known limitations
 
 - macOS only for now.
-- Light theme only; a dark theme is on the backlog.
-- The startup pane has no visible Open button — use ⌘O until that is fixed
-  in v0.4.
 - PDF export goes through the system print panel rather than rendering
-  headlessly.
+  headlessly. The panel no longer shows a live preview: the preview is drawn by
+  the print operation, and Hermes has to settle the print settings *before*
+  creating that operation, or a long document loses its last page. Use the
+  panel's PDF menu → Open in Preview instead.
+- The chart builder can only reopen charts it could have written. One that sets
+  something it does not model — `"axis": {"labelAngle": 0}`, a layer, a
+  transform, a mark object other than an error bar — still renders, but says
+  which property stopped it rather than editing it and silently dropping that
+  property.
+- A chart's column types are quantitative, temporal or nominal; `ordinal` is
+  not offered, so a hand-written chart using it will not reopen in the builder.
+- Windows and Linux are on the backlog, as is a file-tree sidebar for
+  multi-part documents.
 
 ## Licence and credits
 
