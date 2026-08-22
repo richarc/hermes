@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildSpec, canonicalise, readSpec, type BuilderState } from './chartSpec'
 
 const BASE: BuilderState = {
-  mark: 'line',
+  chartType: 'line',
   rows: [
     { dose: 0, response: 1.5 },
     { dose: 5, response: 3.25 },
@@ -10,6 +10,7 @@ const BASE: BuilderState = {
   x: { field: 'dose', type: 'quantitative', title: '' },
   y: { field: 'response', type: 'quantitative', title: '', aggregate: 'none' },
   colour: null,
+  extent: 'ci',
   extras: {},
 }
 
@@ -27,9 +28,9 @@ describe('buildSpec', () => {
     })
   })
 
-  it('emits every mark verbatim', () => {
-    for (const mark of ['line', 'bar', 'point', 'area', 'boxplot', 'tick', 'rule'] as const) {
-      expect(parsed({ ...BASE, mark }).mark).toBe(mark)
+  it('emits every plain chart type as its own mark', () => {
+    for (const chartType of ['line', 'bar', 'point', 'area', 'boxplot', 'tick', 'rule'] as const) {
+      expect(parsed({ ...BASE, chartType }).mark).toBe(chartType)
     }
   })
 
@@ -324,13 +325,13 @@ describe('readSpec', () => {
   it('round-trips every builder state back to its canonical form', () => {
     const states: BuilderState[] = [
       BASE,
-      { ...BASE, mark: 'bar' },
-      { ...BASE, mark: 'boxplot' },
+      { ...BASE, chartType: 'bar' },
+      { ...BASE, chartType: 'boxplot' },
       // tick and rule fit the existing x/y encoding shape exactly, which is
       // the whole reason they were cheap to add — if either ever needed a
       // shape of its own, this round trip is what would catch it.
-      { ...BASE, mark: 'tick' },
-      { ...BASE, mark: 'rule' },
+      { ...BASE, chartType: 'tick' },
+      { ...BASE, chartType: 'rule' },
       { ...BASE, x: { ...BASE.x, title: 'Dose' } },
       { ...BASE, extras: { description: 'Recovered sources by condition' } },
       { ...BASE, extras: { $schema: 'https://vega.github.io/schema/vega-lite/v6.json' } },
@@ -348,5 +349,48 @@ describe('readSpec', () => {
       if (!r.ok) throw new Error(`refused its own output for ${JSON.stringify(s)}`)
       expect(r.state).toEqual(canonicalise(s))
     }
+  })
+})
+
+describe('backward compatibility', () => {
+  // A literal spec string, deliberately NOT one produced by buildSpec: a
+  // rebuilt fixture would keep agreeing with buildSpec however buildSpec
+  // changed, which is exactly the regression this is here to catch. Every
+  // chart in every existing document depends on this reading unchanged.
+  const SHIPPED = `{
+  "data": {
+    "values": [
+      {
+        "dose": 0,
+        "response": 1.5
+      }
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "dose",
+      "type": "quantitative"
+    },
+    "y": {
+      "field": "response",
+      "type": "quantitative",
+      "aggregate": "mean"
+    }
+  }
+}`
+
+  it('reopens a chart written by the previous builder', () => {
+    const r = readSpec(SHIPPED)
+    if (!r.ok) throw new Error(`refused: ${JSON.stringify(r)}`)
+    expect(r.state.chartType).toBe('bar')
+    expect(r.state.x.field).toBe('dose')
+    expect(r.state.y.aggregate).toBe('mean')
+  })
+
+  it('rebuilds it byte-identically', () => {
+    const r = readSpec(SHIPPED)
+    if (!r.ok) throw new Error('refused')
+    expect(buildSpec(r.state)).toBe(SHIPPED)
   })
 })

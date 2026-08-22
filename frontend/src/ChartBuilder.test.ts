@@ -255,11 +255,12 @@ describe('ChartBuilder encoding step', () => {
       target,
       props: {
         initial: {
-          mark: 'bar',
+          chartType: 'bar',
           rows: [{ dose: 0, response: 1 }],
           x: { field: 'dose', type: 'quantitative', title: '' },
           y: { field: 'response', type: 'quantitative', title: '', aggregate: 'none' },
           colour: null,
+          extent: 'ci' as const,
           extras: {},
         },
         oncommit: vi.fn(),
@@ -268,7 +269,7 @@ describe('ChartBuilder encoding step', () => {
     })
     flushSync()
     expect(target.querySelector<HTMLSelectElement>('select[data-field="x"]')!.value).toBe('dose')
-    expect(target.querySelector<HTMLSelectElement>('select[data-field="mark"]')!.value).toBe('bar')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="chart-type"]')!.value).toBe('bar')
     expect(target.textContent).toContain('Update chart')
     unmount(cmp)
     target.remove()
@@ -277,7 +278,7 @@ describe('ChartBuilder encoding step', () => {
   it('hides the aggregate control for boxplot, which summarises for itself', () => {
     const { target, cleanup } = mountBuilder()
     paste(target, 'dose,response\n0,1\n5,2\n')
-    select(target, 'mark', 'boxplot')
+    select(target, 'chart-type', 'boxplot')
     expect(target.querySelector('select[data-field="aggregate"]')).toBeNull()
     cleanup()
   })
@@ -336,7 +337,7 @@ describe('ChartBuilder encoding step', () => {
       (b) => b.textContent?.trim() === 'Insert chart',
     )!
     expect(insert.disabled).toBe(false)
-    select(target, 'mark', 'boxplot')
+    select(target, 'chart-type', 'boxplot')
     expect(insert.disabled).toBe(true)
     cleanup()
   })
@@ -466,7 +467,7 @@ describe('ChartBuilder caption', () => {
       target,
       props: {
         initial: {
-          mark: 'bar' as const,
+          chartType: 'bar' as const,
           rows: [{ dose: 0, response: 1 }],
           x: { field: 'dose', type: 'quantitative' as const, title: '' },
           y: {
@@ -476,6 +477,7 @@ describe('ChartBuilder caption', () => {
             aggregate: 'none' as const,
           },
           colour: null,
+          extent: 'ci' as const,
           extras: { title: 'Recovered sources' },
         },
         oncommit: vi.fn(),
@@ -498,7 +500,7 @@ describe('ChartBuilder caption', () => {
       target,
       props: {
         initial: {
-          mark: 'bar' as const,
+          chartType: 'bar' as const,
           rows: [{ dose: 0, response: 1 }],
           x: { field: 'dose', type: 'quantitative' as const, title: '' },
           y: {
@@ -508,6 +510,7 @@ describe('ChartBuilder caption', () => {
             aggregate: 'none' as const,
           },
           colour: null,
+          extent: 'ci' as const,
           extras: { title: 'Recovered sources' },
         },
         oncommit,
@@ -536,7 +539,7 @@ describe('ChartBuilder caption', () => {
       target,
       props: {
         initial: {
-          mark: 'bar' as const,
+          chartType: 'bar' as const,
           rows: [{ dose: 0, response: 1 }],
           x: { field: 'dose', type: 'quantitative' as const, title: '' },
           y: {
@@ -546,6 +549,7 @@ describe('ChartBuilder caption', () => {
             aggregate: 'none' as const,
           },
           colour: null,
+          extent: 'ci' as const,
           extras: { title: { text: 42 } },
         },
         oncommit,
@@ -575,7 +579,7 @@ describe('ChartBuilder caption', () => {
       target,
       props: {
         initial: {
-          mark: 'bar' as const,
+          chartType: 'bar' as const,
           rows: [{ dose: 0, response: 1 }],
           x: { field: 'dose', type: 'quantitative' as const, title: '' },
           y: {
@@ -585,6 +589,7 @@ describe('ChartBuilder caption', () => {
             aggregate: 'none' as const,
           },
           colour: null,
+          extent: 'ci' as const,
           extras: { title: { text: 'X' } },
         },
         oncommit,
@@ -626,7 +631,7 @@ function reopened(
     target,
     props: {
       initial: {
-        mark: 'bar' as const,
+        chartType: 'bar' as const,
         rows,
         x: { field: 'dose', type: overrides.xType ?? ('quantitative' as const), title: '' },
         y: {
@@ -636,6 +641,7 @@ function reopened(
           aggregate: 'none' as const,
         },
         colour: null,
+        extent: 'ci' as const,
         extras: {},
       },
       oncommit,

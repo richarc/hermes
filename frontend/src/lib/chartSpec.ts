@@ -1,18 +1,26 @@
 import type { FieldType } from './dataTable'
 
-// Only marks that fit buildSpec's one encoding shape — an `x`, a `y` and an
-// optional `color` — belong here. Adding one that does is exactly these two
-// lines: the builder's dropdown renders from MARKS, readSpec validates
-// against it, and buildSpec passes the name through untouched. A mark needing
-// its own shape (a histogram's `bin`, a pie's `theta`, a heatmap's colour
-// scale) is a different and much larger job — see the v0.7 roadmap entry.
-//
-// `tick` draws a short stroke at each point, which is a strip plot. `rule`
-// draws a line from the baseline up to each point — a spike or stem plot, NOT
-// the horizontal reference line the name suggests: that would need `y` alone
-// or a `datum`, and this shape always emits both `x` and `y`.
-export type Mark = 'line' | 'bar' | 'point' | 'area' | 'boxplot' | 'tick' | 'rule'
-export const MARKS: readonly Mark[] = [
+/**
+ * What the author picks in the builder. NOT a Vega-Lite mark: `histogram`,
+ * `heatmap`, `errorbar` and `pie` each name a whole encoding shape, and the
+ * mark they emit is derived. The type itself is never written into the spec —
+ * readSpec infers it back, which is what keeps a chart block plain, portable
+ * Vega-Lite with no Hermes marker in it.
+ */
+export type ChartType =
+  | 'line'
+  | 'bar'
+  | 'point'
+  | 'area'
+  | 'boxplot'
+  | 'tick'
+  | 'rule'
+  | 'histogram'
+  | 'heatmap'
+  | 'errorbar'
+  | 'pie'
+
+export const CHART_TYPES: readonly ChartType[] = [
   'line',
   'bar',
   'point',
@@ -20,7 +28,28 @@ export const MARKS: readonly Mark[] = [
   'boxplot',
   'tick',
   'rule',
+  'histogram',
+  'heatmap',
+  'errorbar',
+  'pie',
 ]
+
+/**
+ * The types whose name is also the Vega-Lite mark, with no shape of their own.
+ * Adding one that fits the plain x/y/colour shape is still a one-line change;
+ * anything else needs a branch in buildSpec and a rung on readSpec's
+ * inference ladder.
+ *
+ * `tick` draws a short stroke at each point, which is a strip plot. `rule`
+ * draws a line from the baseline up to each point — a spike or stem plot, NOT
+ * the horizontal reference line the name suggests: that would need `y` alone
+ * or a `datum`, and this shape always emits both `x` and `y`.
+ */
+const PLAIN_MARKS = ['line', 'bar', 'point', 'area', 'boxplot', 'tick', 'rule'] as const
+
+/** How far an error bar reaches. Vega-Lite's own vocabulary. */
+export type Extent = 'ci' | 'stderr' | 'stdev' | 'iqr'
+export const EXTENTS: readonly Extent[] = ['ci', 'stderr', 'stdev', 'iqr']
 
 export type Aggregate = 'none' | 'mean' | 'median' | 'sum' | 'count'
 export const AGGREGATES: readonly Aggregate[] = ['none', 'mean', 'median', 'sum', 'count']
@@ -49,12 +78,27 @@ export interface ValueEncoding extends Encoding {
  */
 const PASSTHROUGH_KEYS = ['$schema', 'description', 'name', 'title', 'width', 'height'] as const
 
+/**
+ * A colour channel. For most charts this groups rows and carries no quantity,
+ * which is why `aggregate` is optional — a heatmap is the exception, where
+ * colour *is* the value being plotted.
+ */
+export interface ColourEncoding {
+  field: string
+  type: FieldType
+  aggregate?: Aggregate
+}
+
 export interface BuilderState {
-  mark: Mark
+  chartType: ChartType
   rows: Record<string, string | number>[]
   x: Encoding
+  /** For a pie this is the slice size — Vega-Lite's `theta`. */
   y: ValueEncoding
-  colour: { field: string; type: FieldType } | null
+  /** For a heatmap this is the value; for a pie, the category. */
+  colour: ColourEncoding | null
+  /** Error bars only; ignored and never emitted by every other type. */
+  extent: Extent
   /** Inert top-level properties preserved verbatim across a round trip. */
   extras: Record<string, unknown>
 }
@@ -108,7 +152,7 @@ export function buildSpec(input: BuilderState): string {
   // them. They cannot collide with what follows: PASSTHROUGH_KEYS excludes
   // data, mark and encoding.
   return JSON.stringify(
-    { ...state.extras, data: { values: state.rows }, mark: state.mark, encoding },
+    { ...state.extras, data: { values: state.rows }, mark: state.chartType, encoding },
     null,
     2,
   )
@@ -241,8 +285,8 @@ export function readSpec(json: string): ReadResult {
   const colour = colourEncoding ? { field: colourEncoding.field, type: colourEncoding.type } : null
 
   const candidate: BuilderState = {
-    mark: (MARKS as readonly string[]).includes(String(parsed.mark))
-      ? (parsed.mark as Mark)
+    chartType: (PLAIN_MARKS as readonly string[]).includes(String(parsed.mark))
+      ? (parsed.mark as ChartType)
       : 'line',
     rows:
       Array.isArray(data.values) && data.values.every(isValidRow)
@@ -251,6 +295,9 @@ export function readSpec(json: string): ReadResult {
     x: readEncoding(enc.x),
     y: { ...y, aggregate },
     colour,
+    // Task 2 reads a real extent off an errorbar mark object; until then
+    // every chart reads as the default, which no plain type emits.
+    extent: 'ci',
     extras: Object.fromEntries(
       PASSTHROUGH_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(parsed, k)).map((k) => [
         k,

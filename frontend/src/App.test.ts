@@ -516,7 +516,7 @@ describe('chart builder', () => {
     flushSync()
     expect(target.textContent).toContain('Update chart')
 
-    const markSelect = target.querySelector<HTMLSelectElement>('select[data-field="mark"]')!
+    const markSelect = target.querySelector<HTMLSelectElement>('select[data-field="chart-type"]')!
     markSelect.value = 'bar'
     markSelect.dispatchEvent(new Event('change', { bubbles: true }))
     flushSync()

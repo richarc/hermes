@@ -1,7 +1,15 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { parseDelimited, tableFromRows, toDelimited, type DataTable, type FieldType } from './lib/dataTable'
-  import { buildSpec, MARKS, AGGREGATES, type Mark, type Aggregate, type BuilderState } from './lib/chartSpec'
+  import {
+    buildSpec,
+    CHART_TYPES,
+    AGGREGATES,
+    type ChartType,
+    type Aggregate,
+    type BuilderState,
+    type Extent,
+  } from './lib/chartSpec'
   import { embedChart, type ChartView } from './lib/charts'
   import { captionFromTitle } from './lib/figures'
   import { DocumentService } from '../bindings/hermes'
@@ -22,7 +30,8 @@
   interface Seed {
     table: DataTable | null
     caption: string
-    mark: Mark
+    chartType: ChartType
+    extent: Extent
     xField: string
     yField: string
     colourField: string
@@ -60,7 +69,8 @@
     return {
       table: seededTable,
       caption: captionFromTitle(initial?.extras.title),
-      mark: initial?.mark ?? 'line',
+      chartType: initial?.chartType ?? 'line',
+      extent: initial?.extent ?? 'ci',
       xField: initial?.x.field ?? '',
       yField: initial?.y.field ?? '',
       colourField: initial?.colour?.field ?? '',
@@ -154,7 +164,8 @@
 
   const FIELD_TYPES: readonly FieldType[] = ['quantitative', 'temporal', 'nominal']
 
-  let mark: Mark = $state(seed.mark)
+  let chartType: ChartType = $state(seed.chartType)
+  let extent: Extent = $state(seed.extent)
   let xField = $state(seed.xField)
   let yField = $state(seed.yField)
   let colourField = $state(seed.colourField)
@@ -192,7 +203,7 @@
   // that same effective value rather than the raw control — otherwise
   // count+boxplot reads as ready (an aggregate is "selected") while the spec
   // it commits carries neither a field nor a real aggregate.
-  const effectiveAggregate = $derived<Aggregate>(mark === 'boxplot' ? 'none' : aggregate)
+  const effectiveAggregate = $derived<Aggregate>(chartType === 'boxplot' ? 'none' : aggregate)
 
   // load() no longer clears a selection whose column has vanished (see the
   // comment there), so readiness has to check that a selected column still
@@ -235,7 +246,8 @@
   const builderState: BuilderState | null = $derived(
     ready && table
       ? {
-          mark,
+          chartType,
+          extent,
           rows: table.rows,
           x: { field: xField, type: xType, title: xTitle },
           y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
@@ -353,9 +365,9 @@
         <input data-field="caption" bind:value={caption} />
       </label>
 
-      <label class="mark-row">Mark
-        <select data-field="mark" bind:value={mark}>
-          {#each MARKS as m (m)}<option value={m}>{m}</option>{/each}
+      <label class="mark-row">Chart type
+        <select data-field="chart-type" bind:value={chartType}>
+          {#each CHART_TYPES as t (t)}<option value={t}>{t}</option>{/each}
         </select>
       </label>
 
@@ -385,7 +397,7 @@
       </label>
       <label>Y title <input data-field="y-title" bind:value={yTitle} /></label>
 
-      {#if mark !== 'boxplot'}
+      {#if chartType !== 'boxplot'}
         <label>Aggregate
           <select data-field="aggregate" bind:value={aggregate}>
             {#each AGGREGATES as a (a)}<option value={a}>{a}</option>{/each}
