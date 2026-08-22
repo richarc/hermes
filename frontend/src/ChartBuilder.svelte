@@ -4,6 +4,7 @@
   import {
     buildSpec,
     CHART_TYPES,
+    EXTENTS,
     AGGREGATES,
     type ChartType,
     type Aggregate,
@@ -41,6 +42,7 @@
     xType: FieldType
     yType: FieldType
     colourType: FieldType
+    colourAggregate: Aggregate
   }
 
   // Every field below is read once, synchronously, while constructing this
@@ -80,6 +82,7 @@
       xType: initial?.x.type ?? 'nominal',
       yType: initial?.y.type ?? 'quantitative',
       colourType: initial?.colour?.type ?? 'nominal',
+      colourAggregate: initial?.colour?.aggregate ?? 'mean',
     }
   })
 
@@ -166,6 +169,7 @@
 
   let chartType: ChartType = $state(seed.chartType)
   let extent: Extent = $state(seed.extent)
+  let colourAggregate: Aggregate = $state(seed.colourAggregate)
   let xField = $state(seed.xField)
   let yField = $state(seed.yField)
   let colourField = $state(seed.colourField)
@@ -203,7 +207,21 @@
   // that same effective value rather than the raw control — otherwise
   // count+boxplot reads as ready (an aggregate is "selected") while the spec
   // it commits carries neither a field nor a real aggregate.
-  const effectiveAggregate = $derived<Aggregate>(chartType === 'boxplot' ? 'none' : aggregate)
+  const effectiveAggregate = $derived<Aggregate>(
+    chartType === 'boxplot' ? 'none' : chartType === 'histogram' ? 'count' : aggregate,
+  )
+
+  // Which channels this chart type actually uses. Everything hidden here is a
+  // control the author would otherwise have to know to ignore — a histogram's
+  // Y is always the row count, a pie has no X at all.
+  const isPie = $derived(chartType === 'pie')
+  const isHistogram = $derived(chartType === 'histogram')
+  const isHeatmap = $derived(chartType === 'heatmap')
+  const showX = $derived(!isPie)
+  const showY = $derived(!isHistogram)
+  const showAggregate = $derived(chartType !== 'boxplot' && !isHistogram)
+  const valueLabel = $derived(isPie ? 'Slice size' : 'Y')
+  const colourLabel = $derived(isPie ? 'Category' : isHeatmap ? 'Value' : 'Colour')
 
   // load() no longer clears a selection whose column has vanished (see the
   // comment there), so readiness has to check that a selected column still
@@ -214,13 +232,26 @@
   // not a hazard. colourField is optional throughout: '' is always fine, a
   // non-empty value must still resolve.
   const hasColumn = (name: string) => columns.some((c) => c.name === name)
-  const ready = $derived(
-    table !== null &&
-      xField !== '' &&
-      hasColumn(xField) &&
-      (effectiveAggregate === 'count' || (yField !== '' && hasColumn(yField))) &&
-      (colourField === '' || hasColumn(colourField)),
-  )
+  // Each chart type needs different channels filled in. One rule would either
+  // block a histogram that legitimately has no Y, or let a heatmap commit with
+  // nothing to colour by.
+  const ready = $derived.by(() => {
+    if (table === null) return false
+    const x = xField !== '' && hasColumn(xField)
+    const y = effectiveAggregate === 'count' || (yField !== '' && hasColumn(yField))
+    const colourResolves = colourField === '' || hasColumn(colourField)
+    const colourSet = colourField !== '' && hasColumn(colourField)
+    switch (chartType) {
+      case 'histogram':
+        return x && colourResolves
+      case 'pie':
+        return yField !== '' && hasColumn(yField) && colourSet
+      case 'heatmap':
+        return x && y && colourSet
+      default:
+        return x && y && colourResolves
+    }
+  })
 
   // The caption lives in the spec's own `title` — Vega-Lite's native home for
   // it, so the block stays portable and Pandoc keeps the caption. renderer.ts
@@ -251,7 +282,15 @@
           rows: table.rows,
           x: { field: xField, type: xType, title: xTitle },
           y: { field: yField, type: yType, title: yTitle, aggregate: effectiveAggregate },
-          colour: colourField ? { field: colourField, type: colourType } : null,
+          colour: colourField
+            ? {
+                field: colourField,
+                type: colourType,
+                // Only a heatmap's colour carries a quantity; elsewhere an
+                // aggregate here would be emitted and break the round trip.
+                ...(isHeatmap ? { aggregate: colourAggregate } : {}),
+              }
+            : null,
           // Metadata the UI never shows — a description, a $schema line — that
           // readSpec preserved when this chart was opened, plus the caption
           // the field above owns. Carrying the rest through is what stops
@@ -371,33 +410,37 @@
         </select>
       </label>
 
-      <label>X
-        <select data-field="x" value={xField} onchange={(e) => pickX(e.currentTarget.value)}>
-          <option value="" disabled>choose a column…</option>
-          {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
-        </select>
-      </label>
-      <label>X type
-        <select data-field="x-type" bind:value={xType}>
-          {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
-        </select>
-      </label>
-      <label>X title <input data-field="x-title" bind:value={xTitle} /></label>
+      {#if showX}
+        <label>X
+          <select data-field="x" value={xField} onchange={(e) => pickX(e.currentTarget.value)}>
+            <option value="" disabled>choose a column…</option>
+            {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
+          </select>
+        </label>
+        <label>X type
+          <select data-field="x-type" bind:value={xType}>
+            {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+          </select>
+        </label>
+        <label>X title <input data-field="x-title" bind:value={xTitle} /></label>
+      {/if}
 
-      <label>Y
-        <select data-field="y" value={yField} onchange={(e) => pickY(e.currentTarget.value)}>
-          <option value="" disabled>choose a column…</option>
-          {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
-        </select>
-      </label>
-      <label>Y type
-        <select data-field="y-type" bind:value={yType}>
-          {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
-        </select>
-      </label>
-      <label>Y title <input data-field="y-title" bind:value={yTitle} /></label>
+      {#if showY}
+        <label>{valueLabel}
+          <select data-field="y" value={yField} onchange={(e) => pickY(e.currentTarget.value)}>
+            <option value="" disabled>choose a column…</option>
+            {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
+          </select>
+        </label>
+        <label>{valueLabel} type
+          <select data-field="y-type" bind:value={yType}>
+            {#each FIELD_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+          </select>
+        </label>
+        <label>{valueLabel} title <input data-field="y-title" bind:value={yTitle} /></label>
+      {/if}
 
-      {#if chartType !== 'boxplot'}
+      {#if showAggregate}
         <label>Aggregate
           <select data-field="aggregate" bind:value={aggregate}>
             {#each AGGREGATES as a (a)}<option value={a}>{a}</option>{/each}
@@ -405,7 +448,15 @@
         </label>
       {/if}
 
-      <label>Colour
+      {#if chartType === 'errorbar'}
+        <label>Extent
+          <select data-field="extent" bind:value={extent}>
+            {#each EXTENTS as e (e)}<option value={e}>{e}</option>{/each}
+          </select>
+        </label>
+      {/if}
+
+      <label>{colourLabel}
         <select
           data-field="colour"
           value={colourField}
@@ -415,6 +466,14 @@
           {#each columns as c (c.name)}<option value={c.name}>{c.name}</option>{/each}
         </select>
       </label>
+
+      {#if isHeatmap}
+        <label>Value aggregate
+          <select data-field="colour-aggregate" bind:value={colourAggregate}>
+            {#each AGGREGATES as a (a)}<option value={a}>{a}</option>{/each}
+          </select>
+        </label>
+      {/if}
     </section>
 
     <div class="chart-preview" bind:this={previewEl}></div>

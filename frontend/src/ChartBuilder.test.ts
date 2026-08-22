@@ -752,3 +752,75 @@ describe('ChartBuilder data box on reopen', () => {
     r.cleanup()
   })
 })
+
+/** The dialog's confirming button, whose disabled state is readiness. */
+function insertBtn(target: HTMLElement): HTMLButtonElement {
+  return [...target.querySelectorAll('button')].find(
+    (b) => b.textContent?.trim() === 'Insert chart',
+  )! as HTMLButtonElement
+}
+
+describe('chart type form', () => {
+  it('offers every chart type', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'day,hour,rate\nMon,9,1\n')
+    const options = [...target.querySelectorAll('select[data-field="chart-type"] option')]
+    expect(options).toHaveLength(11)
+    expect(options.map((o) => o.getAttribute('value'))).toContain('histogram')
+    cleanup()
+  })
+
+  it('hides the Y control for a histogram, whose Y is always the count', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'mass\n1\n2\n')
+    select(target, 'chart-type', 'histogram')
+    expect(target.querySelector('select[data-field="y"]')).toBeNull()
+    cleanup()
+  })
+
+  it('shows an extent control only for error bars', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'a,b\nx,1\n')
+    expect(target.querySelector('select[data-field="extent"]')).toBeNull()
+    select(target, 'chart-type', 'errorbar')
+    expect(target.querySelector('select[data-field="extent"]')).not.toBeNull()
+    cleanup()
+  })
+
+  it('relabels the value and category controls for a pie', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'category,count\na,1\n')
+    select(target, 'chart-type', 'pie')
+    expect(target.textContent).toContain('Slice size')
+    expect(target.textContent).toContain('Category')
+    expect(target.querySelector('select[data-field="x"]')).toBeNull()
+    cleanup()
+  })
+
+  it('requires a colour value for a heatmap', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'day,hour,rate\nMon,9,1\n')
+    select(target, 'chart-type', 'heatmap')
+    select(target, 'x', 'day')
+    select(target, 'y', 'hour')
+    expect(insertBtn(target).disabled).toBe(true)
+    select(target, 'colour', 'rate')
+    expect(insertBtn(target).disabled).toBe(false)
+    cleanup()
+  })
+
+  // The annoyance a naive implementation ships: switching type should not
+  // empty a form the author has already filled in.
+  it('keeps column selections when the chart type changes', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n')
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    select(target, 'chart-type', 'errorbar')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="x"]')!.value).toBe('dose')
+    expect(target.querySelector<HTMLSelectElement>('select[data-field="y"]')!.value).toBe(
+      'response',
+    )
+    cleanup()
+  })
+})
