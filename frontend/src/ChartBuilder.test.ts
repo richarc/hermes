@@ -824,3 +824,27 @@ describe('chart type form', () => {
     cleanup()
   })
 })
+
+describe('preview sizing', () => {
+  /** The spec text handed to the most recent embed. */
+  const embeddedSpec = () => String(embedChart.mock.calls.at(-1)?.[1] ?? '')
+
+  // Vega-Lite defaults to about 200px wide, so the preview drew a small chart
+  // stranded in the corner of a dialog several times that width.
+  it('gives the preview chart a width, rather than Vega-Lite\'s small default', () => {
+    const { target, cleanup } = mountBuilder()
+    paste(target, 'dose,response\n0,1\n5,2\n')
+    select(target, 'x', 'dose')
+    select(target, 'y', 'response')
+    expect(JSON.parse(embeddedSpec()).width).toBeGreaterThan(400)
+    cleanup()
+  })
+
+  // Width is a document-wide setting applied at render time, so a spec that
+  // carried its own would override View → Chart Width for that one chart.
+  it('does not put that width into the committed spec', () => {
+    const { oncommit, commit } = readyBuilder()
+    commit()
+    expect(JSON.parse(oncommit.mock.calls[0][0]).width).toBeUndefined()
+  })
+})

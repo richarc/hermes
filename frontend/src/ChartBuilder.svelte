@@ -304,8 +304,33 @@
   // otherwise the builder shows it inside the chart and the document shows it
   // underneath. No number is shown: numbering is a property of the document,
   // assigned by position, and the builder cannot know it.
+  /** Plotting-area width for the preview only. See previewSpec. */
+  const PREVIEW_WIDTH_PX = 560
+
   const previewSpec = $derived(
-    builderState ? buildSpec({ ...builderState, extras: withoutTitle(extras) }) : '',
+    builderState
+      ? buildSpec({
+          ...builderState,
+          // The preview diverges from the committed spec in two ways, both
+          // deliberate. The title comes out because the caption is drawn
+          // beneath the chart already and Vega-Lite would draw it a second
+          // time inside the SVG. The width goes in because Vega-Lite defaults
+          // to about 200px, which left the preview a small chart stranded in
+          // the corner of a dialog several times that wide.
+          //
+          // An explicit number, not `"container"`: container sizing needs
+          // `autosize: fit` and a container Vega can measure at embed time,
+          // and here it collapsed the chart to zero width. This is Vega-Lite's
+          // PLOTTING-AREA width, excluding axes, labels and legend, so it
+          // renders wider than the number suggests; style.css scales the SVG
+          // down if the dialog is narrower than that.
+          //
+          // Neither may reach the document: width is a document-wide setting
+          // applied at render time, so a spec carrying its own would override
+          // View → Chart Width for that one chart, permanently.
+          extras: { ...withoutTitle(extras), width: PREVIEW_WIDTH_PX },
+        })
+      : '',
   )
 
   function withoutTitle(e: Record<string, unknown>): Record<string, unknown> {

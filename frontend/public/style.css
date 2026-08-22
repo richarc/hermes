@@ -510,6 +510,11 @@ dialog::backdrop { background: var(--backdrop); }
   color: var(--muted);
 }
 
+/* The preview spec asks for a fixed plotting width so the chart is not drawn
+   at Vega-Lite's ~200px default; this scales it back down when the dialog is
+   narrower than that, since the dialog is sized against the viewport. */
+.chart-preview svg { max-width: 100%; height: auto; }
+
 .chart-preview {
   min-height: 240px;
   margin-top: 16px;
