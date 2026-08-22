@@ -104,6 +104,25 @@ export interface BuilderState {
 }
 
 /**
+ * The Vega-Lite mark a chart type emits. Most are their own name; the four
+ * shaped types map onto a mark the author never has to know about.
+ */
+function markFor(state: BuilderState): unknown {
+  switch (state.chartType) {
+    case 'histogram':
+      return 'bar'
+    case 'heatmap':
+      return 'rect'
+    case 'pie':
+      return 'arc'
+    case 'errorbar':
+      return { type: 'errorbar', extent: state.extent }
+    default:
+      return state.chartType
+  }
+}
+
+/**
  * The canonical form of a builder state.
  *
  * Vega-Lite's `count` counts rows and takes no field, so a field alongside it
@@ -112,8 +131,16 @@ export interface BuilderState {
  * returns canonical states, so the round trip is exact by construction.
  */
 export function canonicalise(state: BuilderState): BuilderState {
-  if (state.y.aggregate !== 'count') return state
-  return { ...state, y: { ...state.y, field: '', type: 'quantitative' } }
+  // A histogram always counts rows: its y is the count of what x bins, and no
+  // other aggregate is meaningful. Forcing it here rather than in buildSpec
+  // keeps the round trip exact — readSpec returns canonical states, so a
+  // histogram read back must equal the histogram canonicalise produced.
+  const forced: BuilderState =
+    state.chartType === 'histogram'
+      ? { ...state, y: { ...state.y, field: '', type: 'quantitative', aggregate: 'count' } }
+      : state
+  if (forced.y.aggregate !== 'count') return forced
+  return { ...forced, y: { ...forced.y, field: '', type: 'quantitative' } }
 }
 
 /**
@@ -129,7 +156,11 @@ export function canonicalise(state: BuilderState): BuilderState {
 export function buildSpec(input: BuilderState): string {
   const state = canonicalise(input)
 
-  const x: Record<string, unknown> = { field: state.x.field, type: state.x.type }
+  const x: Record<string, unknown> = { field: state.x.field }
+  // Key order is deliberate: bin sits between field and type so the committed
+  // text is stable. deepEqual ignores order, but the document would churn.
+  if (state.chartType === 'histogram') x.bin = true
+  x.type = state.x.type
   if (state.x.title !== '') x.title = state.x.title
 
   // Vega-Lite's `count` counts rows and takes no field, so emitting one would
@@ -152,7 +183,7 @@ export function buildSpec(input: BuilderState): string {
   // them. They cannot collide with what follows: PASSTHROUGH_KEYS excludes
   // data, mark and encoding.
   return JSON.stringify(
-    { ...state.extras, data: { values: state.rows }, mark: state.chartType, encoding },
+    { ...state.extras, data: { values: state.rows }, mark: markFor(state), encoding },
     null,
     2,
   )
@@ -253,6 +284,38 @@ function readEncoding(raw: unknown): Encoding {
 }
 
 /**
+ * Which chart type a parsed spec represents, or null to refuse.
+ *
+ * Order is load-bearing: most specific first. A bar chart that counts rows but
+ * does not bin is a bar chart, not a histogram — every chart in every existing
+ * document depends on that reading unchanged.
+ *
+ * A null here is not a separate refusal path: the candidate falls back to
+ * 'line', the rebuild then differs from the original, and the ordinary
+ * rebuild-and-compare refuses it with the differing paths named. One mechanism
+ * decides editability, as it always has.
+ */
+function inferChartType(parsed: Record<string, unknown>): ChartType | null {
+  const mark = parsed.mark
+  const enc = isPlainObject(parsed.encoding) ? parsed.encoding : {}
+
+  if (isPlainObject(mark)) {
+    // The only mark object the builder models is an error bar with an extent.
+    if (mark.type === 'errorbar' && (EXTENTS as readonly unknown[]).includes(mark.extent)) {
+      return 'errorbar'
+    }
+    return null
+  }
+  if (mark === 'arc' && isPlainObject(enc.theta)) return 'pie'
+  if (mark === 'rect' && isPlainObject(enc.color) && enc.color.type === 'quantitative') {
+    return 'heatmap'
+  }
+  if (mark === 'bar' && isPlainObject(enc.x) && enc.x.bin === true) return 'histogram'
+  if ((PLAIN_MARKS as readonly unknown[]).includes(mark)) return mark as ChartType
+  return null
+}
+
+/**
  * Reads spec text back into builder state, or refuses.
  *
  * Editability is decided by construction rather than by a checklist of
@@ -281,13 +344,15 @@ export function readSpec(json: string): ReadResult {
     : 'none'
 
   const data = isPlainObject(parsed.data) ? parsed.data : {}
+  const markObj = isPlainObject(parsed.mark) ? parsed.mark : {}
+  const extent: Extent = (EXTENTS as readonly unknown[]).includes(markObj.extent)
+    ? (markObj.extent as Extent)
+    : 'ci'
   const colourEncoding = isPlainObject(enc.color) ? readEncoding(enc.color) : null
   const colour = colourEncoding ? { field: colourEncoding.field, type: colourEncoding.type } : null
 
   const candidate: BuilderState = {
-    chartType: (PLAIN_MARKS as readonly string[]).includes(String(parsed.mark))
-      ? (parsed.mark as ChartType)
-      : 'line',
+    chartType: inferChartType(parsed) ?? 'line',
     rows:
       Array.isArray(data.values) && data.values.every(isValidRow)
         ? (data.values as Record<string, string | number>[])
@@ -295,9 +360,7 @@ export function readSpec(json: string): ReadResult {
     x: readEncoding(enc.x),
     y: { ...y, aggregate },
     colour,
-    // Task 2 reads a real extent off an errorbar mark object; until then
-    // every chart reads as the default, which no plain type emits.
-    extent: 'ci',
+    extent,
     extras: Object.fromEntries(
       PASSTHROUGH_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(parsed, k)).map((k) => [
         k,

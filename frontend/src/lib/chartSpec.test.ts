@@ -394,3 +394,65 @@ describe('backward compatibility', () => {
     expect(buildSpec(r.state)).toBe(SHIPPED)
   })
 })
+
+describe('histogram', () => {
+  const HIST: BuilderState = {
+    ...BASE,
+    chartType: 'histogram',
+    x: { field: 'mass', type: 'quantitative', title: '' },
+    y: { field: '', type: 'quantitative', title: '', aggregate: 'count' },
+  }
+
+  it('bins x and counts rows', () => {
+    const s = parsed(HIST)
+    expect(s.mark).toBe('bar')
+    expect(s.encoding.x).toEqual({ field: 'mass', bin: true, type: 'quantitative' })
+    expect(s.encoding.y).toEqual({ aggregate: 'count', type: 'quantitative' })
+  })
+
+  it('round-trips', () => {
+    const r = readSpec(buildSpec(HIST))
+    if (!r.ok) throw new Error(`refused: ${JSON.stringify(r)}`)
+    expect(r.state).toEqual(canonicalise(HIST))
+  })
+
+  // The precedence rung that matters most: a plain bar chart that happens to
+  // count rows is still a bar chart. Getting this wrong silently retypes
+  // charts in documents people have already written.
+  it('does not claim a counting bar chart that has no bin', () => {
+    const bar: BuilderState = {
+      ...BASE,
+      chartType: 'bar',
+      y: { field: '', type: 'quantitative', title: '', aggregate: 'count' },
+    }
+    const r = readSpec(buildSpec(bar))
+    if (!r.ok) throw new Error('refused')
+    expect(r.state.chartType).toBe('bar')
+  })
+})
+
+describe('error bars', () => {
+  const ERR: BuilderState = { ...BASE, chartType: 'errorbar', extent: 'ci' }
+
+  it('emits a mark object carrying the extent', () => {
+    expect(parsed(ERR).mark).toEqual({ type: 'errorbar', extent: 'ci' })
+  })
+
+  it('round-trips each extent', () => {
+    for (const extent of ['ci', 'stderr', 'stdev', 'iqr'] as const) {
+      const r = readSpec(buildSpec({ ...ERR, extent }))
+      if (!r.ok) throw new Error(`refused ${extent}`)
+      expect(r.state.extent).toBe(extent)
+      expect(r.state.chartType).toBe('errorbar')
+    }
+  })
+
+  it('refuses a mark object it cannot model', () => {
+    const spec = JSON.stringify({
+      data: { values: [{ a: 1 }] },
+      mark: { type: 'bar', cornerRadius: 4 },
+      encoding: { x: { field: 'a', type: 'quantitative' }, y: { field: 'a', type: 'quantitative' } },
+    })
+    expect(readSpec(spec).ok).toBe(false)
+  })
+})
