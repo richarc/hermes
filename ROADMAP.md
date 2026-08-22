@@ -233,6 +233,96 @@ want brainstorming before they want code.
       text and never learns whether the file loaded, so a figure's number does
       not move when a path starts working. Making broken images unnumbered
       would have introduced exactly the instability the claim imagined.
+- [x] Support more Vega-Lite chart types in the builder. Shipped 2026-08-22 as
+      four families behind one Chart type dropdown: **histogram** (`bin` on x,
+      count on y), **heatmap** (`rect` with a quantitative colour carrying an
+      aggregate), **error bars** and **pie** (`arc` with `theta` and colour,
+      and no axes at all). The type is *derived* from the spec on read rather
+      than stored, so a chart block stays plain portable Vega-Lite with no
+      Hermes marker in it. Inference runs most-specific-first, and that order
+      is load-bearing: a bar chart that counts rows but does not bin is still a
+      bar chart, which is what keeps every chart in every existing document
+      reopening unchanged.
+      This entry over-estimated error bars, grouping them with the work that
+      "needs a transform or a layer". That is true only of the decorated form —
+      points drawn on top. The bare form is a single mark carrying an extent,
+      which made the one family a scientific paper actually needs among the
+      cheapest here rather than the most expensive.
+      `BuilderState` stayed one flat shape rather than becoming a discriminated
+      union: a pie's slice size lives in `y` and its category in `colour`. The
+      union is the purer model and was rejected on cost — it would have
+      rewritten the builder, `App.svelte` and every existing chart test for one
+      family's benefit, while the rebuild-and-compare round trip that actually
+      guarantees correctness is unaffected either way. Revisit if a fifth
+      family also abandons `x`/`y`.
+      Still out of scope, deliberately: layered charts — points over error
+      bars, a regression line over a scatter — which need `layer` and
+      `transform` inside the round trip, and `PASSTHROUGH_KEYS` excludes those
+      because carrying them alongside the `mark`/`encoding` pair `buildSpec`
+      emits would produce a spec that is not valid Vega-Lite. Also still
+      skipped: `circle`, `square` and `trail`, cosmetic variants of `point` and
+      `line`. And a heatmap hand-written with an `ordinal` axis renders but
+      will not reopen — the builder's column types are quantitative, temporal
+      or nominal only, which is the ordinary "cannot model this" refusal.
+- [x] **Bug: Export PDF truncated the document — the last page, and with it
+      the References section, was missing.** Reported 2026-08-19, fixed
+      2026-08-21.
+      The cause was an ordering mistake inherited from Wails' own print
+      implementation, not a stylesheet problem. `printWithOrientation` created
+      the `NSPrintOperation` first, which makes `WKPrintingView` paginate
+      against the print info we supplied; the panel was shown afterwards, the
+      printer chosen there brought its own paper size and imageable area, the
+      content reflowed to need more room — and the operation still rendered
+      only the pages it had already counted. An 11-page count applied to a
+      now-longer document dropped the tail, ending a bibliography four entries
+      early. The fix is to run `NSPrintPanel` first and build the operation
+      from the settings the user actually chose, so pagination cannot go stale.
+      This entry previously blamed the print stylesheet's height chain
+      (`html, body { height: 100% }`, `.app { height: 100vh }` never relaxed
+      for paging). That was wrong and is withdrawn: relaxing it changed
+      nothing, not even the page at which the document stopped. Also
+      disproved along the way — the `po.view.frame = webView.bounds` override,
+      a stale page range inherited from `sharedPrintInfo`, and the panel's
+      Save as PDF workflow, which produced identical output to a panel-free
+      direct write. What identified it was that a direct write was *complete*
+      at the same page count the panel produced *truncated*: same pages,
+      different content, which only a layout changing after pagination
+      explains.
+      Known cost: the panel no longer shows its live preview, because the
+      preview is drawn by the print operation and there is no longer one in
+      existence while the panel is open. `NSPrintPanelShowsPreview` on a
+      standalone panel does nothing — verified. Printing to paper and Save as
+      PDF both work, and the panel's PDF menu still offers Open in Preview.
+      Still untested by anything automated: the print path has no coverage,
+      and AppKit print operations are not exercisable headlessly. The
+      regression guard is `docs/test-document.md` — export it and check the
+      bibliography reaches its last entry.
+- [x] **Bug: a local image beside the document did not display.** Reported
+      2026-08-20, fixed 2026-08-21. The webview loads the embedded frontend
+      bundle, so a document-relative `<img src>` resolved against that bundle
+      and 404d; nothing had ever mapped between the two. A Wails asset
+      middleware (`localimages.go`) now serves files on `/_hermes/image`, and
+      `renderer.ts` rewrites a local source onto it, carrying the document and
+      the source as separate query parameters so Go does the join with
+      `resolveAgainstDoc` — the same resolution `bibliography:` uses, lifted
+      from a `DocumentService` method it never needed to a package-level
+      function so the two cannot diverge. Remote, `data:` and fragment sources
+      are untouched; an unsaved document has no folder to resolve against, so
+      its sources are left as written, exactly as `bibliography:` behaves.
+      Two things worth keeping. markdown-it percent-encodes link destinations
+      before a renderer sees them, so the source is decoded before being
+      re-encoded for the query string; without that, `my figure.png` reached Go
+      as `my%20figure.png` and looked for a file of that literal name — any
+      space, ampersand or non-ASCII character would have failed silently. And
+      `docs/test-document.md` now carries the first local-image fixture beside
+      it: every image there was a remote URL, which is precisely why this
+      shipped broken and why the gap would otherwise reopen.
+      Numbering was deliberately left alone. An earlier draft of this entry
+      claimed a broken image "consumes a number that renumbers everything after
+      it" — that was wrong. `numberFigures` decides synchronously from the alt
+      text and never learns whether the file loaded, so a figure's number does
+      not move when a path starts working. Making broken images unnumbered
+      would have introduced exactly the instability the claim imagined.
 - [ ] Support more Vega-Lite chart types in the builder — perhaps as multiple
       tabs, one per chart family. Today `MARKS` in `lib/chartSpec.ts` offers
       five (line, bar, point, area, boxplot) and `buildSpec` emits one fixed

@@ -166,6 +166,79 @@ second not stealing the first:
 Now type somewhere else in the file. The charts must **not** flicker while you
 type — they are cached by spec text and should be moved, not re-embedded.
 
+### Chart types the builder can build
+
+Four shapes the builder gained in v0.7. Each must render, and — the part no
+unit test can prove end to end — each must **reopen in the builder with its
+own chart type selected and its controls filled in**. Put the cursor inside
+one and use Insert → Chart….
+
+A histogram bins one column and counts the rows in each bin. The builder shows
+no Y control for this type, because Y is always the count:
+
+```vega-lite
+{
+  "title": "Distribution of recovered masses",
+  "data": {"values": [{"mass": 1.2}, {"mass": 1.9}, {"mass": 2.4}, {"mass": 2.6}, {"mass": 3.1}]},
+  "mark": "bar",
+  "encoding": {
+    "x": {"field": "mass", "bin": true, "type": "quantitative"},
+    "y": {"aggregate": "count", "type": "quantitative"}
+  }
+}
+```
+
+A heatmap colours a grid by a quantity. Its colour control reads **Value** and
+carries an aggregate — unlike every other type, where colour merely groups:
+
+```vega-lite
+{
+  "title": "Detections by day and hour",
+  "data": {"values": [{"day": "Mon", "hour": 9, "rate": 4}, {"day": "Mon", "hour": 10, "rate": 7}, {"day": "Tue", "hour": 9, "rate": 2}, {"day": "Tue", "hour": 10, "rate": 9}]},
+  "mark": "rect",
+  "encoding": {
+    "x": {"field": "day", "type": "nominal"},
+    "y": {"field": "hour", "type": "nominal"},
+    "color": {"field": "rate", "type": "quantitative", "aggregate": "mean"}
+  }
+}
+```
+
+Error bars summarise repeated measurements. The mark is an object carrying the
+extent, which is the builder's Extent control:
+
+```vega-lite
+{
+  "title": "Yield by variety, with 95% confidence intervals",
+  "data": {"values": [{"variety": "A", "yield": 21}, {"variety": "A", "yield": 25}, {"variety": "A", "yield": 23}, {"variety": "B", "yield": 31}, {"variety": "B", "yield": 28}, {"variety": "B", "yield": 34}]},
+  "mark": {"type": "errorbar", "extent": "ci"},
+  "encoding": {
+    "x": {"field": "variety", "type": "nominal"},
+    "y": {"field": "yield", "type": "quantitative"}
+  }
+}
+```
+
+A pie has no axes at all: its slice size is `theta` and its category is the
+colour. The builder hides X entirely and relabels the other two:
+
+```vega-lite
+{
+  "title": "Share of detections by instrument",
+  "data": {"values": [{"instrument": "A", "count": 12}, {"instrument": "B", "count": 7}, {"instrument": "C", "count": 4}]},
+  "mark": "arc",
+  "encoding": {
+    "theta": {"field": "count", "type": "quantitative"},
+    "color": {"field": "instrument", "type": "nominal"}
+  }
+}
+```
+
+A heatmap written by hand with `"type": "ordinal"` on an axis renders correctly
+but **will not reopen** in the builder: its column types are quantitative,
+temporal or nominal only. That is the ordinary "the builder cannot model this"
+refusal, not a bug.
+
 ## 8. Figures
 
 A captioned chart becomes a numbered figure, its caption drawn once below it

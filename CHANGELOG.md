@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each point for a strip plot, and **rule**, which draws a line from the
   baseline up to each point for a spike plot. Both fit the builder's existing
   encoding, so an existing chart reopens for editing exactly as before.
+- Four more chart types in the builder: **histogram**, **heatmap**, **error
+  bars** and **pie**. The Mark dropdown becomes Chart type, and the form shows
+  only the controls that type needs — a histogram asks for one column and
+  counts the rows, a pie asks for a slice size and a category and drops the
+  axes entirely, error bars ask how far they reach. The chart type is worked
+  out from the spec rather than recorded in it, so a chart block stays plain
+  portable Vega-Lite and every existing chart reopens exactly as before.
 - Mermaid diagrams. A ` ```mermaid ` fence renders as a diagram in the preview
   and in exported PDFs — flowcharts, sequence diagrams, state machines and the
   rest. Give the diagram a `title:` in its frontmatter and it becomes a
