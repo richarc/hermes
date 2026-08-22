@@ -174,9 +174,31 @@ export function buildSpec(input: BuilderState): string {
   }
   if (state.y.title !== '') y.title = state.y.title
 
-  const encoding: Record<string, unknown> = { x, y }
+  const encoding: Record<string, unknown> = {}
+  if (state.chartType === 'pie') {
+    // A pie has no x or y: the slice size is `theta` (held in state.y) and the
+    // category is the colour. BuilderState reuses those fields rather than
+    // becoming a discriminated union — see the design note on why.
+    const theta: Record<string, unknown> = { field: state.y.field, type: state.y.type }
+    if (state.y.aggregate !== 'none' && state.y.aggregate !== 'count') {
+      theta.aggregate = state.y.aggregate
+    }
+    if (state.y.title !== '') theta.title = state.y.title
+    encoding.theta = theta
+  } else {
+    encoding.x = x
+    encoding.y = y
+  }
   if (state.colour) {
-    encoding.color = { field: state.colour.field, type: state.colour.type }
+    const colour: Record<string, unknown> = {
+      field: state.colour.field,
+      type: state.colour.type,
+    }
+    // Only a heatmap's colour carries a quantity; everywhere else it groups.
+    if (state.colour.aggregate && state.colour.aggregate !== 'none') {
+      colour.aggregate = state.colour.aggregate
+    }
+    encoding.color = colour
   }
 
   // Extras lead, so `$schema` and `description` sit where a human would write
@@ -337,7 +359,9 @@ export function readSpec(json: string): ReadResult {
   }
 
   const enc = isPlainObject(parsed.encoding) ? parsed.encoding : {}
-  const rawY = isPlainObject(enc.y) ? enc.y : {}
+  // A pie's slice size lives in `theta`; every other type uses `y`. Both land
+  // in state.y, which is what lets one flat BuilderState serve both.
+  const rawY = isPlainObject(enc.theta) ? enc.theta : isPlainObject(enc.y) ? enc.y : {}
   const y = readEncoding(rawY)
   const aggregate = (AGGREGATES as readonly string[]).includes(String(rawY.aggregate))
     ? (rawY.aggregate as Aggregate)
@@ -348,8 +372,17 @@ export function readSpec(json: string): ReadResult {
   const extent: Extent = (EXTENTS as readonly unknown[]).includes(markObj.extent)
     ? (markObj.extent as Extent)
     : 'ci'
-  const colourEncoding = isPlainObject(enc.color) ? readEncoding(enc.color) : null
-  const colour = colourEncoding ? { field: colourEncoding.field, type: colourEncoding.type } : null
+  const rawColour = isPlainObject(enc.color) ? enc.color : null
+  const colourEncoding = rawColour ? readEncoding(rawColour) : null
+  const colour: ColourEncoding | null = colourEncoding
+    ? {
+        field: colourEncoding.field,
+        type: colourEncoding.type,
+        ...((AGGREGATES as readonly string[]).includes(String(rawColour?.aggregate))
+          ? { aggregate: rawColour?.aggregate as Aggregate }
+          : {}),
+      }
+    : null
 
   const candidate: BuilderState = {
     chartType: inferChartType(parsed) ?? 'line',

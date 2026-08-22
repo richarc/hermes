@@ -456,3 +456,74 @@ describe('error bars', () => {
     expect(readSpec(spec).ok).toBe(false)
   })
 })
+
+describe('heatmap', () => {
+  const HEAT: BuilderState = {
+    ...BASE,
+    chartType: 'heatmap',
+    x: { field: 'day', type: 'nominal', title: '' },
+    y: { field: 'hour', type: 'nominal', title: '', aggregate: 'none' },
+    colour: { field: 'rate', type: 'quantitative', aggregate: 'mean' },
+  }
+
+  it('puts the value on colour, with its aggregate', () => {
+    const s = parsed(HEAT)
+    expect(s.mark).toBe('rect')
+    expect(s.encoding.color).toEqual({ field: 'rate', type: 'quantitative', aggregate: 'mean' })
+  })
+
+  it('round-trips', () => {
+    const r = readSpec(buildSpec(HEAT))
+    if (!r.ok) throw new Error(`refused: ${JSON.stringify(r)}`)
+    expect(r.state).toEqual(canonicalise(HEAT))
+  })
+
+  // A rect whose colour groups rather than measures is not a heatmap.
+  // Refusing beats guessing: the builder cannot model it either way.
+  it('refuses a rect whose colour is nominal', () => {
+    const spec = JSON.stringify({
+      data: { values: [{ a: 1 }] },
+      mark: 'rect',
+      encoding: {
+        x: { field: 'a', type: 'nominal' },
+        y: { field: 'a', type: 'nominal' },
+        color: { field: 'a', type: 'nominal' },
+      },
+    })
+    expect(readSpec(spec).ok).toBe(false)
+  })
+})
+
+describe('pie', () => {
+  const PIE: BuilderState = {
+    ...BASE,
+    chartType: 'pie',
+    x: { field: '', type: 'nominal', title: '' },
+    y: { field: 'count', type: 'quantitative', title: '', aggregate: 'none' },
+    colour: { field: 'category', type: 'nominal' },
+  }
+
+  it('emits theta and colour and no x or y', () => {
+    const s = parsed(PIE)
+    expect(s.mark).toBe('arc')
+    expect(s.encoding.theta).toEqual({ field: 'count', type: 'quantitative' })
+    expect(s.encoding.color).toEqual({ field: 'category', type: 'nominal' })
+    expect(s.encoding.x).toBeUndefined()
+    expect(s.encoding.y).toBeUndefined()
+  })
+
+  it('round-trips', () => {
+    const r = readSpec(buildSpec(PIE))
+    if (!r.ok) throw new Error(`refused: ${JSON.stringify(r)}`)
+    expect(r.state).toEqual(canonicalise(PIE))
+  })
+
+  it('refuses an arc with no theta', () => {
+    const spec = JSON.stringify({
+      data: { values: [{ a: 1 }] },
+      mark: 'arc',
+      encoding: { color: { field: 'a', type: 'nominal' } },
+    })
+    expect(readSpec(spec).ok).toBe(false)
+  })
+})
