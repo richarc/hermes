@@ -313,6 +313,37 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 
 	menu.AddRole(application.WindowMenu)
 
+	// Wails' HelpMenu role is no use here — it contains a single "Learn More"
+	// item pointing at wails.io — so this is built by hand. Both items open in
+	// the user's browser rather than in the app: a help document is not a
+	// document you are writing, and loading one into the editor would mean
+	// replacing whatever is open, guarded by the unsaved-changes confirm, for
+	// something the reader only wants to read.
+	help := menu.AddSubmenu("Help")
+	help.Add("Hermes Documentation").OnClick(func(*application.Context) {
+		if err := app.Browser.OpenURL(docsURL); err != nil {
+			log.Printf("could not open the documentation: %v", err)
+		}
+	})
+	help.AddSeparator()
+	// No accelerator: an invented chord cannot be checked against every macOS
+	// binding — the same reasoning as Blockquote and Insert → Chart….
+	help.Add("Report an Issue…").OnClick(func(*application.Context) {
+		env := app.Env.Info()
+		osName, osVersion := env.OS, ""
+		if env.OSInfo != nil {
+			// Branding is the marketing name ("macOS Tahoe") where a platform
+			// supplies one; OS is the bare identifier. Prefer the former.
+			if env.OSInfo.Branding != "" {
+				osName = env.OSInfo.Branding
+			}
+			osVersion = env.OSInfo.Version
+		}
+		if err := app.Browser.OpenURL(feedbackURL(appVersion(), osName, osVersion)); err != nil {
+			log.Printf("could not open the feedback form: %v", err)
+		}
+	})
+
 	app.Menu.SetApplicationMenu(menu)
 }
 
