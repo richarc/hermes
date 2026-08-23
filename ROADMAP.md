@@ -560,41 +560,52 @@ which is the multi-part document idea dropped on 2026-08-06.
       were fixed on 2026-08-09 rather than waiting for this release, and have
       been struck from the list. What remains is maintainability and test
       coverage, none of it urgent.
-- [ ] **A Help menu.** Hermes has none: `menu.go` adds App, File, Edit, Insert,
-      Format, View and Window, and Wails' `HelpMenu` role is no use — it adds a
-      single "Learn More" item pointing at wails.io. Built by hand, it is the
-      home for the two items below and the natural place a user looks first.
-- [ ] **Documentation as bundled Hermes documents**, opened from Help, plus a
-      "Documentation on the Web…" item for the full set. Bundling is the
-      dogfooding this release already wanted: a guide that cannot be written
-      comfortably in Hermes is a bug report about Hermes, and the documents
-      double as the manual-verification corpus `docs/test-document.md` stands
-      in for today. It also means the guide matches the version installed
-      rather than whatever shipped afterwards.
-      `docs/hermes-authoring.md` is most of one guide already. The decision to
-      settle: whether Help opens a bundled document **read-only**, or copies it
-      somewhere writable first. Read-only needs an editor mode that does not
-      exist; copying means deciding where, and what happens on the second open.
-      Mechanically the documents ride in the binary through the existing
-      `//go:embed` of `frontend/dist`, or a second embed beside it — but weigh
-      that against `Contents/Resources`. Wails beta.9 added a Darwin-only
-      package for resolving application bundle resources
-      (<https://v3.wails.io/guides/build/macos>), and a document a user might
-      reasonably want to open in Finder, copy, or send to someone is arguably
-      a resource rather than something sealed inside the binary. The same
-      question applies to the licence texts: `LICENSE`, `NOTICE` and
-      `licenses/citeproc-js.LICENSE` are in the repository but not in the
-      shipped bundle, which source distribution satisfies and binary
-      distribution does not.
-- [ ] **A feedback route that works for non-technical users.** Help → "Report
-      an Issue…" opens a hosted form (Tally, Formspree or similar) in the
-      browser, with the Hermes version and the macOS version prefilled through
-      the URL. No account to create, no server to run, no email address in the
-      binary for scrapers to find, and reports arrive structured rather than as
-      "it doesn't work". The prefilled version fields are the point: users
-      never think to include them, and without them a report is usually
-      unactionable. GitHub Issues was rejected for this audience — it demands
-      an account and reads as developer territory.
+- [x] **A Help menu.** Shipped 2026-08-23. Hermes had none — `menu.go` added
+      App, File, Edit, Insert, Format, View and Window — and Wails' `HelpMenu`
+      role is no use, containing a single "Learn More" item pointing at
+      wails.io, so it is built by hand. Two items: Hermes Documentation, and
+      Report an Issue….
+      Both open in the browser rather than in the app, which dissolved the
+      question this entry previously carried about opening bundled documents
+      read-only or copying them somewhere writable. A help document is not a
+      document you are writing: loading one into the editor would mean
+      replacing whatever is open, behind the unsaved-changes confirm, for
+      something the reader only wants to read. Nothing is bundled, so there is
+      nothing to keep in step with a release either.
+      What that gives up is the dogfooding this release wanted — guides written
+      in Hermes, doubling as the manual-verification corpus `docs/test-document.md`
+      stands in for. That argument still holds and is now the docs site's to
+      make: see the site item under v1.0, whose eventual ambition is that its
+      pages ARE Hermes documents.
+- [x] **A feedback route that works for non-technical users.** Shipped
+      2026-08-23 as Help → "Report an Issue…", which opens a form in the
+      browser with the Hermes version and the OS version prefilled through the
+      URL. The prefilled fields are the entire reason it is in the app rather
+      than being a link in the README: a report that does not say which version
+      it came from usually cannot be acted on, and asking people to find that
+      out is how you get no reports at all.
+      The version is read from the running bundle's `CFBundleShortVersionString`
+      rather than compiled in, so `build/config.yml` stays the single source
+      and there is no third copy to drift from a git tag. Outside a bundle it
+      reports "unknown" instead of an empty field. `feedbackURL` and
+      `osDescription` are split out of the menu closure so they are testable —
+      AppKit menu construction is not exercisable headlessly, the same reason
+      `quitRequest` and `localImagePath` are separate from what calls them.
+      **Still to do: create the hosted form** (Tally, Formspree or similar) and
+      replace `feedbackBaseURL` in `help.go`. It points at GitHub Issues
+      meanwhile so the item is not a dead link, but that is a stand-in and not
+      the destination — it demands an account and reads as developer territory,
+      which is the opposite of what this item is for. `docsURL` is the same
+      shape of placeholder, waiting on the site.
+- [ ] **Ship the licence texts inside the bundle.** `LICENSE`, `NOTICE` and
+      `licenses/citeproc-js.LICENSE` are in the repository and in no shipped
+      bundle, which satisfies source distribution and not binary distribution —
+      and both CPAL and AGPL require citeproc-js's licence to accompany what is
+      distributed. Wails beta.9 added a Darwin-only package for resolving
+      application bundle resources
+      (<https://v3.wails.io/guides/build/macos>), so `Contents/Resources` is
+      the natural home; an About → Licences view is the other half of the
+      question. Needed before the first public release, not before.
 - [ ] **A new application icon, layered.** The current icon is the winged-nib
       mark cropped from `build/logo_hermes_editor.jpg` and shipped as a flat
       `icons.icns`. On macOS 26 that reads as dated: system icons are layered,
