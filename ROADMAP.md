@@ -521,22 +521,34 @@ which is the multi-part document idea dropped on 2026-08-06.
       (<https://v3.wails.io/guides/build/macos>), so `Contents/Resources` is
       the natural home; an About → Licences view is the other half of the
       question. Needed before the first public release, not before.
-- [ ] **A new application icon, layered.** The current icon is the winged-nib
-      mark cropped from `build/logo_hermes_editor.jpg` and shipped as a flat
-      `icons.icns`. On macOS 26 that reads as dated: system icons are layered,
-      with an automatic gradient ground, a specular highlight, translucency,
-      and light, dark and tinted variants. New artwork, drawn for the layered
-      format.
-      Note what that requires of the artwork: Icon Composer wants the mark as
-      **separate elements**, not one flattened image, so the brief is a
-      layered source (SVG preferred) rather than a PNG. Mechanically it means
-      reinstating `build/appicon.icon` and the `Assets.car` it produces —
-      removed on 2026-08-21 because it held the stock Wails vector and, since
-      `Info.plist` declares both `CFBundleIconFile` and `CFBundleIconName`,
-      macOS preferred it and ignored the real logo. Reinstating it puts
-      `Assets.car` back in charge, which is correct once it carries our own
-      artwork. Remember `create:app:bundle` never cleans the bundle: `rm -rf
-      bin/hermes.app` before packaging or a stale `Assets.car` survives.
+- [x] **A new application icon, layered.** Shipped 2026-08-23. The winged nib
+      is replaced by an H printed as three out-of-register process plates on
+      screened paper; the SVG source set lives in `build/icon/`, and
+      `build/appicon.icon/` holds the Icon Composer bundle actool compiles into
+      `build/darwin/Assets.car`.
+      It shipped in two steps, which is worth knowing because the first is a
+      complete fallback if the second ever breaks: the artwork went in flat
+      first, rendered to `build/appicon.png` and through the ordinary
+      `icons.icns` path, and layering was added afterwards once Xcode 26 was
+      installed. Layering is purely additive.
+      Two things this entry previously recorded as blockers turned out not to
+      be. Installing Xcode is necessary but not sufficient — `/usr/bin/actool`
+      is a shim that fails until `xcode-select` points at Xcode rather than
+      Command Line Tools. And the blend-mode problem dissolved rather than
+      being solved: the concern was that the design switches
+      `mix-blend-mode` between `multiply` on paper and `screen` on dark, which
+      Icon Composer cannot express because it overrides a layer's *fill* rather
+      than its blend mode. In practice actool generates the light, dark and
+      tintable appearances from the layers itself — confirmed with
+      `assetutil --info` — so the dark-ground SVG is reference artwork rather
+      than an input, and the mismatch never had to be resolved.
+      One trap it cost an afternoon to find, recorded in CLAUDE.md: `Info.plist`
+      must declare `CFBundleIconName` only while `Assets.car` exists. macOS 26
+      prefers that key over `CFBundleIconFile`, so a dangling value leaves the
+      app with **no icon at all** while everything else about the bundle is
+      valid — icns present, signature good, LaunchServices resolving it by
+      name. Regeneration adds the key when the catalogue is present but never
+      removes it, so dropping the catalogue means deleting the key by hand.
 
 ## v1.0.0 — Production
 
