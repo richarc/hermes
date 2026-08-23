@@ -560,22 +560,97 @@ which is the multi-part document idea dropped on 2026-08-06.
       were fixed on 2026-08-09 rather than waiting for this release, and have
       been struck from the list. What remains is maintainability and test
       coverage, none of it urgent.
-- [ ] Help documentation.
-- [ ] Tutorials, written using Hermes. The dogfooding is the point — a
-      tutorial that cannot be written comfortably in Hermes is a bug report
-      about Hermes, and the documents double as the manual-verification corpus
-      that `docs/test-document.md` currently stands in for.
+- [ ] **A Help menu.** Hermes has none: `menu.go` adds App, File, Edit, Insert,
+      Format, View and Window, and Wails' `HelpMenu` role is no use — it adds a
+      single "Learn More" item pointing at wails.io. Built by hand, it is the
+      home for the two items below and the natural place a user looks first.
+- [ ] **Documentation as bundled Hermes documents**, opened from Help, plus a
+      "Documentation on the Web…" item for the full set. Bundling is the
+      dogfooding this release already wanted: a guide that cannot be written
+      comfortably in Hermes is a bug report about Hermes, and the documents
+      double as the manual-verification corpus `docs/test-document.md` stands
+      in for today. It also means the guide matches the version installed
+      rather than whatever shipped afterwards.
+      `docs/hermes-authoring.md` is most of one guide already. The decision to
+      settle: whether Help opens a bundled document **read-only**, or copies it
+      somewhere writable first. Read-only needs an editor mode that does not
+      exist; copying means deciding where, and what happens on the second open.
+      Mechanically the documents ride in the binary through the existing
+      `//go:embed` of `frontend/dist`, or a second embed beside it.
+- [ ] **A feedback route that works for non-technical users.** Help → "Report
+      an Issue…" opens a hosted form (Tally, Formspree or similar) in the
+      browser, with the Hermes version and the macOS version prefilled through
+      the URL. No account to create, no server to run, no email address in the
+      binary for scrapers to find, and reports arrive structured rather than as
+      "it doesn't work". The prefilled version fields are the point: users
+      never think to include them, and without them a report is usually
+      unactionable. GitHub Issues was rejected for this audience — it demands
+      an account and reads as developer territory.
+- [ ] **A new application icon, layered.** The current icon is the winged-nib
+      mark cropped from `build/logo_hermes_editor.jpg` and shipped as a flat
+      `icons.icns`. On macOS 26 that reads as dated: system icons are layered,
+      with an automatic gradient ground, a specular highlight, translucency,
+      and light, dark and tinted variants. New artwork, drawn for the layered
+      format.
+      Note what that requires of the artwork: Icon Composer wants the mark as
+      **separate elements**, not one flattened image, so the brief is a
+      layered source (SVG preferred) rather than a PNG. Mechanically it means
+      reinstating `build/appicon.icon` and the `Assets.car` it produces —
+      removed on 2026-08-21 because it held the stock Wails vector and, since
+      `Info.plist` declares both `CFBundleIconFile` and `CFBundleIconName`,
+      macOS preferred it and ignored the real logo. Reinstating it puts
+      `Assets.car` back in charge, which is correct once it carries our own
+      artwork. Remember `create:app:bundle` never cleans the bundle: `rm -rf
+      bin/hermes.app` before packaging or a stale `Assets.car` survives.
 
 ## v1.0.0 — Production
 
-- [ ] Installable binaries, macOS only. `build/darwin/Taskfile.yml` already
-      produces an `.app` bundle and ad-hoc signs it, which is enough to run
-      locally and not enough to hand to anyone: Gatekeeper rejects an ad-hoc
-      signature on a downloaded app. Distribution needs a Developer ID
-      certificate, a hardened-runtime signature, notarization through
-      `notarytool`, and stapling the ticket to the bundle — plus a decision
-      about the container (a DMG is conventional; a zip is simpler and
-      notarizes just as well). Windows and Linux stay in the backlog.
+Distribution is step 1 of the website work: GitHub Releases for the binary and
+a static documentation site, with no server to run and no ongoing cost beyond
+the Apple Developer Program. Hosting users' documents as blog posts is a
+separate, much larger project and is deliberately not part of this.
+
+- [ ] **Signed, notarized binaries on GitHub Releases.** Everything Hermes
+      builds today is ad-hoc signed, which is enough to run locally and no use
+      to anyone else: a downloaded app carries `com.apple.quarantine`, and
+      Gatekeeper refuses an ad-hoc signature outright — the user sees "Hermes
+      is damaged and can't be opened", which reads as broken rather than as a
+      security prompt.
+      Most of the tooling already exists. `wails3 task sign:notarize` depends
+      on `package` and runs `wails3 tool sign --notarize` with the identity
+      from `wails3 setup`; `package:universal` builds arm64 and amd64
+      together. An Apple Developer Program membership was obtained on
+      2026-08-23, so the remaining work is the certificate, `wails3 setup`,
+      and the release itself.
+      Decisions: **universal, not arm64-only** — an Intel user downloading an
+      arm64 build gets a baffling failure. **A zip, not a DMG** — it notarizes
+      just as well and needs no layout work; a DMG is conventional and can
+      come later. Release artefacts attach to the tags this project already
+      cuts (`v0.2.0` … `v0.6.0`), and `build/config.yml`'s `version` must match
+      the tag, which is manual today and worth a check in CI.
+- [ ] **A release workflow.** There is no CI at all — no `.github/workflows`.
+      Do the first release by hand so the steps are understood, then move it
+      into a tag-triggered workflow. That needs the Developer ID certificate
+      and an App Store Connect API key as repository secrets, which is the
+      part worth getting right rather than fast: a leaked signing identity is
+      not revocable in any comfortable way.
+- [ ] **A documentation site**, static, on GitHub Pages. Most of the content
+      exists — `README.md`, `docs/hermes-authoring.md`, `CHANGELOG.md` — so
+      the work is a generator (Astro Starlight, MkDocs Material or similar), a
+      landing page with a download link, and pointing the release at it.
+      Sequencing note: the bundled in-app guides land in v0.10, and the
+      eventual ambition is that the site's pages ARE Hermes documents
+      published through the app. That argues for keeping the first site
+      deliberately thin rather than investing in a structure the publishing
+      work would then replace.
+- [ ] **Auto-update — deliberately deferred, and worth naming.** Without
+      something like Sparkle, everyone who downloads a release stays on it
+      until they think to check. Tolerable at first; the main complaint later.
+      One constraint to note now: Sparkle validates that an update is signed by
+      the same team, so if the Developer ID ever changes — an individual
+      enrolment becoming an organization one, say — that needs a transitional
+      release. Cheapest while there are few users.
+- [ ] Windows and Linux stay in the backlog.
 
 ## Backlog (unscheduled)
 
