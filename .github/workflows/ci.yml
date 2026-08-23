@@ -30,7 +30,7 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -73,7 +73,7 @@ jobs:
       # The frontend must exist before the Go build: main.go embeds
       # frontend/dist with //go:embed, and an absent directory is a compile
       # error rather than an empty bundle.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
