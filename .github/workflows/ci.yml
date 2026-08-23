@@ -29,8 +29,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
@@ -60,20 +60,25 @@ jobs:
     # this does not compile anywhere else.
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           # The newest patch of the 1.26 line, not a fixed patch: standard-library
           # fixes arrive as patch releases, and govulncheck reports them against
           # whatever toolchain built the binary. Pinning exactly would go stale
           # and start failing this job for a reason nobody changed.
           go-version: '1.26.x'
+          # Without this, setup-go satisfies 1.26.x from the runner's tool
+          # cache — which had 1.26.5 preinstalled, the very version carrying
+          # the four standard-library vulnerabilities this job exists to
+          # catch. check-latest makes it resolve the newest matching patch.
+          check-latest: true
           cache: true
 
       # The frontend must exist before the Go build: main.go embeds
       # frontend/dist with //go:embed, and an absent directory is a compile
       # error rather than an empty bundle.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
