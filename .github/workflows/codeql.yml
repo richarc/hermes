@@ -40,7 +40,10 @@ jobs:
           check-latest: true
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # Not 20: jsdom's undici needs webidl.util.markAsUncloneable, added
+          # after Node 20, and without it ten test files error out and the run
+          # silently covers 332 of 501 tests instead of failing loudly.
+          node-version: '24'
       # go build needs frontend/dist to exist for the //go:embed directive.
       - name: Build the frontend
         if: matrix.language == 'go'

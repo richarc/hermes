@@ -45,7 +45,7 @@ macOS; Windows and Linux support is on the backlog.
 |---|---|
 | macOS | Apple silicon or Intel |
 | [Go](https://go.dev) 1.25 or newer | Backend |
-| [Node.js](https://nodejs.org) 20 or newer | Frontend build |
+| [Node.js](https://nodejs.org) 24 or newer | Frontend build and tests |
 | [Wails v3 CLI](https://v3.wails.io) | Beta (`v3.0.0-beta.5`) — match `go.mod` |
 | [Zotero](https://www.zotero.org) + Better BibTeX | Optional — only for citation picking |
 
