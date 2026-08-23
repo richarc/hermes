@@ -576,7 +576,16 @@ which is the multi-part document idea dropped on 2026-08-06.
       somewhere writable first. Read-only needs an editor mode that does not
       exist; copying means deciding where, and what happens on the second open.
       Mechanically the documents ride in the binary through the existing
-      `//go:embed` of `frontend/dist`, or a second embed beside it.
+      `//go:embed` of `frontend/dist`, or a second embed beside it — but weigh
+      that against `Contents/Resources`. Wails beta.9 added a Darwin-only
+      package for resolving application bundle resources
+      (<https://v3.wails.io/guides/build/macos>), and a document a user might
+      reasonably want to open in Finder, copy, or send to someone is arguably
+      a resource rather than something sealed inside the binary. The same
+      question applies to the licence texts: `LICENSE`, `NOTICE` and
+      `licenses/citeproc-js.LICENSE` are in the repository but not in the
+      shipped bundle, which source distribution satisfies and binary
+      distribution does not.
 - [ ] **A feedback route that works for non-technical users.** Help → "Report
       an Issue…" opens a hosted form (Tally, Formspree or similar) in the
       browser, with the Hermes version and the macOS version prefilled through
