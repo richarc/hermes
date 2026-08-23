@@ -3,11 +3,11 @@ Version=1.0
 Name=Hermes Editor
 Comment=Academic markdown editor
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/hermes %u
+Exec=/usr/local/bin/Hermes Editor %u
 Terminal=false
 Type=Application
-Icon=hermes
+Icon=Hermes Editor
 Categories=Utility;
-StartupWMClass=hermes
+StartupWMClass=Hermes Editor
 
  

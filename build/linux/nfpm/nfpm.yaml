@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "hermes"
+name: "Hermes Editor"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.7.0"
@@ -17,12 +17,12 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/hermes"
-    dst: "/usr/local/bin/hermes"
+  - src: "./bin/Hermes Editor"
+    dst: "/usr/local/bin/Hermes Editor"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/hermes.png"
-  - src: "./build/linux/hermes.desktop"
-    dst: "/usr/share/applications/hermes.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/Hermes Editor.png"
+  - src: "./build/linux/Hermes Editor.desktop"
+    dst: "/usr/share/applications/Hermes Editor.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

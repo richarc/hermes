@@ -5,7 +5,7 @@
 		<key>CFBundleDisplayName</key>
 		<string>Hermes Editor (Dev)</string>
 		<key>CFBundleExecutable</key>
-		<string>hermes</string>
+		<string>Hermes Editor</string>
 		<key>CFBundleGetInfoString</key>
 		<string>Academic markdown editor with LaTeX math and Vega-Lite charts</string>
 		<key>CFBundleIdentifier</key>
