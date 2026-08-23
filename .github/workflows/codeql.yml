@@ -1,0 +1,48 @@
+name: CodeQL
+
+# Free on public repositories. Complements the dependency scanning in ci.yml:
+# that finds known vulnerabilities in code we import, this finds new ones in
+# code we wrote.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 7 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyse:
+    # macOS for the same reason as the Go job in ci.yml: the Go build needs
+    # AppKit and WebKit.
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, go]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        if: matrix.language == 'go'
+        with:
+          # The newest patch of the 1.26 line, not a fixed patch: standard-library
+          # fixes arrive as patch releases, and govulncheck reports them against
+          # whatever toolchain built the binary. Pinning exactly would go stale
+          # and start failing this job for a reason nobody changed.
+          go-version: '1.26.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # go build needs frontend/dist to exist for the //go:embed directive.
+      - name: Build the frontend
+        if: matrix.language == 'go'
+        run: npm ci && npm run build
+        working-directory: frontend
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3

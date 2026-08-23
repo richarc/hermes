@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  # The frontend is the large surface: vega, mermaid, codemirror and their
+  # transitive trees. Grouped so a quiet week is one pull request rather
+  # than fifteen.
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      production-dependencies:
+        dependency-type: production
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Actions pinned by major version still move underneath you; this keeps
+  # the workflow's own supply chain current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

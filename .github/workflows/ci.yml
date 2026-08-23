@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly, so a newly published advisory against an unchanged dependency
+  # is still found. Most vulnerabilities arrive without anyone touching
+  # this repository.
+  schedule:
+    - cron: '0 6 * * 1'
+
+# A second push to the same branch cancels the first: only the latest
+# commit's result is interesting, and macOS runners are the slow part.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    # Linux, deliberately: nothing here needs macOS, and the Go job below
+    # does. Splitting them keeps the expensive runner doing only what
+    # genuinely requires it.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Types
+        run: npm run check
+
+      # The gate. --omit=dev because a vulnerability in vite or vitest is a
+      # vulnerability in the machine that builds Hermes, not in what users
+      # download — the bundle is what ships, and dev dependencies are not in
+      # it. Gating on the full tree would fail releases over build tooling.
+      - name: Audit shipped dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      # Reported, never fatal: worth seeing, not worth blocking on.
+      - name: Audit build tooling (advisory)
+        run: npm audit || true
+
+  go:
+    # macOS is required, not preferred: Wails links AppKit and WebKit, so
+    # this does not compile anywhere else.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # The newest patch of the 1.26 line, not a fixed patch: standard-library
+          # fixes arrive as patch releases, and govulncheck reports them against
+          # whatever toolchain built the binary. Pinning exactly would go stale
+          # and start failing this job for a reason nobody changed.
+          go-version: '1.26.x'
+          cache: true
+
+      # The frontend must exist before the Go build: main.go embeds
+      # frontend/dist with //go:embed, and an absent directory is a compile
+      # error rather than an empty bundle.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+
+      - name: Tests
+        run: go test ./.
+
+      - name: Build
+        run: go build -o /dev/null .
+
+      # Reachability-based: it reports only vulnerabilities this code can
+      # actually reach, which is why it is worth gating on where a generic
+      # scanner would not be. It found four live standard-library issues on
+      # go1.26.5 on 2026-08-23, all fixed in go1.26.6 — which is why this job
+      # tracks the 1.26 line rather than whatever a developer has installed.
+      - name: Vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./.
