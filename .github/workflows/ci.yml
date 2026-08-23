@@ -61,7 +61,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           # The newest patch of the 1.26 line, not a fixed patch: standard-library
           # fixes arrive as patch releases, and govulncheck reports them against
