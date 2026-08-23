@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Hermes Editor — app icon: an H printed as three process plates">
+  <title>Hermes Editor — app icon: an H printed as three process plates</title>
+  <defs>
+  <pattern id="screen" width="16" height="16" patternUnits="userSpaceOnUse">
+    <circle cx="8" cy="8" r="2.6" fill="#201e1d" opacity="0.05"></circle>
+  </pattern>
+  <g id="h">
+    <rect x="264" y="262" width="144" height="32" rx="3"></rect>
+    <rect x="616" y="262" width="144" height="32" rx="3"></rect>
+    <rect x="300" y="286" width="72" height="452"></rect>
+    <rect x="652" y="286" width="72" height="452"></rect>
+    <rect x="336" y="492" width="352" height="40"></rect>
+    <rect x="264" y="730" width="144" height="32" rx="3"></rect>
+    <rect x="616" y="730" width="144" height="32" rx="3"></rect>
+  </g>
+  </defs>
+  <rect width="1024" height="1024" rx="230" fill="#f3f2f2"></rect>
+  <rect width="1024" height="1024" rx="230" fill="url(#screen)"></rect>
+  <g style="isolation:isolate">
+    <use href="#h" fill="#edbb00" transform="translate(-22 -16)" style="mix-blend-mode:multiply"></use>
+    <use href="#h" fill="#d6006c" transform="translate(25 18)" style="mix-blend-mode:multiply"></use>
+    <use href="#h" fill="#0088b0" transform="translate(0 0)" style="mix-blend-mode:multiply"></use>
+  </g>
+</svg>
