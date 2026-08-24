@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -54,4 +55,22 @@ func osDescription(name, version string) string {
 		return "unknown"
 	}
 	return joined
+}
+
+// licencesPath is where the bundled licence texts live, given the
+// application's Contents/Resources directory, and whether there is one at all.
+//
+// Taskfile.yml's bundle:licences copies them there when the app is packaged:
+// Apache-2.0 requires NOTICE to travel with the work, and citeproc-js is dual
+// CPAL/AGPL, both of which require their licence to accompany a distributed
+// binary. Having them in the repository covers source distribution only.
+//
+// Split out so the join is testable without a bundle to run in — mac.ResourcePath
+// reports ErrNotInAppBundle for a bare binary, which is the ordinary case
+// under `go run` and in CI.
+func licencesPath(resourcesDir string) (string, bool) {
+	if resourcesDir == "" {
+		return "", false
+	}
+	return filepath.Join(resourcesDir, "licences"), true
 }

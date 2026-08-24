@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/mac"
 )
 
 // installMenu builds and sets the application menu. It is called again
@@ -323,6 +324,31 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	help.Add("Hermes Documentation").OnClick(func(*application.Context) {
 		if err := app.Browser.OpenURL(docsURL); err != nil {
 			log.Printf("could not open the documentation: %v", err)
+		}
+	})
+	// The licence texts ride in the bundle because a distributed binary has to
+	// carry them — see Taskfile.yml's bundle:licences. Reachable from here so
+	// they are not only discoverable by way of Show Package Contents.
+	help.Add("Licences").OnClick(func(*application.Context) {
+		// OpenFile, not OpenURL with a file:// URL. Both end at
+		// exec.Command("open", target), so a plain path is handed straight to
+		// `open` with no shell in between — where a hand-built file:// URL
+		// would carry a raw space from "Hermes Editor.app" and be malformed.
+		// Worth knowing when debugging either: the implementation discards the
+		// result of `open` in a goroutine, so a bad target fails silently and
+		// only a failure to *start* `open` is ever returned.
+		if resources, err := mac.ResourcePath(); err == nil {
+			if dir, ok := licencesPath(resources); ok {
+				if err := app.Browser.OpenFile(dir); err != nil {
+					log.Printf("could not open the licences: %v", err)
+				}
+				return
+			}
+		}
+		// Unbundled there is nothing to open — `go run`, or the bare binary —
+		// so fall back to the repository rather than doing nothing.
+		if err := app.Browser.OpenURL(docsURL); err != nil {
+			log.Printf("could not open the licences: %v", err)
 		}
 	})
 	help.AddSeparator()

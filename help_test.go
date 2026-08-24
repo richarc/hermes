@@ -80,3 +80,23 @@ func TestOSDescription(t *testing.T) {
 		})
 	}
 }
+
+// The licence texts are copied into Contents/Resources/licences when the app
+// is packaged. Unbundled — `go run`, or the bare binary — there is nowhere to
+// look, and the caller falls back to the repository.
+func TestLicencesPath(t *testing.T) {
+	got, ok := licencesPath("/Applications/Hermes Editor.app/Contents/Resources")
+	if !ok {
+		t.Fatal("expected a path from a real resources directory")
+	}
+	want := "/Applications/Hermes Editor.app/Contents/Resources/licences"
+	if got != want {
+		t.Errorf("path = %q, want %q", got, want)
+	}
+}
+
+func TestLicencesPathUnbundled(t *testing.T) {
+	if _, ok := licencesPath(""); ok {
+		t.Error("expected no path when there is no resources directory")
+	}
+}
