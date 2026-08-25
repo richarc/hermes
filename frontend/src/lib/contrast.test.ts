@@ -39,12 +39,14 @@ const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
   ['body text', '--fg', '--bg', 7],
   ['status bar', '--muted', '--bg', 4.5],
   ['blockquote', '--muted-strong', '--bg', 4.5],
-  ['link', '--link', '--bg', 4.5],
   ['primary button', '--on-accent', '--accent', 4.5],
   ['toast', '--toast-fg', '--toast-bg', 4.5],
   ['welcome button', '--fg', '--surface', 4.5],
-  ['chart error', '--chart-error-fg', '--chart-error-bg', 4.5],
-  ['cite error', '--cite-error-fg', '--cite-error-bg', 4.5],
+  // The chart builder's field error is the last error colour left in the
+  // chrome — it sits in a dialog, so it is measured against the dialog's
+  // ground. The markers that render on the sheet moved to the document
+  // palette below, where they are checked against paper instead.
+  ['dialog field error', '--cite-error-fg', '--overlay-bg', 4.5],
   ['editor text', '--editor-fg', '--editor-bg', 7],
   ['gutter numbers', '--editor-gutter-fg', '--editor-gutter-bg', 4.5],
   ['syntax heading', '--syn-heading', '--editor-bg', 4.5],
@@ -72,6 +74,16 @@ const DOC_PAIRS: Array<[label: string, fg: string, bg: string, target: number]> 
   ['doc syntax function', '--doc-syn-function', '--doc-bg', 4.5],
   ['doc syntax meta', '--doc-syn-meta', '--doc-bg', 4.5],
   ['doc syntax link', '--doc-syn-link', '--doc-bg', 4.5],
+  // Error markers, checked twice each. Against their own badge, which is what
+  // the screen shows; and against bare paper, because printing drops
+  // background colours and keeps text colour — the second is the check that
+  // was missing when these read the theme's chrome tokens, and a dark-mode
+  // marker printed at roughly 2:1 on white. A marker that exists to be
+  // noticed before submission is the last thing that may vanish in the PDF.
+  ['document chart error', '--doc-chart-error-fg', '--doc-chart-error-bg', 4.5],
+  ['document chart error on paper', '--doc-chart-error-fg', '--doc-bg', 4.5],
+  ['document cite error', '--doc-cite-error-fg', '--doc-cite-error-bg', 4.5],
+  ['document cite error on paper', '--doc-cite-error-fg', '--doc-bg', 4.5],
 ]
 
 function check(selector: string) {

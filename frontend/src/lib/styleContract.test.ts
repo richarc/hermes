@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CODE_TOKENS } from './syntaxTags'
+import { PAGE_MARGIN_MM } from './paper'
 
 const CSS = readFileSync(
   join(fileURLToPath(import.meta.url), '../../../public/style.css'),
@@ -92,11 +93,15 @@ describe('style.css palette contract', () => {
   })
 
   it('defines every variable that the rules reference', () => {
-    // --sheet-width and --sheet-margin are the one exception: lib/paper.ts's
-    // sheetStyle() sets them as inline style on the .sheet element itself, so
-    // they never appear as a declaration in style.css for paletteBlocks to
-    // find, even though the rules that read them are entirely legitimate.
-    const RUNTIME_VARIABLES = new Set(['--sheet-width', '--sheet-margin'])
+    // The --sheet-* geometry is the one exception: lib/paper.ts's sheetStyle()
+    // sets these as inline style on the .sheet element itself, so they never
+    // appear as a declaration in style.css for paletteBlocks to find, even
+    // though the rules that read them are entirely legitimate.
+    const RUNTIME_VARIABLES = new Set([
+      '--sheet-width',
+      '--sheet-margin',
+      '--sheet-margin-max',
+    ])
     const used = new Set(
       [...CSS.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]),
     )
@@ -226,7 +231,42 @@ describe('print', () => {
   })
 
   it('uses the same page margin the sheet draws', () => {
-    expect(print).toMatch(/@page\s*\{[^}]*margin: 25mm/)
+    // Built from PAGE_MARGIN_MM rather than written out, because 25mm exists
+    // in three places — here, sheetStyle's two custom properties, and this
+    // @page rule — and each side of the CSS/TS boundary was previously
+    // guarded only against itself. A margin changed in paper.ts and not here
+    // would have passed every test in the suite while the sheet and the PDF
+    // quietly disagreed, which is the one failure this branch exists to
+    // prevent.
+    expect(print).toMatch(new RegExp(`@page\\s*\\{[^}]*margin: ${PAGE_MARGIN_MM}mm`))
+  })
+})
+
+describe('sheet geometry', () => {
+  it('caps the sheet\'s screen margin at the absolute page margin', () => {
+    // The screen half of the same promise the @page assertion above makes.
+    // Percentage padding resolves against the CONTAINING BLOCK — the preview
+    // pane — never against the sheet's own min()-capped width, so the two
+    // agree only while the pane is narrower than the paper. On a wider pane
+    // the sheet stopped at 210mm and the percentage did not: a 1265px pane
+    // (a 50/50 split on a 2560px display) drew ~39.7mm margins around a 496px
+    // measure while the PDF used 605px, so line breaks, figure fit and chart
+    // headroom on screen were not the ones in the export — and nothing looked
+    // broken, because the sheet was still A4-shaped.
+    //
+    // min(percentage, absolute) is right in both regimes. A "simplification"
+    // back to the bare percentage is the bug, and it fails here.
+    //
+    // Matched on the block that sets `width`, not simply the first `.sheet {`
+    // in the file — that one is the document palette — so the declaration is
+    // pinned to the rule where it actually applies.
+    const geometry = [...stripComments(CSS).matchAll(/\.sheet \{[^}]*\}/g)]
+      .map((m) => m[0])
+      .filter((rule) => rule.includes('width: min(var(--sheet-width)'))
+    expect(geometry).toHaveLength(1)
+    expect(geometry[0]).toContain(
+      'padding: min(var(--sheet-margin), var(--sheet-margin-max))',
+    )
   })
 })
 

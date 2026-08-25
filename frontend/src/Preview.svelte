@@ -71,6 +71,25 @@
     void codeHydrator.hydrate(sheet).catch(() => {})
   })
 
+  // Paper size and orientation change the sheet's width AND its padding, so
+  // every block in the document reflows and every cached anchor `top` is
+  // stale — but the pane's own box is unchanged, so the ResizeObserver below
+  // never fires and createScrollSync goes on scrolling to the old offsets.
+  // Sync scrolling would then land in the wrong place until the next
+  // keystroke happened to invalidate the cache. An $effect rather than a
+  // second ResizeObserver on the sheet: this component already invalidates
+  // from an $effect when `html` changes, it is the same fact (the rendered
+  // document moved) reported from the same place, and unlike an observer it
+  // works under jsdom, so the guarded observer below stays the only piece of
+  // this file a test cannot reach.
+  $effect(() => {
+    // Referenced rather than used: an $effect tracks exactly what it reads,
+    // and this one is here for the reflow these two cause, not their values.
+    void paperSize
+    void orientation
+    sync.invalidate()
+  })
+
   onMount(() => {
     // A ResizeObserver on the container's own box subsumes a window resize
     // listener: it fires on an actual window resize (which resizes the

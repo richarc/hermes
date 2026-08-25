@@ -13,23 +13,29 @@
   --muted: #5e5e5e;
   --muted-strong: #4a4a4a;
   --surface: #f0f0f0;
-  --surface-code-block: #f2f2f2;
-  --surface-code-inline: #eeeeee;
   --divider: #e6e6e6;
-  --link: #0b57c2;
-  /* Filled primary button. Valued as the link colour, but named for its role:
-     a rule reading `background: var(--link)` on a button would be a lie about
-     intent every future reader has to see through. */
+  /* Filled primary button, and the focus ring. Named for its role rather than
+     its colour: it long sat beside a link token of the same value, and a
+     button whose background was painted from the link colour would be a lie
+     about intent every future reader has to see through. That token is now
+     gone, because the chrome has no links left in it and the document's links
+     read the doc-link role instead; the two surface-code tokens went the same
+     way when the sheet replaced them with doc equivalents. An unreferenced
+     name is not free here — the light/dark parity test would keep it, and its
+     dark twin, alive forever. (Names are deliberately not written as a var()
+     call in this comment: the "defines every variable the rules reference"
+     test reads the raw file, so a var() in prose reads as a use.) */
   --accent: #0b57c2;
   --on-accent: #ffffff;
   --overlay-bg: #fcfcfc;
   --backdrop: rgba(0, 0, 0, 0.4);
   --toast-bg: #2a2a2a;
   --toast-fg: #fafafa;
-  --chart-error-fg: #b30000;
-  --chart-error-bg: #fff5f5;
+  /* The last chrome survivor of the error colours: the chart builder's
+     field-error text, which sits in a dialog and not on the sheet. The chart,
+     citation and maths markers moved to --doc-* when the sheet became the
+     only ground they render on. */
   --cite-error-fg: #b30000;
-  --cite-error-bg: #fff5f5;
 
   /* The ground the sheet sits on. Distinct from --bg because in light mode
      --bg is nearly white and the sheet would have no edge against it. */
@@ -78,10 +84,7 @@
   --muted: #9c9c9c;
   --muted-strong: #b4b4b4;
   --surface: #2a2a2a;
-  --surface-code-block: #262626;
-  --surface-code-inline: #2c2c2c;
   --divider: #333333;
-  --link: #7cb0ff;
   --accent: #7cb0ff;
   --on-accent: #12233d;
   --overlay-bg: #1f1f1f;
@@ -92,10 +95,7 @@
   --toast-bg: #ebebeb;
   --toast-fg: #1a1a1a;
 
-  --chart-error-fg: #ff9a9a;
-  --chart-error-bg: #3a2222;
   --cite-error-fg: #ff9a9a;
-  --cite-error-bg: #3a2222;
 
   --desk: #161616;
   --sheet-shadow: rgba(0, 0, 0, 0.5);
@@ -136,6 +136,20 @@
   --doc-link: #0b62d6;
   --doc-surface-code-block: #f6f6f6;
   --doc-surface-code-inline: #f2f2f2;
+
+  /* Error markers — a chart or diagram that would not render, a citation key
+     with no entry, malformed maths. They live on the sheet, so they belong to
+     the document palette however much they feel like chrome: they were read
+     from the theme-varying chart-error and cite-error chrome set until the
+     print stylesheet stopped re-lighting them, and a dark-mode marker then printed
+     as #ff9a9a on white — about 2:1, effectively invisible in the PDF, on the
+     one element whose entire purpose is to be noticed before submission.
+     Contrast is checked against the paper as well as against the badge, since
+     printing drops background colours and keeps text colour. */
+  --doc-chart-error-fg: #b30000;
+  --doc-chart-error-bg: #fff5f5;
+  --doc-cite-error-fg: #b30000;
+  --doc-cite-error-bg: #fff5f5;
 
   /* ui-serif resolves to New York on macOS: a text face Apple designed for
      screen and print, so it costs nothing to bundle and pairs with the SF
@@ -308,12 +322,22 @@ textarea:focus-visible,
    and is the obvious alternative; it blurs text, and it breaks the
    getBoundingClientRect arithmetic scrollSync.ts depends on.
 
-   The margin is a percentage — see lib/paper.ts. Percentage padding resolves
-   against width, so a shrunk sheet keeps a proportionally correct margin. */
+   The margin is written twice over, and this is not belt-and-braces — see
+   lib/paper.ts, which emits both values. Percentage padding resolves against
+   the CONTAINING BLOCK's inline size, which here is .preview-pane, and NOT
+   against the element's own width — which is capped by the min() above. The
+   two agree only while the pane is narrower than the paper. Once it is wider
+   the sheet stops at 210mm while the percentage keeps growing with the pane,
+   so a wide split drew ~40mm margins around a measure the PDF never uses: the
+   sheet stayed A4-shaped and quietly stopped agreeing with the export.
+   min() of the two picks the right one in each regime — the absolute 25mm
+   when the pane is at least paper-wide, the proportional percentage when the
+   sheet has been shrunk below true size. Do not "simplify" this back to the
+   single percentage; that is the bug it was written to fix. */
 .sheet {
   width: min(var(--sheet-width), 100%);
   margin: 0 auto;
-  padding: var(--sheet-margin);
+  padding: min(var(--sheet-margin), var(--sheet-margin-max));
   background: var(--doc-bg);
   color: var(--doc-fg);
   font-family: var(--doc-font-body);
@@ -582,22 +606,28 @@ dialog::backdrop { background: var(--backdrop); }
   background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
 }
 
+/* All four error rules below read the document palette, not the theme: every
+   element they match is rendered by a preview hydrator into the sheet, so the
+   ground under them is paper. */
 .chart-error,
 .mermaid-error {
-  border: 1px solid var(--chart-error-fg); background: var(--chart-error-bg); color: var(--chart-error-fg);
+  border: 1px solid var(--doc-chart-error-fg); background: var(--doc-chart-error-bg); color: var(--doc-chart-error-fg);
   padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px;
 }
 
 .cite-error {
-  color: var(--cite-error-fg); background: var(--cite-error-bg); border-radius: 3px; padding: 0 3px;
+  color: var(--doc-cite-error-fg); background: var(--doc-cite-error-bg); border-radius: 3px; padding: 0 3px;
 }
 
 /* KaTeX writes its errorColor option as an inline `color` style on the
    element (see renderer.ts), which beats any ordinary rule here — the
    !important is required to override an inline style and is not optional
-   decoration; do not remove it. Reusing --cite-error-fg keeps malformed math
-   and a missing citation reading as the same "something's wrong" colour. */
-.preview-pane .katex-error { color: var(--cite-error-fg) !important; }
+   decoration; do not remove it. Reusing --doc-cite-error-fg keeps malformed
+   math and a missing citation reading as the same "something's wrong" colour.
+   Scoped to .sheet rather than .preview-pane because the token is declared on
+   .sheet: an element matching outside it would inherit no such property and
+   the declaration would drop out entirely. */
+.sheet .katex-error { color: var(--doc-cite-error-fg) !important; }
 .preview-pane .csl-bib-body { line-height: 1.7; }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 

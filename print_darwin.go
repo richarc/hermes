@@ -146,6 +146,20 @@ static int hermesExportWebViewPDF(const char *path, const char *paperName,
 		pInfo.paperSize = NSMakeSize(paperWidth, paperHeight);
 		pInfo.orientation = landscape ? NSPaperOrientationLandscape
 		                              : NSPaperOrientationPortrait;
+		// Both default to YES, and both are inherited from the shared print
+		// info — which carries whatever the user's last print job happened to
+		// leave on it. Left alone, a short final page is centred vertically in
+		// its paper instead of starting at the top margin: a defect that looks
+		// deliberate in the finished PDF, that the sheet never showed, and that
+		// differs between two machines exporting the same document. Every other
+		// setting on this print info is pinned for the same reason; these two
+		// are the ones easiest to forget, because their wrong value is also
+		// their default. hermesPrintWebView above sets them YES deliberately —
+		// that is an interactive print through the panel, where the user is
+		// choosing the placement; this is an artefact, and nothing outside the
+		// document may decide what is in it.
+		pInfo.verticallyCentered = NO;
+		pInfo.horizontallyCentered = NO;
 		pInfo.leftMargin = 0;
 		pInfo.rightMargin = 0;
 		pInfo.topMargin = 0;

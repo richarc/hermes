@@ -105,6 +105,10 @@ describe('Preview figure alignment', () => {
     const sheet = container.querySelector('.sheet') as HTMLElement
     expect(sheet.style.getPropertyValue('--sheet-width')).toBe('210mm')
     expect(sheet.style.getPropertyValue('--sheet-margin')).toBe('11.905%')
+    // The absolute cap travels with the percentage: percentage padding
+    // resolves against the PANE, so on a pane wider than the paper the
+    // percentage alone drew margins that grew with the window. See paper.ts.
+    expect(sheet.style.getPropertyValue('--sheet-margin-max')).toBe('25mm')
   })
 
   it('resizes the sheet for landscape', () => {
@@ -115,6 +119,9 @@ describe('Preview figure alignment', () => {
     expect(sheet.style.getPropertyValue('--sheet-width')).toBe('297mm')
     // Not the portrait percentage: a fixed one would print 25mm and draw 35mm.
     expect(sheet.style.getPropertyValue('--sheet-margin')).toBe('8.418%')
+    // The cap does not vary with paper or orientation — it is the page
+    // margin itself, which is one number for all four combinations.
+    expect(sheet.style.getPropertyValue('--sheet-margin-max')).toBe('25mm')
   })
 
   it('keeps the alignment attribute on the pane, not the sheet', () => {
