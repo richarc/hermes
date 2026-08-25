@@ -34,6 +34,12 @@
   import Dialog from './Dialog.svelte'
   import { readSpec, type BuilderState } from './lib/chartSpec'
   import type { ChartWidth, FigureAlignment } from './lib/figures'
+  import {
+    DEFAULT_PAPER_SIZE,
+    DEFAULT_ORIENTATION,
+    type PaperSize,
+    type PageOrientation,
+  } from './lib/paper'
 
   let path = $state<string | null>(null)
   let content = $state('')
@@ -51,6 +57,8 @@
   let themeSetting = $state<ThemeSetting>('system')
   let chartWidth = $state<ChartWidth>('medium')
   let figureAlign = $state<FigureAlignment>('centre')
+  let paperSize = $state<PaperSize>(DEFAULT_PAPER_SIZE)
+  let orientation = $state<PageOrientation>(DEFAULT_ORIENTATION)
   let systemPrefersDark = $state(false)
   let scrollFrame: number | null = null
   let toastTimer: ReturnType<typeof setTimeout>
@@ -335,6 +343,8 @@
     // the binding cannot express rather than an unchecked assumption.
     chartWidth = s.chartWidth as ChartWidth
     figureAlign = s.figureAlignment as FigureAlignment
+    paperSize = s.paperSize as PaperSize
+    orientation = s.printOrientation as PageOrientation
     applyTheme(resolveTheme(themeSetting, systemPrefersDark))
   }
 
@@ -587,7 +597,7 @@
       aria-valuemax={80}
       tabindex="0"
     ></div>
-    <Preview bind:this={preview} {html} {figureAlign} />
+    <Preview bind:this={preview} {html} {figureAlign} {paperSize} {orientation} />
   </main>
 
   <footer class="status-bar">

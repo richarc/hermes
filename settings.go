@@ -18,6 +18,7 @@ type Settings struct {
 	Theme            string `json:"theme"`
 	FigureAlignment  string `json:"figureAlignment"`
 	ChartWidth       string `json:"chartWidth"`
+	PaperSize        string `json:"paperSize"`
 }
 
 func defaultSettings() Settings {
@@ -27,6 +28,7 @@ func defaultSettings() Settings {
 		Theme:            "system",
 		FigureAlignment:  "centre",
 		ChartWidth:       "medium",
+		PaperSize:        "a4",
 	}
 }
 
@@ -50,6 +52,9 @@ func (s Settings) normalise() Settings {
 	}
 	if s.ChartWidth != "small" && s.ChartWidth != "medium" && s.ChartWidth != "large" {
 		s.ChartWidth = defaultSettings().ChartWidth
+	}
+	if s.PaperSize != "a4" && s.PaperSize != "letter" {
+		s.PaperSize = defaultSettings().PaperSize
 	}
 	return s
 }

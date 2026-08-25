@@ -19,4 +19,5 @@ export interface Settings {
     "theme": string;
     "figureAlignment": string;
     "chartWidth": string;
+    "paperSize": string;
 }

@@ -65,8 +65,28 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		app.Event.Emit("menu:save-as")
 	})
 	file.AddSeparator()
-	orientation := file.AddSubmenu("PDF Orientation")
 	current := docs.Settings()
+	paper := file.AddSubmenu("Paper Size")
+	papers := []struct {
+		label string
+		value string
+	}{
+		{"A4", "a4"},
+		{"US Letter", "letter"},
+	}
+	for _, p := range papers {
+		value := p.value
+		paper.AddRadio(p.label, current.PaperSize == value).OnClick(func(*application.Context) {
+			// Read-modify-write the whole settings value, so this menu only
+			// ever changes the one field it owns.
+			next := docs.Settings()
+			next.PaperSize = value
+			if err := docs.UpdateSettings(next); err != nil {
+				log.Printf("could not save paper size: %v", err)
+			}
+		})
+	}
+	orientation := file.AddSubmenu("PDF Orientation")
 	orientations := []struct {
 		label string
 		value string

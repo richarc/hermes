@@ -326,6 +326,24 @@ func TestFigureSettingsAcceptEveryLegalValue(t *testing.T) {
 	}
 }
 
+func TestPaperSizeDefaultsToA4(t *testing.T) {
+	if got := defaultSettings().PaperSize; got != "a4" {
+		t.Fatalf("PaperSize = %q, want %q", got, "a4")
+	}
+}
+
+func TestPaperSizeNormalisesUnknownValues(t *testing.T) {
+	// A hand-edited settings file, or a stale binding call, must not leave the
+	// app holding a paper it cannot draw.
+	got := Settings{PaperSize: "foolscap"}.normalise().PaperSize
+	if got != "a4" {
+		t.Fatalf("PaperSize = %q, want %q", got, "a4")
+	}
+	if got := (Settings{PaperSize: "letter"}).normalise().PaperSize; got != "letter" {
+		t.Fatalf("PaperSize = %q, want %q", got, "letter")
+	}
+}
+
 func TestFigureSettingsAreIndependentOfTheOthers(t *testing.T) {
 	s := newTestService(t)
 	if err := s.UpdateSettings(Settings{
