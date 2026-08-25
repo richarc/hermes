@@ -92,13 +92,18 @@ describe('style.css palette contract', () => {
   })
 
   it('defines every variable that the rules reference', () => {
+    // --sheet-width and --sheet-margin are the one exception: lib/paper.ts's
+    // sheetStyle() sets them as inline style on the .sheet element itself, so
+    // they never appear as a declaration in style.css for paletteBlocks to
+    // find, even though the rules that read them are entirely legitimate.
+    const RUNTIME_VARIABLES = new Set(['--sheet-width', '--sheet-margin'])
     const used = new Set(
       [...CSS.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]),
     )
     const defined = new Set(
       [...paletteBlocks(CSS).matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]),
     )
-    const missing = [...used].filter((v) => !defined.has(v))
+    const missing = [...used].filter((v) => !defined.has(v) && !RUNTIME_VARIABLES.has(v))
     expect(missing).toEqual([])
   })
 

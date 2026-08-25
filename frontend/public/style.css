@@ -296,7 +296,31 @@ textarea:focus-visible,
 .panes { flex: 1; display: flex; min-height: 0; }
 .editor-pane { border-right: 1px solid var(--border); overflow: auto; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
-.preview-pane { flex: 1; overflow: auto; padding: 24px 32px; line-height: 1.6; }
+.preview-pane { flex: 1; overflow: auto; padding: 24px 0; background: var(--desk); }
+
+/* The sheet: the document drawn at true paper proportions.
+
+   `min(…, 100%)` rather than a fixed width because A4 is about 794px and a
+   split view on a 1440px window leaves the pane around 720px — so the sheet
+   often cannot be true size. It shrinks rather than clipping: text stays
+   crisp and the proportions stay right, but the absolute measure is only
+   true when the pane is wide enough. transform: scale() would keep true size
+   and is the obvious alternative; it blurs text, and it breaks the
+   getBoundingClientRect arithmetic scrollSync.ts depends on.
+
+   The margin is a percentage — see lib/paper.ts. Percentage padding resolves
+   against width, so a shrunk sheet keeps a proportionally correct margin. */
+.sheet {
+  width: min(var(--sheet-width), 100%);
+  margin: 0 auto;
+  padding: var(--sheet-margin);
+  background: var(--doc-bg);
+  color: var(--doc-fg);
+  font-family: var(--doc-font-body);
+  font-size: 11pt;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px var(--sheet-shadow);
+}
 
 /* Document typography — the global reset strips default margins, so the
    rendered markdown gets its spacing back here. These are the sheet's rules,

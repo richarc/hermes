@@ -6,11 +6,20 @@
   import { createCodeHydrator } from './lib/codeHighlight'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
+  import {
+    sheetStyle,
+    DEFAULT_PAPER_SIZE,
+    DEFAULT_ORIENTATION,
+    type PaperSize,
+    type PageOrientation,
+  } from './lib/paper'
 
   let {
     html,
     /** Hermes spelling ('left' | 'centre' | 'right'); mapped to CSS below. */
     figureAlign = 'centre',
+    paperSize = DEFAULT_PAPER_SIZE,
+    orientation = DEFAULT_ORIENTATION,
     // Injectable so tests can supply known anchors: jsdom has no layout engine
     // and would measure every element at zero. Mirrors createChartHydrator's
     // embed parameter, which exists for the same reason.
@@ -18,10 +27,19 @@
   }: {
     html: string
     figureAlign?: FigureAlignment
+    paperSize?: PaperSize
+    orientation?: PageOrientation
     collectAnchorsFn?: (c: HTMLElement) => Anchor[]
   } = $props()
 
   let container: HTMLElement
+  // Two refs, deliberately. `container` is the scroller: it owns scrollTop,
+  // the ResizeObserver, and the anchor measurements. `sheet` is the paper:
+  // it owns the rendered document. collectAnchors measures rects against the
+  // container it is given PLUS that container's scrollTop, so handing it the
+  // sheet — which never scrolls — would offset every anchor by the sheet's
+  // top margin with nothing to correct it.
+  let sheet: HTMLElement
   const hydrator = createChartHydrator()
   const mermaidHydrator = createMermaidHydrator()
   const codeHydrator = createCodeHydrator()
@@ -37,20 +55,20 @@
   }
 
   $effect(() => {
-    container.innerHTML = html
+    sheet.innerHTML = html
     // Anchor positions are invalid the moment the content changes, and again
     // once charts finish rendering — they change their own height after the
     // pass that created them.
     sync.invalidate()
-    void hydrator.hydrate(container).then(() => sync.invalidate())
+    void hydrator.hydrate(sheet).then(() => sync.invalidate())
     // Same reason the chart hydrator invalidates: a diagram changes its own
     // height after the pass that placed it, so anchors measured before it
     // rendered are wrong.
-    void mermaidHydrator.hydrate(container).then(() => sync.invalidate())
+    void mermaidHydrator.hydrate(sheet).then(() => sync.invalidate())
     // Every failure inside the hydrator already degrades to plain text; this
     // is a backstop against an unhandled rejection reaching the webview, not
     // the primary defence.
-    void codeHydrator.hydrate(container).catch(() => {})
+    void codeHydrator.hydrate(sheet).catch(() => {})
   })
 
   onMount(() => {
@@ -93,4 +111,10 @@
   data-figure-align={cssTextAlign(figureAlign)}
   bind:this={container}
   onclick={onPreviewClick}
-></div>
+>
+  <div
+    class="sheet"
+    bind:this={sheet}
+    style={sheetStyle(paperSize, orientation)}
+  ></div>
+</div>
