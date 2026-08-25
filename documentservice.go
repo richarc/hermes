@@ -184,6 +184,18 @@ func paperPoints(size string, landscape bool) (float64, float64) {
 	return w, h
 }
 
+// paperPWGName is the PWG paper name matching paperPoints' dimensions. It is
+// set on NSPrintInfo alongside the size, because setting the size alone leaves
+// the default printer's inherited name in place and some AppKit paths
+// re-derive the size from the name. Unknown names fall back to A4, in step
+// with paperPoints, so the pair can never name one paper and measure another.
+func paperPWGName(size string) string {
+	if size == "letter" {
+		return "na-letter"
+	}
+	return "iso-a4"
+}
+
 // pdfExportFilename is the name the save dialog offers: the document's own
 // name with a .pdf extension. An unsaved document has no path, so it gets the
 // same placeholder Save As uses.
@@ -215,7 +227,7 @@ func (s *DocumentService) ExportPDF(docPath string) error {
 	set := s.settings.get()
 	landscape := set.PrintOrientation == "landscape"
 	w, h := paperPoints(set.PaperSize, landscape)
-	if !exportPDF(path, landscape, w, h) {
+	if !exportPDF(path, paperPWGName(set.PaperSize), landscape, w, h) {
 		return fmt.Errorf("could not export the PDF")
 	}
 	return nil

@@ -25,6 +25,25 @@ func TestPaperPointsCoversBothPapersAndOrientations(t *testing.T) {
 	}
 }
 
+// The name and the dimensions are set on the same NSPrintInfo and must agree:
+// -setPaperName: resets the size to that paper's canonical figures, so a name
+// that disagreed with paperPoints would silently resize the page.
+func TestPaperPWGNameAgreesWithPaperPoints(t *testing.T) {
+	cases := map[string]string{
+		"letter": "na-letter",
+		"a4":     "iso-a4",
+		// Unknown papers fall back to A4 in paperPoints, so the name has to
+		// fall back with them rather than to letter or to an empty string.
+		"foolscap": "iso-a4",
+		"":         "iso-a4",
+	}
+	for in, want := range cases {
+		if got := paperPWGName(in); got != want {
+			t.Errorf("paperPWGName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestPDFExportFilenameSwapsTheExtension(t *testing.T) {
 	cases := map[string]string{
 		"/Users/x/Papers/thesis.md":      "thesis.pdf",

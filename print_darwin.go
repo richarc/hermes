@@ -102,8 +102,9 @@ static int hermesPrintWebView(int landscape) {
 // export would come out with margins roughly double what the sheet drew.
 //
 // Returns 0 if the webview could not be located.
-static int hermesExportWebViewPDF(const char *path, int landscape,
-                                  double paperWidth, double paperHeight) {
+static int hermesExportWebViewPDF(const char *path, const char *paperName,
+                                  int landscape, double paperWidth,
+                                  double paperHeight) {
 	if (@available(macOS 11.0, *)) {
 		NSWindow *window = [NSApp keyWindow] ?: [NSApp mainWindow];
 		if (!window) {
@@ -119,6 +120,29 @@ static int hermesExportWebViewPDF(const char *path, int landscape,
 		NSPrintInfo *pInfo = [[NSPrintInfo sharedPrintInfo] copy];
 		pInfo.horizontalPagination = NSPrintingPaginationModeAutomatic;
 		pInfo.verticalPagination = NSPrintingPaginationModeAutomatic;
+		// paperName BEFORE paperSize, and do not tidy these two lines into the
+		// other order.
+		//
+		// The copy inherits both NSPrintPaperName and NSPrintPaperSize from the
+		// shared print info, which is seeded from the default printer. Setting
+		// only the size can leave a name behind that names a different paper —
+		// a user whose default printer is US Letter, exporting at A4, would
+		// carry a stale "na-letter" into any AppKit path that re-derives the
+		// size from the name, and get a Letter PDF whose measure disagrees with
+		// the sheet they wrote against. That is exactly the second-source-of-
+		// truth bug this whole export path exists to eliminate, and it stays
+		// invisible until a journal portal rejects the page size. So the name
+		// is set explicitly rather than left to be inferred.
+		//
+		// The order matters because -setPaperName: also resets paperSize to
+		// that paper's canonical size — measured: setting "iso-a4" yields
+		// 595.00 x 842.00, the rounded catalogue figure, not the 595.28 x
+		// 841.89 the sheet is drawn at. Name first establishes the paper;
+		// size second pins the exact dimensions. Reversed, the name would
+		// overwrite the size we just asked for. An unrecognised name is a
+		// silent no-op (measured — it does not raise), and paperPoints only
+		// ever pairs a name with its own dimensions, so the two cannot drift.
+		pInfo.paperName = [NSString stringWithUTF8String:paperName];
 		pInfo.paperSize = NSMakeSize(paperWidth, paperHeight);
 		pInfo.orientation = landscape ? NSPaperOrientationLandscape
 		                              : NSPaperOrientationPortrait;
@@ -168,16 +192,28 @@ func printWithOrientation(landscape bool) bool {
 }
 
 // exportPDF renders the webview to a PDF at path with no print panel, so the
-// paper the sheet was drawn at is the paper the export uses. Returns false if
-// the webview wasn't found.
-func exportPDF(path string, landscape bool, paperWidth, paperHeight float64) bool {
+// paper the sheet was drawn at is the paper the export uses. paperName is the
+// PWG name of that paper ("iso-a4", "na-letter"), which must agree with the
+// dimensions — see the ordering note in hermesExportWebViewPDF.
+//
+// The returned bool means "the webview was found and the operation was
+// started", NOT "the PDF was written". runOperationModalForWindow: is
+// document-modal: it returns as soon as the sheet is on screen, long before a
+// byte reaches disk, so a read-only volume or a sandbox denial produces no
+// file, no error here, and nothing for the caller to tell the user about.
+// That limitation is inherited from the print path, which has the same shape;
+// reporting a real write failure would mean taking the didRunSelector
+// callback and plumbing the result back across the cgo boundary.
+func exportPDF(path, paperName string, landscape bool, paperWidth, paperHeight float64) bool {
 	l := C.int(0)
 	if landscape {
 		l = 1
 	}
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
+	cName := C.CString(paperName)
+	defer C.free(unsafe.Pointer(cName))
 	return application.InvokeSyncWithResult(func() bool {
-		return C.hermesExportWebViewPDF(cPath, l, C.double(paperWidth), C.double(paperHeight)) != 0
+		return C.hermesExportWebViewPDF(cPath, cName, l, C.double(paperWidth), C.double(paperHeight)) != 0
 	})
 }

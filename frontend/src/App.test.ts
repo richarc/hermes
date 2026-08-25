@@ -744,6 +744,40 @@ describe('insert code block', () => {
   })
 })
 
+describe('export PDF', () => {
+  // The export dialog names the file after the document, so the path has to
+  // reach Go. Nothing static can catch a regression here: ExportPDF's
+  // parameter is a plain string, so passing null for an unsaved document
+  // would type-check and produce a nonsense filename.
+  it('passes an empty path when no document is open', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+
+    listeners['menu:export-pdf']({ data: null })
+    flushSync()
+
+    expect(DocumentService.ExportPDF).toHaveBeenCalledWith('')
+  })
+
+  it('passes the open document’s path once one is open', async () => {
+    recents.current = ['/tmp/paper.md']
+    DocumentService.OpenPath.mockResolvedValueOnce({
+      path: '/tmp/paper.md',
+      content: '# Results\n',
+    })
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+    await vi.waitFor(() => expect(target.textContent).toContain('Results'))
+
+    listeners['menu:export-pdf']({ data: null })
+    flushSync()
+
+    expect(DocumentService.ExportPDF).toHaveBeenCalledWith('/tmp/paper.md')
+  })
+})
+
 describe('figure settings', () => {
   it('publishes the persisted alignment onto the preview pane', async () => {
     settings.current = { ...DEFAULT_SETTINGS, figureAlignment: 'right' }
