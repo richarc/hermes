@@ -350,13 +350,26 @@ like one program.
       and `--syn-function` — now cover the token roles, comments reuse
       `--syn-meta` rather than getting a name of their own, and the same code
       looks the same in the editor, the preview and the PDF.
-- [ ] Settle the best styling and rendering approach for the preview and the
-      PDF. These are one problem, not two: the PDF is the preview under the
-      `@media print` palette, printed through the system panel. The open
-      questions are whether print should keep tracking the screen stylesheet
-      or diverge deliberately (it already overrides the whole palette and
-      hides the chrome), and whether the print panel remains the export route
-      — the backlog carries a dialog-free export idea if it proves clunky.
+- [x] Settle the best styling and rendering approach for the preview and the
+      PDF. The question underneath the two the roadmap named: the preview had
+      no document typography at all, so a paper rendered full-bleed in the
+      macOS UI font and print was a set of patches on top. The preview is now
+      a page — a white sheet on a desk, `ui-serif` at 11pt/1.5, true paper
+      proportions from a new `PaperSize` setting crossed with the existing
+      orientation, and a 25mm margin (up from 20mm, which gave an
+      ~88-character measure). The sheet stays white in dark mode, which is the
+      decision the rest follows from: the document region is always light, so
+      the palette splits into theme-varying chrome and an invariant `--doc-*`
+      set, the fifty-line `@media print` palette override is deleted rather
+      than maintained, and so are the three figure-card tokens that mounted
+      transparent figures against a dark ground. Print therefore no longer
+      tracks the screen stylesheet because there is nothing left to track.
+      Export left the print panel too: the sheet must know its paper size to
+      be drawn, which made the panel's paper picker a second source of truth
+      for the same fact. Accepted limitation: A4 is ~794px, so in a split view
+      the sheet is often shrunk below true size — proportions stay right, the
+      absolute measure does not. Design:
+      [docs/superpowers/specs/2026-08-25-preview-and-pdf-styling-design.md](docs/superpowers/specs/2026-08-25-preview-and-pdf-styling-design.md).
 
 ## v0.9.0 — Authoring and output
 
@@ -608,8 +621,6 @@ Ideas noted along the way, not yet committed to a release:
 - File a Wails issue for the hardcoded landscape print orientation (their
   code carries a TODO inviting a config option; Hermes ships its own print
   path meanwhile).
-- Dialog-free PDF export (e.g. headless rendering) if the print panel proves
-  clunky.
 - Windows/Linux support (paths, menus, and print behavior are currently
   macOS-focused).
 - Security hardening for third-party documents. A `.md` file can cause the app
