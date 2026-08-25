@@ -13,8 +13,16 @@ export function ClearRecents(): $CancellablePromise<void> {
     return $Call.ByID(3493938995);
 }
 
-export function ExportPDF(): $CancellablePromise<void> {
-    return $Call.ByID(2450231792);
+/**
+ * ExportPDF asks for a destination and renders the document there with no
+ * print panel. The panel is deliberately not used: paper size is a setting
+ * now, because the preview draws the sheet at that size, and the panel's own
+ * paper picker would be a second source of truth for the same fact — a user
+ * who changed it there would get a PDF whose measure did not match the sheet
+ * they wrote against.
+ */
+export function ExportPDF(docPath: string): $CancellablePromise<void> {
+    return $Call.ByID(2450231792, docPath);
 }
 
 /**
@@ -46,6 +54,15 @@ export function OpenPath(path: string): $CancellablePromise<$models.Document> {
  */
 export function PickCitations(): $CancellablePromise<string> {
     return $Call.ByID(873413501);
+}
+
+/**
+ * PrintDocument opens the system print panel. Picking a printer and a tray is
+ * a job the panel is genuinely good at; picking paper is not, which is why
+ * export no longer goes through here.
+ */
+export function PrintDocument(): $CancellablePromise<void> {
+    return $Call.ByID(2407220630);
 }
 
 export function Quit(): $CancellablePromise<void> {

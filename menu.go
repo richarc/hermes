@@ -106,8 +106,14 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 			}
 		})
 	}
+	// Export goes through an event rather than calling the service directly:
+	// the save dialog offers a filename derived from the document's own path,
+	// and only the frontend knows what that path currently is.
 	file.Add("Export PDF…").SetAccelerator("cmdorctrl+e").OnClick(func(*application.Context) {
-		docs.ExportPDF()
+		app.Event.Emit("menu:export-pdf")
+	})
+	file.Add("Print…").SetAccelerator("cmdorctrl+p").OnClick(func(*application.Context) {
+		docs.PrintDocument()
 	})
 
 	menu.AddRole(application.EditMenu)

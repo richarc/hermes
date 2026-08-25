@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -169,7 +170,61 @@ func (s *DocumentService) UpdateSettings(next Settings) error {
 	return s.settings.set(next)
 }
 
-func (s *DocumentService) ExportPDF() {
+// paperPoints returns a paper's width and height in PostScript points, which
+// is the unit NSPrintInfo works in. An unknown name falls back to A4 rather
+// than to a zero-sized page.
+func paperPoints(size string, landscape bool) (float64, float64) {
+	w, h := 595.28, 841.89 // A4
+	if size == "letter" {
+		w, h = 612, 792
+	}
+	if landscape {
+		return h, w
+	}
+	return w, h
+}
+
+// pdfExportFilename is the name the save dialog offers: the document's own
+// name with a .pdf extension. An unsaved document has no path, so it gets the
+// same placeholder Save As uses.
+func pdfExportFilename(docPath string) string {
+	if docPath == "" {
+		return "untitled.pdf"
+	}
+	base := filepath.Base(docPath)
+	return strings.TrimSuffix(base, filepath.Ext(base)) + ".pdf"
+}
+
+// ExportPDF asks for a destination and renders the document there with no
+// print panel. The panel is deliberately not used: paper size is a setting
+// now, because the preview draws the sheet at that size, and the panel's own
+// paper picker would be a second source of truth for the same fact — a user
+// who changed it there would get a PDF whose measure did not match the sheet
+// they wrote against.
+func (s *DocumentService) ExportPDF(docPath string) error {
+	if s.window == nil {
+		return nil
+	}
+	path, err := application.Get().Dialog.SaveFile().
+		SetMessage("Export PDF").
+		SetFilename(pdfExportFilename(docPath)).
+		PromptForSingleSelection()
+	if err != nil || path == "" {
+		return err
+	}
+	set := s.settings.get()
+	landscape := set.PrintOrientation == "landscape"
+	w, h := paperPoints(set.PaperSize, landscape)
+	if !exportPDF(path, landscape, w, h) {
+		return fmt.Errorf("could not export the PDF")
+	}
+	return nil
+}
+
+// PrintDocument opens the system print panel. Picking a printer and a tray is
+// a job the panel is genuinely good at; picking paper is not, which is why
+// export no longer goes through here.
+func (s *DocumentService) PrintDocument() {
 	if s.window == nil {
 		return
 	}

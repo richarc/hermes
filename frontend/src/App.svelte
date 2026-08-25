@@ -533,6 +533,9 @@
     Events.On('recents:changed', () => void refreshRecents())
     Events.On('bib:changed', () => void reloadBibliography())
     Events.On('menu:insert-citation', () => void insertCitation())
+    Events.On('menu:export-pdf', () => {
+      void DocumentService.ExportPDF(path ?? '').catch((e) => toast(String(e)))
+    })
     Events.On('menu:insert-chart', () => openChartBuilder())
     Events.On('menu:insert-code', (ev: { data: unknown }) => {
       // '' is the Plain text item, and a legitimate payload — a bare fence.
@@ -577,7 +580,7 @@
     <button onclick={() => void save()}>Save</button>
     <button onclick={() => void insertCitation()}>Cite</button>
     <button onclick={openChartBuilder}>Chart</button>
-    <button onclick={() => void DocumentService.ExportPDF()}>Export PDF</button>
+    <button onclick={() => void DocumentService.ExportPDF(path ?? '').catch((e) => toast(String(e)))}>Export PDF</button>
   </header>
 
   <main class="panes">
