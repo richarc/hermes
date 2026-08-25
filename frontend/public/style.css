@@ -602,15 +602,24 @@ dialog::backdrop { background: var(--backdrop); }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 
 @media print {
+  /* What is left here is only what is genuinely print-specific. The document
+     palette does not appear: the sheet is invariant light on screen already,
+     so there is nothing to re-light — which is the whole reason this block
+     used to be fifty lines longer. */
   .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog {
     display: none !important;
   }
   .panes { display: block; }
   .preview-pane {
-    overflow: visible; padding: 0;
-    font-size: 11pt; line-height: 1.5;
+    overflow: visible; padding: 0; background: none;
+  }
+  /* The sheet flattens: @page owns the paper margin when printing, so keeping
+     the sheet's own percentage padding would apply the margin twice. The
+     shadow and the desk are chrome and simply go. */
+  .sheet {
+    width: auto; padding: 0; box-shadow: none;
   }
   .katex-display, .vega-lite-chart, .mermaid-diagram, figure, .chart-error, .csl-entry { break-inside: avoid; }
   h1, h2, h3 { break-after: avoid; }
-  @page { margin: 2cm; }
+  @page { margin: 25mm; }
 }

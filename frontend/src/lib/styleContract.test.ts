@@ -210,6 +210,26 @@ describe('figure alignment', () => {
   })
 })
 
+describe('print', () => {
+  const print = CSS.slice(CSS.indexOf('@media print'))
+
+  it('flattens the sheet so the page margin is not applied twice', () => {
+    // @page supplies the paper margin when printing. A sheet that kept its
+    // percentage padding would add a second one inside it, and every export
+    // would come out with margins roughly double what the screen promised.
+    expect(print).toMatch(/\.sheet[^{]*\{[^}]*padding: 0/)
+    expect(print).toMatch(/\.sheet[^{]*\{[^}]*width: auto/)
+  })
+
+  it('drops the sheet shadow, which is chrome rather than document', () => {
+    expect(print).toMatch(/\.sheet[^{]*\{[^}]*box-shadow: none/)
+  })
+
+  it('uses the same page margin the sheet draws', () => {
+    expect(print).toMatch(/@page\s*\{[^}]*margin: 25mm/)
+  })
+})
+
 describe('control styling', () => {
   const css = stripComments(CSS)
 
