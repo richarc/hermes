@@ -128,9 +128,9 @@ describe('code token styling', () => {
     for (const role of CODE_TOKENS) {
       const variable = role.palette ?? role.name
       const re = new RegExp(
-        `\\.preview-pane\\s+\\.tok-${role.name}\\s*\\{[^}]*color:\\s*var\\(--syn-${variable}\\)`,
+        `\\.sheet\\s+\\.tok-${role.name}\\s*\\{[^}]*color:\\s*var\\(--doc-syn-${variable}\\)`,
       )
-      expect(CSS, `no preview rule for tok-${role.name}`).toMatch(re)
+      expect(CSS, `no sheet rule for tok-${role.name}`).toMatch(re)
     }
   })
 })
@@ -143,7 +143,7 @@ function blockNames(css: string, selector: string): string[] {
 }
 
 describe('dark palette', () => {
-  it('overrides exactly the variables the light palette defines', () => {
+  it('overrides exactly the chrome variables the light palette defines', () => {
     const light = blockNames(CSS, ':root')
     const dark = blockNames(CSS, ':root[data-theme="dark"]')
     // A name defined light-only is a rule that stays light in dark mode —
@@ -151,27 +151,29 @@ describe('dark palette', () => {
     expect([...light].sort()).toEqual([...dark].sort())
   })
 
-  it('forces a light palette back for print', () => {
-    const print = CSS.slice(CSS.indexOf('@media print'))
-    expect(print).toContain(':root[data-theme="dark"]')
-    expect(print).toContain('--fg:')
-    expect(print).toContain('--bg:')
-    expect(print).toContain('--figure-bg:')
+  it('declares no document tokens in a theme block', () => {
+    // The sheet is white in dark mode, so the document palette is invariant.
+    // A --doc-* name appearing under a theme selector is that invariant
+    // quietly broken, and it would look correct in whichever theme the
+    // author happened to have open.
+    expect(blockNames(CSS, ':root').filter((n) => n.startsWith('--doc-'))).toEqual([])
+    expect(
+      blockNames(CSS, ':root[data-theme="dark"]').filter((n) => n.startsWith('--doc-')),
+    ).toEqual([])
   })
 
-  it('declares exactly the same variables in print as light and dark', () => {
-    // The print block is a *third* palette, not a footnote on the dark one:
-    // data-theme="dark" is still on the root when printing, so any variable
-    // the print block omits falls through to the dark block's value instead
-    // of print's. A name missing here passes every other check — parity
-    // between light and dark, no literal colours — and only shows up as a
-    // dark-mode PDF export with (for example) near-white headings on paper.
-    // The print selector is the comma-joined `:root, :root[data-theme="dark"]`
-    // inside `@media print`; match that exact selector so this reads the
-    // print block and not the standalone dark block above it.
-    const light = blockNames(CSS, ':root')
-    const print = blockNames(CSS, ':root, :root[data-theme="dark"]')
-    expect([...print].sort()).toEqual([...light].sort())
+  it('declares no palette variables at all inside @media print', () => {
+    // Print used to re-light a dark document; the document is now always
+    // light, so there is nothing to re-light. A palette declaration
+    // reappearing here means someone reintroduced a second source of truth
+    // for the document's colours.
+    const print = CSS.slice(CSS.indexOf('@media print'))
+    expect(print.match(/^\s*--[a-z0-9-]+\s*:/gm) ?? []).toEqual([])
+  })
+
+  it('declares every document token exactly once', () => {
+    const doc = [...CSS.matchAll(/^\s*(--doc-[a-z0-9-]+)\s*:/gm)].map((m) => m[1])
+    expect([...new Set(doc)].sort()).toEqual([...doc].sort())
   })
 })
 

@@ -60,6 +60,20 @@ const PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
   ['syntax function', '--syn-function', '--editor-bg', 4.5],
 ]
 
+/** The document palette is one invariant light set, so it is one list. */
+const DOC_PAIRS: Array<[label: string, fg: string, bg: string, target: number]> = [
+  ['document text', '--doc-fg', '--doc-bg', 7],
+  ['document muted', '--doc-muted', '--doc-bg', 4.5],
+  ['document link', '--doc-link', '--doc-bg', 4.5],
+  ['doc syntax keyword', '--doc-syn-keyword', '--doc-bg', 4.5],
+  ['doc syntax string', '--doc-syn-string', '--doc-bg', 4.5],
+  ['doc syntax number', '--doc-syn-number', '--doc-bg', 4.5],
+  ['doc syntax type', '--doc-syn-type', '--doc-bg', 4.5],
+  ['doc syntax function', '--doc-syn-function', '--doc-bg', 4.5],
+  ['doc syntax meta', '--doc-syn-meta', '--doc-bg', 4.5],
+  ['doc syntax link', '--doc-syn-link', '--doc-bg', 4.5],
+]
+
 function check(selector: string) {
   const p = palette(selector)
   const failures: string[] = []
@@ -81,5 +95,21 @@ describe('palette contrast', () => {
 
   it('meets every target in the dark palette', () => {
     expect(check(':root[data-theme="dark"]')).toEqual([])
+  })
+
+  it('meets every target in the document palette', () => {
+    // The print palette was never contrast-checked, on the reasoning that a
+    // separate set would be numbers nothing verifies. With one invariant
+    // document palette that reasoning no longer applies — this set is what
+    // both the screen and the PDF actually use.
+    const p = palette('.sheet')
+    const failures: string[] = []
+    for (const [label, fgVar, bgVar, target] of DOC_PAIRS) {
+      const ratio = contrast(p[fgVar], p[bgVar])
+      if (ratio < target) {
+        failures.push(`${label}: ${ratio.toFixed(2)}:1 (needs ${target}:1)`)
+      }
+    }
+    expect(failures).toEqual([])
   })
 })

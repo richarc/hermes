@@ -31,10 +31,10 @@
   --cite-error-fg: #b30000;
   --cite-error-bg: #fff5f5;
 
-  /* Figures are cards only in dark mode; light keeps today's layout exactly. */
-  --figure-bg: transparent;
-  --figure-pad: 0;
-  --figure-radius: 0;
+  /* The ground the sheet sits on. Distinct from --bg because in light mode
+     --bg is nearly white and the sheet would have no edge against it. */
+  --desk: #e4e4e4;
+  --sheet-shadow: rgba(0, 0, 0, 0.14);
 
   /* CodeMirror reads these through var() in its generated stylesheet, so
      switching themes needs no reconfiguration. See Editor.svelte. */
@@ -97,12 +97,8 @@
   --cite-error-fg: #ff9a9a;
   --cite-error-bg: #3a2222;
 
-  /* Vega draws in dark ink on a transparent ground, so a figure needs a light
-     card to stay readable — and this way charts match the exported PDF and the
-     hydrator's spec-text cache stays valid across a theme change. */
-  --figure-bg: #ffffff;
-  --figure-pad: 12px;
-  --figure-radius: 6px;
+  --desk: #161616;
+  --sheet-shadow: rgba(0, 0, 0, 0.5);
 
   --editor-bg: #1f1f1f;
   --editor-fg: #d0d0d0;
@@ -123,6 +119,41 @@
   --syn-number: #e0a878;
   --syn-type: #7fd0d0;
   --syn-function: #8fb8f0;
+}
+
+/* The document palette. Declared once, light, and deliberately outside every
+   theme selector: the sheet is white in dark mode, so a paper's colours do
+   not vary at all. That invariance is what lets the print stylesheet declare
+   no palette of its own — there is nothing left to re-light.
+   Named --doc-* rather than reusing --fg and friends so that a rule under the
+   sheet says at the point of use which of the two palettes it means.
+   Enforced by styleContract.test.ts and measured by contrast.test.ts. */
+.sheet {
+  --doc-bg: #ffffff;
+  --doc-fg: #000000;
+  --doc-muted: #555555;
+  --doc-border: #cccccc;
+  --doc-link: #0b62d6;
+  --doc-surface-code-block: #f6f6f6;
+  --doc-surface-code-inline: #f2f2f2;
+
+  /* ui-serif resolves to New York on macOS: a text face Apple designed for
+     screen and print, so it costs nothing to bundle and pairs with the SF
+     chrome around it. One token, so swapping in a bundled academic serif
+     later is this line rather than a refactor. */
+  --doc-font-body: ui-serif, 'New York', Georgia, serif;
+  --doc-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Code tokens on paper. These were previously the --syn-* set shared with
+     the editor; they are duplicated rather than shared because the editor's
+     ground follows the theme and the sheet's never does. */
+  --doc-syn-keyword: #7b2d8e;
+  --doc-syn-string: #1a6b3a;
+  --doc-syn-number: #9a4a00;
+  --doc-syn-type: #0d6b6b;
+  --doc-syn-function: #1a4fa0;
+  --doc-syn-meta: #6b6b6b;
+  --doc-syn-link: #0b62d6;
 }
 
 html, body {
@@ -268,78 +299,71 @@ textarea:focus-visible,
 .preview-pane { flex: 1; overflow: auto; padding: 24px 32px; line-height: 1.6; }
 
 /* Document typography — the global reset strips default margins, so the
-   rendered markdown gets its spacing back here. */
-.preview-pane p,
-.preview-pane ul,
-.preview-pane ol,
-.preview-pane blockquote,
-.preview-pane pre,
-.preview-pane table,
-.preview-pane .katex-display { margin-bottom: 0.9em; }
-.preview-pane h1, .preview-pane h2, .preview-pane h3,
-.preview-pane h4, .preview-pane h5, .preview-pane h6 {
-  margin: 1.3em 0 0.5em; line-height: 1.25;
+   rendered markdown gets its spacing back here. These are the sheet's rules,
+   not the pane's: everything here describes a page, and reads the invariant
+   document palette rather than the theme. */
+.sheet p,
+.sheet ul,
+.sheet ol,
+.sheet blockquote,
+.sheet pre,
+.sheet table,
+.sheet .katex-display { margin-bottom: 0.9em; }
+.sheet h1, .sheet h2, .sheet h3,
+.sheet h4, .sheet h5, .sheet h6 {
+  margin: 1.3em 0 0.5em; line-height: 1.25; font-weight: 600;
 }
-.preview-pane > h1:first-child, .preview-pane > h2:first-child { margin-top: 0; }
-.preview-pane ul, .preview-pane ol { padding-left: 1.7em; }
-.preview-pane li { margin: 0.25em 0; }
-.preview-pane li > ul, .preview-pane li > ol { margin-bottom: 0; }
-.preview-pane blockquote {
-  padding-left: 1em; border-left: 3px solid var(--border); color: var(--muted-strong);
+.sheet h1 { font-size: 1.75em; }
+.sheet h2 { font-size: 1.45em; }
+.sheet h3 { font-size: 1.2em; }
+.sheet h4, .sheet h5, .sheet h6 { font-size: 1em; }
+.sheet > h1:first-child, .sheet > h2:first-child { margin-top: 0; }
+.sheet ul, .sheet ol { padding-left: 1.7em; }
+.sheet li { margin: 0.25em 0; }
+.sheet li > ul, .sheet li > ol { margin-bottom: 0; }
+.sheet blockquote {
+  padding-left: 1em; border-left: 3px solid var(--doc-border); color: var(--doc-muted);
 }
-.preview-pane pre {
-  background: var(--surface-code-block); padding: 12px; border-radius: 6px; overflow-x: auto;
+.sheet pre {
+  background: var(--doc-surface-code-block); padding: 12px; border-radius: 6px; overflow-x: auto;
 }
-.preview-pane code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+.sheet code {
+  font-family: var(--doc-font-mono); font-size: 0.9em;
 }
-.preview-pane :not(pre) > code {
-  background: var(--surface-code-inline); padding: 0.1em 0.3em; border-radius: 4px;
+.sheet :not(pre) > code {
+  background: var(--doc-surface-code-inline); padding: 0.1em 0.3em; border-radius: 4px;
 }
-/* Code tokens in the preview. The class names come from lib/syntaxTags.ts and
-   the colours from the same palette variables the editor's HighlightStyle
-   uses, so a block looks identical in both panes and follows the theme. */
-.preview-pane .tok-keyword { color: var(--syn-keyword); }
-.preview-pane .tok-string { color: var(--syn-string); }
-.preview-pane .tok-number { color: var(--syn-number); }
-.preview-pane .tok-type { color: var(--syn-type); }
-.preview-pane .tok-function { color: var(--syn-function); }
-.preview-pane .tok-comment { color: var(--syn-meta); }
-.preview-pane .tok-link { color: var(--syn-link); }
-.preview-pane table { border-collapse: collapse; }
-.preview-pane th, .preview-pane td { border: 1px solid var(--border); padding: 6px 10px; }
-.preview-pane hr { border: 0; border-top: 1px solid var(--border); margin: 1.5em 0; }
-.preview-pane img { max-width: 100%; }
-.preview-pane a { color: var(--link); }
-
-/* A figure exported with a transparent background (matplotlib, R,
-   Illustrator) is dark ink on a transparent ground, same as a Vega chart —
-   near-invisible in dark mode without a light mount. In light mode the three
-   variables resolve to transparent/0/0, so this is a no-op there, and print
-   collapses the same way. The accepted cost: an image that already carries
-   its own background (a photo, a screenshot) also gains the mount. */
-.preview-pane .mermaid-diagram,
-.preview-pane .vega-lite-chart,
-.preview-pane img {
-  background: var(--figure-bg);
-  padding: var(--figure-pad);
-  border-radius: var(--figure-radius);
-}
+/* Code tokens on the sheet. The class names come from lib/syntaxTags.ts, the
+   same list the editor's HighlightStyle derives from, so a role cannot exist
+   in one pane and not the other. The colours differ deliberately: the editor
+   sits on a themed ground, the sheet on paper. */
+.sheet .tok-keyword { color: var(--doc-syn-keyword); }
+.sheet .tok-string { color: var(--doc-syn-string); }
+.sheet .tok-number { color: var(--doc-syn-number); }
+.sheet .tok-type { color: var(--doc-syn-type); }
+.sheet .tok-function { color: var(--doc-syn-function); }
+.sheet .tok-comment { color: var(--doc-syn-meta); }
+.sheet .tok-link { color: var(--doc-syn-link); }
+.sheet table { border-collapse: collapse; }
+.sheet th, .sheet td { border: 1px solid var(--doc-border); padding: 6px 10px; }
+.sheet hr { border: 0; border-top: 1px solid var(--doc-border); margin: 1.5em 0; }
+.sheet img { max-width: 100%; }
+.sheet a { color: var(--doc-link); }
 
 /* A figure is a caption plus what it captions; the caption is real text in
    the HTML, not a CSS counter, so it survives copy-paste and PDF extraction. */
-.preview-pane figure { margin-bottom: 0.9em; }
-.preview-pane figcaption {
+.sheet figure { margin-bottom: 0.9em; }
+.sheet figcaption {
   margin-top: 0.5em;
   font-size: 0.9em;
-  color: var(--muted-strong);
+  color: var(--doc-muted);
 }
 
 /* A fixed-width chart can exceed a narrowed preview pane, and .preview-pane
    scrolls — so without this the whole pane scrolls sideways. Scaling an
    oversized chart down shrinks its label text slightly at extreme pane
    widths; that is the better failure. */
-.preview-pane .vega-lite-chart svg, .preview-pane .mermaid-diagram svg { max-width: 100%; height: auto; }
+.sheet .vega-lite-chart svg, .sheet .mermaid-diagram svg { max-width: 100%; height: auto; }
 
 /* Figure alignment, driven by one attribute on the preview root rather than a
    class injected per element. Charts and images are listed alongside `figure`
@@ -554,62 +578,6 @@ dialog::backdrop { background: var(--backdrop); }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 
 @media print {
-  /* Exported PDFs are always light, and use pure black on white rather than
-     either screen palette. Ink does not glare the way a backlit screen does,
-     and black-on-white is the academic convention. Browsers drop background
-     colours when printing but honour text colour, so without this override a
-     dark-theme export is near-white text on white paper — invisible on
-     screen, total on paper.
-     The dark selector is listed too and comes last, so it wins the tie. */
-  :root, :root[data-theme="dark"] {
-    color-scheme: light;
-    --bg: #ffffff;
-    --fg: #000000;
-    --border: #dddddd;
-    --border-strong: #cccccc;
-    --muted: #666666;
-    --muted-strong: #555555;
-    --surface: #f5f5f5;
-    --surface-code-block: #f6f6f6;
-    --surface-code-inline: #f2f2f2;
-    --divider: #eeeeee;
-    --link: #0b62d6;
-    --accent: #0b62d6;
-    --on-accent: #ffffff;
-    --overlay-bg: #ffffff;
-    --backdrop: rgba(0, 0, 0, 0.4);
-    --toast-bg: #333333;
-    --toast-fg: #ffffff;
-    --chart-error-fg: #cc0000;
-    --chart-error-bg: #fff5f5;
-    --cite-error-fg: #cc0000;
-    --cite-error-bg: #fff5f5;
-    --figure-bg: transparent;
-    --figure-pad: 0;
-    --figure-radius: 0;
-    --editor-bg: #ffffff;
-    --editor-fg: #000000;
-    --editor-caret: #000000;
-    --editor-selection: #d7d4f0;
-    --editor-gutter-bg: #f5f5f5;
-    --editor-gutter-fg: #6c6c6c;
-    --editor-active-line: #cceeff44;
-    --syn-heading: #0b3d91;
-    --syn-emphasis: #6a4a00;
-    --syn-code: #7a1f7a;
-    --syn-link: #0b62d6;
-    --syn-quote: #555555;
-    --syn-meta: #888888;
-    /* The light values: exported PDFs are always light, these are already dark
-       enough for paper, and contrast.test.ts does not check the print block —
-       a separate set would be five more numbers nothing verifies. */
-    --syn-keyword: #7b2d8e;
-    --syn-string: #1a6b3a;
-    --syn-number: #9a4a00;
-    --syn-type: #0d6b6b;
-    --syn-function: #1a4fa0;
-  }
-
   .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog {
     display: none !important;
   }
