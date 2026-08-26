@@ -20,6 +20,35 @@ var assets embed.FS
 
 // main function serves as the application's entry point. It initializes the application, creates a window,
 // runs the application, and logs any error that might occur.
+// The window background is what shows for the moment before the webview
+// paints, so it has to match what the webview is about to paint — these are a
+// second copy of the --bg tokens in frontend/public/style.css, kept because Go
+// cannot read that file. They have drifted twice; windowbg_test.go now reads
+// the stylesheet and fails if either copy moves without the other.
+//
+// Written as hex bytes rather than decimal so the two files read the same way.
+// Checking #1f1f1f against #1f1f1f is a glance; checking it against
+// NewRGB(31, 31, 31) is arithmetic, and arithmetic is what nobody does on the
+// way past — which is how the drift happened.
+var (
+	lightWindowBg = application.NewRGB(0xfc, 0xfc, 0xfc)
+	darkWindowBg  = application.NewRGB(0x1f, 0x1f, 0x1f)
+)
+
+// windowBackground is the colour the window wears until the webview's first
+// frame arrives. Split out of main so it is testable — AppKit window creation
+// is not exercisable headlessly, the same reason feedbackURL and quitRequest
+// are separate from what calls them.
+//
+// "system" keeps the light value: resolving it would mean reading the OS
+// appearance through cgo, which is disproportionate for a flash at launch.
+func windowBackground(theme string) application.RGBA {
+	if theme == "dark" {
+		return darkWindowBg
+	}
+	return lightWindowBg
+}
+
 func main() {
 
 	recentsPath, err := xdg.DataFile("hermes/recents.json")
@@ -49,17 +78,7 @@ func main() {
 		},
 	})
 
-	// The window background is what shows for the moment before the webview
-	// paints. #1f1f1f here is the same value as the dark --bg in
-	// frontend/public/style.css; Go cannot read that file, so if you change one
-	// change the other.
-	//
-	// "system" keeps the light value: resolving it would mean reading the OS
-	// appearance through cgo, which is disproportionate for a flash at launch.
-	windowBg := application.NewRGB(252, 252, 252) // #fcfcfc, the light --bg
-	if docs.Settings().Theme == "dark" {
-		windowBg = application.NewRGB(31, 31, 31) // #1f1f1f, the dark --bg
-	}
+	windowBg := windowBackground(docs.Settings().Theme)
 
 	// Create a new window with the necessary options.
 	// 'Title' is the title of the window.

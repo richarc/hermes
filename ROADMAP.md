@@ -373,12 +373,18 @@ like one program.
 
 ## v0.9.0 — Bug fixes and pre-production
 
-- [ ] Work the deferred review findings below. The three that lost the user's
-      work — ⌘Q quitting without a prompt, ⌘Z after File → New resurrecting the
-      previous document, and the Zotero picker stranding you on another Space —
-      were fixed on 2026-08-09 rather than waiting for this release, and have
-      been struck from the list. What remains is maintainability and test
-      coverage, none of it urgent.
+- [x] Work the deferred review findings below. Done 2026-08-26. The three that
+      lost the user's work — ⌘Q quitting without a prompt, ⌘Z after File → New
+      resurrecting the previous document, and the Zotero picker stranding you
+      on another Space — were fixed on 2026-08-09 rather than waiting for this
+      release. Four more went in now: Insert → Chart… no longer deletes a
+      selection, ⌘Q with the builder open refuses out loud instead of doing
+      nothing at all, the window background is checked against the palette by a
+      test rather than by eye, and the scroll-sync frame is cancelled on
+      unmount. All seven are struck from the list below.
+      Two entries remain there deliberately. They are not debt — they record a
+      limitation and a decision not to write a particular test, and both are
+      worth keeping written down so neither is rediscovered as news.
 - [x] **A Help menu.** Shipped 2026-08-23. Hermes had none — `menu.go` added
       App, File, Edit, Insert, Format, View and Window — and Wails' `HelpMenu`
       role is no use, containing a single "Learn More" item pointing at
@@ -670,40 +676,18 @@ Ideas noted along the way, not yet committed to a release:
 
 Real findings from the v0.4, v0.5 and v0.8 code reviews and from manual
 testing, judged not to block those releases. Recorded so they are not
-rediscovered from scratch:
+rediscovered from scratch; struck as they are fixed.
 
-- Insert → Chart… destroys a selection. `commitChart`'s insert branch routes
-  through `editor.insertBlockAtCursor`, which is built on `replaceSelection`,
-  so selecting a paragraph and inserting a chart deletes the paragraph with no
-  prompt. Surfaced while designing Insert → Code Block, which had to avoid the
-  same trap and wraps the selection instead (`insertCodeBlockAtCursor`) — but
-  changing the chart path in passing was out of that design's scope. The fix is
-  presumably to decide what wrapping a selection in a chart block should even
-  mean, since unlike code there is no sense in which the selected prose belongs
-  inside the fence; refusing, or inserting below the selection, both beat
-  deleting it.
-- Quitting with the chart builder open does nothing at all, silently.
-  `App.svelte`'s `close:confirm` listener opens with `if (chartOpen) return`,
-  so the confirm never appears and the quit is simply swallowed. True of the
-  window-close path as well as ⌘Q. Surfaced while fixing the ⌘Q bug and
-  deliberately left alone: the guard is there so the unsaved-changes dialog
-  cannot open behind a modal that has no focus trap of its own, and the right
-  answer is probably to close or refuse the builder first rather than to drop
-  the guard.
-- Enforce the duplicated window background. The dark `--bg` is written both in
-  `frontend/public/style.css` and in `main.go` as an `NewRGB` triple, because
-  Go cannot read the CSS, and nothing checks that they agree — they have
-  already drifted twice. A Go test parsing `--bg` out of the stylesheet and
-  comparing it against both triples would close it.
+What is left is not a queue. Both entries are decisions — one an accepted
+limitation, one a test deliberately not written — kept here because the
+reasoning is the useful part and would otherwise have to be worked out again
+by whoever next notices the behaviour:
+
 - Scroll-sync anchor density is sparser inside blockquotes and list items: the
   markdown-it core rule stamps `data-source-line` on top-level blocks only, so
   a long list is one anchor rather than several. Interpolation keeps this
   near-exact for uniform content; it degrades only when a list item contains a
   chart or a large image.
-- `App.svelte` schedules a `requestAnimationFrame` for scroll sync and never
-  cancels it on unmount. Latent only — `App` is the root component and is never
-  unmounted in production — but it becomes real the moment that component gains
-  any other teardown.
 - `Editor.topVisibleLine()` has no test, and the reviewer argued *against*
   adding the obvious one: under jsdom `posAtCoords` returns null so the
   function always yields 1, which is also what the happy path returns for

@@ -155,33 +155,71 @@ describe('Editor.insertBlockAtCursor', () => {
     cleanup()
   })
 
-  // Residual of the same critical bug: replaceSelection inserts at the
-  // selection's `from`, not its `head`. A forward selection (anchor < head)
-  // that starts mid-line but ends at the next line's column 0 has a head
-  // that reads as "column 0" even though the insertion itself lands mid-line
-  // — so a head-keyed check let the fence merge into the prose exactly as
-  // before, just for selections instead of plain cursors. Keying off `from`
-  // fixes it.
-  it('keys off the selection start, not its head, for a forward selection reaching the next line', () => {
+  // Deferred review finding, v0.8: this was built on replaceSelection, so
+  // selecting a paragraph and inserting a chart DELETED the paragraph, with
+  // no prompt and no undo the author would think to reach for. Insert means
+  // insert. The block now lands after the selection and the prose stays.
+  it('leaves a selection intact and writes the block after it', () => {
+    const { editor, target, text, cleanup } = mountEditor()
+    editor.setContent('Figure 2 shows the trend.\n')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 0, head: 'Figure 2 shows the trend.'.length } })
+    flushSync()
+
+    editor.insertBlockAtCursor('```vega-lite\n{}\n```\n')
+    flushSync()
+
+    expect(text()).toBe('Figure 2 shows the trend.\n\n```vega-lite\n{}\n```\n\n')
+    cleanup()
+  })
+
+  // The fresh-line guarantee has to key off the end of the selection, which
+  // for a BACKWARD selection (anchor > head) is the anchor, not the head. A
+  // head-keyed check reads this one as column 0 and merges the fence into the
+  // line the selection ends in the middle of.
+  it('keys off the selection end, not its head, for a backward selection', () => {
     const { editor, target, text, cleanup } = mountEditor()
     editor.setContent('Just prose.\nsecond line\n')
     flushSync()
 
     const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
-    const from = 'Just prose.'.length // right after the period — mid-line
-    // Forward selection: anchor at `from` (mid-line), head at the start of
-    // the next line. main.head would read as column 0; main.from does not.
-    view.dispatch({ selection: { anchor: from, head: from + 1 } })
+    const lineTwo = 'Just prose.\n'.length
+    // head at the start of line two, anchor mid-way along it.
+    view.dispatch({
+      selection: { anchor: lineTwo + 'second'.length, head: lineTwo },
+    })
     flushSync()
 
     editor.insertBlockAtCursor('```vega-lite\n{}\n```\n')
     flushSync()
 
     const doc = text()
-    expect(doc).toMatch(/(^|\n)```vega-lite/)
-    // The original sentence survives whole, on its own line, not merged
-    // into the fence.
-    expect(doc.split('\n')[0]).toBe('Just prose.')
+    expect(doc).toMatch(/\n```vega-lite/)
+    // 'second' is not swallowed by the fence, and ' line' is not orphaned
+    // above it.
+    expect(doc.split('\n')[1]).toBe('second')
+    cleanup()
+  })
+
+  // The cursor lands after the inserted block in both cases, so typing
+  // continues below the chart rather than inside it or back in the prose.
+  it('leaves the cursor after the block, not on the selection it kept', () => {
+    const { editor, target, text, cleanup } = mountEditor()
+    editor.setContent('prose\n')
+    flushSync()
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: 0, head: 'prose'.length } })
+    flushSync()
+
+    editor.insertBlockAtCursor('```vega-lite\n{}\n```\n')
+    flushSync()
+    editor.insertAtCursor('after')
+    flushSync()
+
+    expect(text()).toBe('prose\n\n```vega-lite\n{}\n```\nafter\n')
     cleanup()
   })
 })

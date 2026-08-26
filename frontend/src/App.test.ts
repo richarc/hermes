@@ -222,6 +222,63 @@ describe('scroll sync', () => {
     expect(pane.scrollTop).toBe(0)
   })
 
+  // Deferred review finding, v0.5: the scroll-sync frame was requested and
+  // never cancelled. Latent for as long as App is the root component and only
+  // unmounts when the process is going away anyway — but it is a leak the
+  // moment anything else unmounts it, and App already has teardown to hang it
+  // off, so there is no reason to leave it pending.
+  //
+  // Asserting that cancelAnimationFrame was *called* proves nothing:
+  // CodeMirror cancels frames of its own on destroy, so that passes against
+  // an App that cancels nothing. This does the accounting instead — every
+  // frame requested must have run or been cancelled by the time the unmount
+  // returns — which fails against the unfixed App and cannot be satisfied by
+  // somebody else's teardown.
+  it('leaves no scroll-sync frame pending after unmount', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, syncScrolling: true }
+    recents.current = []
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+    // Wait for onMount's async startup to have finished seeding the template,
+    // not merely for the editor to exist. Unmounting between those two points
+    // makes doNew() run against a torn-down component — a different race, and
+    // not the one under test.
+    await vi.waitFor(() =>
+      expect(target.querySelector('.editor-pane')?.textContent).toContain('bibliography'),
+    )
+    flushSync()
+
+    const pending = new Set<number>()
+    const realRequest = window.requestAnimationFrame.bind(window)
+    const realCancel = window.cancelAnimationFrame.bind(window)
+    const request = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb: FrameRequestCallback) => {
+        const id = realRequest((t) => {
+          pending.delete(id)
+          cb(t)
+        })
+        pending.add(id)
+        return id
+      })
+    const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id: number) => {
+      pending.delete(id)
+      realCancel(id)
+    })
+
+    const scroller = target.querySelector('.cm-scroller') as HTMLElement
+    scroller.dispatchEvent(new Event('scroll')) // queues the frame
+    expect(pending.size).toBeGreaterThan(0)
+
+    // Unmount before it runs — the case the finding is about.
+    unmount(mounted!)
+    mounted = undefined
+
+    expect([...pending]).toEqual([])
+    request.mockRestore()
+    cancel.mockRestore()
+  })
+
   it('reads the persisted setting at startup', async () => {
     settings.current = { ...DEFAULT_SETTINGS, syncScrolling: true }
     recents.current = []
@@ -667,6 +724,29 @@ describe('chart builder', () => {
       'dialog[aria-label="Unsaved changes"]',
     )!
     expect(confirmDialog.open).toBe(false)
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+  })
+
+  // Deferred review finding, v0.8: the guard above was right but silent. ⌘Q
+  // (and closing the window, which terminates the app too) did *nothing at
+  // all* while the builder was open — no dialog, no message, no quit, no clue
+  // which of those was intended. Refusing is still the right answer, because
+  // closing the builder would throw away an in-progress chart without asking;
+  // refusing invisibly is not.
+  it('says why it refused the quit rather than swallowing it', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+
+    listeners['close:confirm']({ data: null })
+    flushSync()
+
+    expect(target.textContent).toContain('Finish or cancel the chart before quitting')
+    // Still refused, and the builder is still there to be finished.
+    expect(
+      target.querySelector<HTMLDialogElement>('dialog[aria-label="Unsaved changes"]')!.open,
+    ).toBe(false)
     expect(target.querySelector('.chart-builder')).not.toBeNull()
   })
 

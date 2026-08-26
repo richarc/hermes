@@ -179,12 +179,29 @@
    * fenced block does not: written at a column other than 0 it is not a fence
    * at all, markdown renders its contents as prose, and the syntax tree will
    * not recognise it, so the builder cannot reopen what it just wrote.
+   *
+   * A selection is kept and the block goes after it. This was built on
+   * replaceSelection, which deletes the selection — so selecting a paragraph
+   * and inserting a chart silently destroyed the paragraph. Unlike
+   * insertCodeBlockAtCursor there is no wrapping to be done instead: a
+   * vega-lite fence holds JSON, and prose inside it is a broken chart, not a
+   * captioned one. So the selection is simply not the target.
    */
   export function insertBlockAtCursor(text: string): void {
-    const from = view.state.selection.main.from
-    const line = view.state.doc.lineAt(from)
-    const prefix = from === line.from ? '' : '\n\n'
-    view.dispatch(view.state.replaceSelection(prefix + text))
+    // The end of the selection, not its start: that is where the block is
+    // going, and the fresh-line check has to be asked about the same position
+    // the insertion happens at. (Not `head` either — for a backward selection
+    // the head is the start.)
+    const at = view.state.selection.main.to
+    const line = view.state.doc.lineAt(at)
+    const prefix = at === line.from ? '' : '\n\n'
+    view.dispatch({
+      changes: { from: at, insert: prefix + text },
+      // Explicit, because a bare `changes` maps the existing selection through
+      // the insertion and would leave the author's prose selected — one
+      // keystroke from deleting what this fix exists to preserve.
+      selection: { anchor: at + prefix.length + text.length },
+    })
     view.focus()
   }
 

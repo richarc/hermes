@@ -527,7 +527,17 @@
       // Mirrors the openChartBuilder guard above: don't raise the
       // unsaved-changes dialog behind the chart modal, which has no focus
       // trap of its own.
-      if (chartOpen) return
+      //
+      // Refuse, but audibly. This used to be a bare `return`, so ⌘Q with the
+      // builder open did nothing whatsoever — the app looked frozen, and the
+      // author had no way to tell a refusal from a bug. Refusing is still
+      // right: the alternative, closing the builder to get at the dialog,
+      // discards an in-progress chart to ask about a different document's
+      // unsaved changes.
+      if (chartOpen) {
+        toast('Finish or cancel the chart before quitting.')
+        return
+      }
       pendingAction = 'quit'
     })
     Events.On('recents:changed', () => void refreshRecents())
@@ -570,7 +580,14 @@
       if (recents.length === 0) doNew()
     })()
 
-    return () => media.removeEventListener('change', onSchemeChange)
+    return () => {
+      media.removeEventListener('change', onSchemeChange)
+      // App is the root component, so in production this runs only as the
+      // process is going away — but a pending frame that outlives its
+      // component is a leak the moment anything else unmounts it, and the
+      // teardown it belongs in already exists.
+      if (scrollFrame !== null) cancelAnimationFrame(scrollFrame)
+    }
   })
 </script>
 

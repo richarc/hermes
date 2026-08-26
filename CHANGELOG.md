@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Paths now resolve exactly as `bibliography:` does — relative to the
   document, with `../` and absolute paths allowed — and filenames containing
   spaces or non-ASCII characters resolve correctly.
+- Inserting a chart no longer deletes selected text. Selecting a paragraph and
+  choosing Insert → Chart… replaced the paragraph with the chart, with no
+  warning. The chart is now written after the selection and the text is left
+  alone.
+- ⌘Q with the chart builder open now explains itself. It previously did
+  nothing at all — no dialog, no message, no quit — so the app appeared to
+  have frozen. It still refuses, rather than throwing away a chart you are
+  part-way through building, but it now says why. The same was true of closing
+  the window.
+
 - Export PDF no longer loses the end of the document. A long paper exported
   with its bibliography cut off part-way, because the page count was worked
   out before the print panel was shown and then applied to a document that had
