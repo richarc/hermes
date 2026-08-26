@@ -218,85 +218,12 @@ document.
 
 ## Setting up Zotero
 
-This is optional. Citations work fine against a hand-written `.bib`. Zotero
-adds a picker so you can insert keys from your library without typing them.
+Optional. Citations work fine against a hand-written `.bib`; Zotero adds a
+picker so you can insert keys from your library without typing them.
 
-**The one thing to understand before you start:** Zotero only supplies the
-*key*. Hermes resolves that key against the `.bib` file named in your
-frontmatter — it never queries Zotero. So the picker is only useful when your
-`.bib` is an export of the same library. Getting this wrong is the most common
-setup problem, and it looks like a red `[@key?]` right after you insert.
-
-### Step 1 — Install Zotero and Better BibTeX
-
-1. Install [Zotero](https://www.zotero.org/download/).
-2. Install the [Better BibTeX](https://retorque.re/zotero-better-bibtex/)
-   plugin: download the `.xpi` without unzipping it, then in Zotero open
-   **Tools → Plugins** (**Tools → Add-ons** in Zotero 6), click the gear icon,
-   choose **Install Plugin From File…**, and select the `.xpi`.
-3. Restart Zotero.
-
-Better BibTeX gives every item a stable citation key, shown in the item pane as
-**Citation Key**. That key is what goes in your document.
-
-### Step 2 — Export your library to a `.bib` that stays current
-
-1. In Zotero, right-click the collection you want (or **My Library**).
-2. Choose **Export Collection…**.
-3. Set **Format** to **Better BibTeX**.
-4. Tick **Keep updated**. This is the important one — it makes Zotero re-export
-   automatically whenever you change an item.
-5. Save the file next to your document, for example `refs.bib`.
-
-### Step 3 — Point your document at it
-
-```markdown
----
-bibliography: refs.bib
-csl: apa
----
-```
-
-Save the document into the same folder as `refs.bib`.
-
-### Step 4 — Insert a citation
-
-With Zotero running, put the cursor where the citation belongs and either:
-
-- press **⌘⇧C**, or
-- use **File → Insert Citation…**, or
-- click the **Cite** button in the toolbar.
-
-Zotero's picker opens. Search, select one or more items, press Enter, and the
-keys are inserted at your cursor in Pandoc format. Because your `.bib` is an
-export of that same library, they resolve immediately.
-
-Edit an item in Zotero afterwards and the chain runs end to end on its own:
-Better BibTeX re-exports, Hermes notices the file changed, and the preview
-updates.
-
-### Zotero troubleshooting
-
-**"Zotero (with Better BibTeX) isn't running"** — Zotero is closed, or Better
-BibTeX is not installed. Check the connection independently:
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" \
-  "http://127.0.0.1:23119/better-bibtex/cayw?probe=probe"
-```
-
-`200` means Zotero and Better BibTeX are reachable and the problem is
-elsewhere. Anything else means Zotero's end needs fixing.
-
-**The key inserts but shows red as `[@key?]`** — the key is not in the `.bib`
-your document names. Either the `.bib` is not an export of that library, or the
-auto-export has not run. Re-export with **Keep updated** ticked. Hermes tells
-you which file it checked.
-
-**"Save the document to load refs.bib"** — the document has never been saved,
-so there is no folder to resolve `refs.bib` against. Save it first.
-
----
+The full setup — Better BibTeX, an export that stays current, and what to do
+when a key inserts but will not resolve — is in
+**[docs/zotero-setup.md](docs/zotero-setup.md)**.
 
 ## Exporting to PDF
 
@@ -391,6 +318,7 @@ frontend/src/
 docs/
   test-document.md    Manual verification document — every feature, in order
   hermes-authoring.md How to write a document Hermes reads, for humans or AI
+  zotero-setup.md     Better BibTeX setup, and the picker's failure modes
   zotero-export-text.bib  Bibliography for it, auto-synced from Zotero
   sample-data.csv     Table for exercising the chart builder's importer
   sample-figure.png   Local image fixture
