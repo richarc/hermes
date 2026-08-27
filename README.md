@@ -30,13 +30,35 @@ on screen is rendered from it.
   PDFs stay light regardless.
 - **PDF export** — the preview, including charts, diagrams and references.
 
-Latest release: **v0.6.0**; v0.7 is in progress. See
-[CHANGELOG.md](CHANGELOG.md) for what shipped and [ROADMAP.md](ROADMAP.md) for
-what is planned.
+Latest release: **v0.9.0**. See [CHANGELOG.md](CHANGELOG.md) for what shipped
+and [ROADMAP.md](ROADMAP.md) for what is planned.
 
 ---
 
-## Requirements
+## Download
+
+**[Download Hermes Editor for macOS](https://github.com/richarc/hermes/releases/latest)**
+— a universal build, so it runs natively on both Apple silicon and Intel.
+
+Unzip it and drag **Hermes Editor** into your Applications folder. That is the
+whole installation; there is nothing to run and nothing to configure.
+
+The download is signed with a Developer ID and notarized by Apple, so it opens
+on first launch without a security warning. If macOS ever says the app is
+damaged or cannot be opened, the download was corrupted — fetch it again rather
+than trying to work around the message.
+
+Requires macOS 12 or later. Zotero with [Better
+BibTeX](https://retorque.re/zotero-better-bibtex/) is optional, and only needed
+for picking citations from your library.
+
+---
+
+## Building from source
+
+Everything below is for working on Hermes rather than using it.
+
+### Requirements
 
 Hermes is currently macOS-focused. The paths, menus, and print behaviour assume
 macOS; Windows and Linux support is on the backlog.
@@ -59,7 +81,7 @@ The CLI, the `github.com/wailsapp/wails/v3` module in `go.mod` and the
 `@wailsio/runtime` package all need to be on the same version — `@latest`
 previously resolved one release behind the Go module, so they are pinned.
 
-## Building and running
+### Building and running
 
 Clone the repository, then install the frontend dependencies once:
 
@@ -75,8 +97,31 @@ wails3 build     # production binary into bin/
 wails3 package   # packaged .app bundle
 ```
 
+Note that `build` does not package and `run` does not build — see
+[CLAUDE.md](CLAUDE.md) for the traps that follow from that.
+
 Wails v3 uses [Task](https://taskfile.dev) for orchestration, so `wails3 task
 <name>` and `task <name>` are equivalent.
+
+### Cutting a release
+
+```bash
+wails3 task release          # test, build universal, sign, notarize, staple, zip
+wails3 task release:verify   # check a built or downloaded .app the way Gatekeeper will
+```
+
+`release` needs a **Developer ID Application** certificate in the keychain
+(not "Apple Development", and not "3rd Party Mac Developer Application" — those
+are for your own devices and for the Mac App Store respectively), and
+notarization credentials stored once:
+
+```bash
+xcrun notarytool store-credentials "hermes-notary" \
+  --apple-id <apple-id> --team-id <team-id> --password <app-specific-password>
+```
+
+Run `wails3 task --list` to read why the steps are in the order they are; the
+ordering is load-bearing and the task documents itself.
 
 ---
 

@@ -9,15 +9,15 @@
 		<key>CFBundleGetInfoString</key>
 		<string>Academic markdown editor with LaTeX math and Vega-Lite charts</string>
 		<key>CFBundleIdentifier</key>
-		<string>com.hermes.editor.dev</string>
+		<string>com.qxquantum.hermes.dev</string>
 		<key>CFBundleName</key>
 		<string>Hermes Editor (Dev)</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
-		<string>0.7.0-dev</string>
+		<string>0.9.0-dev</string>
 		<key>CFBundleVersion</key>
-		<string>0.7.0</string>
+		<string>0.9.0</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>MinimumOSVersion</key>

@@ -180,7 +180,7 @@
 					"$(inherited)",
 					"-ObjC",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.hermes.editor";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.qxquantum.hermes";
 				PRODUCT_NAME = "Hermes Editor";
 				CODE_SIGNING_ALLOWED = NO;
 				SDKROOT = iphoneos;
@@ -196,7 +196,7 @@
 					"$(inherited)",
 					"-ObjC",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.hermes.editor";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.qxquantum.hermes";
 				PRODUCT_NAME = "Hermes Editor";
 				CODE_SIGNING_ALLOWED = NO;
 				SDKROOT = iphoneos;

@@ -385,6 +385,35 @@ like one program.
       Two entries remain there deliberately. They are not debt — they record a
       limitation and a decision not to write a particular test, and both are
       worth keeping written down so neither is rediscovered as news.
+- [ ] **A signed, notarized download on GitHub Releases.** Brought forward
+      from v1.0, because a pre-production release nobody can install is not
+      one. Everything Hermes built until now was ad-hoc signed — enough to run
+      locally and no use to anyone else, since a download carries
+      `com.apple.quarantine` and Gatekeeper refuses an ad-hoc signature
+      outright with "Hermes is damaged and can't be opened", which reads as
+      broken rather than as a security prompt.
+      Decisions taken: **universal, not arm64-only**, so an Intel user gets an
+      app rather than a baffling failure. **A zip, not a DMG** — it notarizes
+      identically and needs no layout work; a DMG can come later. **One
+      v0.9.0 covering everything since v0.6.0**, rather than back-filling
+      v0.7.0 and v0.8.0 tags: both were finished and never cut, and no binary
+      has ever been downloaded, so intermediate tags would be bookkeeping for
+      an audience of nobody. And the bundle identifier moved to
+      `com.qxquantum.hermes` while it was still cheap to move — settings live
+      under an XDG `hermes/` path rather than the bundle ID, so no
+      preferences were stranded.
+      Done: the Developer ID Application certificate (2026-08-27 — note that
+      "Apple Development" and "3rd Party Mac Developer Application" are
+      neither of them this, and that its G2 intermediate has to be installed
+      or every identity reads `CSSMERR_TP_NOT_TRUSTED`), and `wails3 task
+      release`, which exists because the two tasks that look like they would
+      do this are not a release: `darwin:sign:notarize` resolves `deps:
+      [package]` to the darwin Taskfile's own copy and so notarizes a bundle
+      with no licences, and the root `package` re-signs ad-hoc last, which
+      would replace a Developer ID signature with one Gatekeeper rejects.
+      Remaining: notarization credentials on the machine, then the release
+      itself. `build/config.yml`'s `version` must match the tag — manual
+      today, and worth a check in CI.
 - [x] **A Help menu.** Shipped 2026-08-23. Hermes had none — `menu.go` added
       App, File, Edit, Insert, Format, View and Window — and Wails' `HelpMenu`
       role is no use, containing a single "Learn More" item pointing at
@@ -588,30 +617,17 @@ a static documentation site, with no server to run and no ongoing cost beyond
 the Apple Developer Program. Hosting users' documents as blog posts is a
 separate, much larger project and is deliberately not part of this.
 
-- [ ] **Signed, notarized binaries on GitHub Releases.** Everything Hermes
-      builds today is ad-hoc signed, which is enough to run locally and no use
-      to anyone else: a downloaded app carries `com.apple.quarantine`, and
-      Gatekeeper refuses an ad-hoc signature outright — the user sees "Hermes
-      is damaged and can't be opened", which reads as broken rather than as a
-      security prompt.
-      Most of the tooling already exists. `wails3 task sign:notarize` depends
-      on `package` and runs `wails3 tool sign --notarize` with the identity
-      from `wails3 setup`; `package:universal` builds arm64 and amd64
-      together. An Apple Developer Program membership was obtained on
-      2026-08-23, so the remaining work is the certificate, `wails3 setup`,
-      and the release itself.
-      Decisions: **universal, not arm64-only** — an Intel user downloading an
-      arm64 build gets a baffling failure. **A zip, not a DMG** — it notarizes
-      just as well and needs no layout work; a DMG is conventional and can
-      come later. Release artefacts attach to the tags this project already
-      cuts (`v0.2.0` … `v0.6.0`), and `build/config.yml`'s `version` must match
-      the tag, which is manual today and worth a check in CI.
-- [ ] **A release workflow.** There is no CI at all — no `.github/workflows`.
-      Do the first release by hand so the steps are understood, then move it
-      into a tag-triggered workflow. That needs the Developer ID certificate
-      and an App Store Connect API key as repository secrets, which is the
-      part worth getting right rather than fast: a leaked signing identity is
-      not revocable in any comfortable way.
+- [ ] **A release workflow.** CI arrived on 2026-08-23 — `ci.yml` runs the
+      frontend suite and audit on Linux and the Go suite, build and
+      govulncheck on macOS, and `codeql.yml` alongside it — but nothing
+      releases. Do the first release by hand so the steps are understood, then
+      move `wails3 task release` into a tag-triggered workflow. That needs the
+      Developer ID certificate and an App Store Connect API key as repository
+      secrets, which is the part worth getting right rather than fast: a
+      leaked signing identity is not revocable in any comfortable way. The
+      API key matters more than convenience here — unlike an app-specific
+      password it is not tied to a personal Apple ID, and it can be revoked
+      on its own.
 - [ ] **A documentation site**, static, on GitHub Pages. Most of the content
       exists — `README.md`, `docs/hermes-authoring.md`, `CHANGELOG.md` — so
       the work is a generator (Astro Starlight, MkDocs Material or similar), a

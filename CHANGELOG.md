@@ -5,7 +5,15 @@ All notable changes to Hermes are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0] - 2026-08-27
+
+The first release you can download and run. Everything before this had to be
+built from source: this one is a signed, notarized, universal build that opens
+without argument from Gatekeeper, and carries the licences it is obliged to.
+
+It covers everything since v0.6.0 — three milestones' worth of work that was
+finished but never cut as releases of its own: code blocks and diagrams, a
+design system for the app's own chrome, and the pre-production round of fixes.
 
 ### Added
 

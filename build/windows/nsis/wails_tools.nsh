@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "Hermes Editor"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "0.7.0"
+    !define INFO_PRODUCTVERSION "0.9.0"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "(c) 2026 Craig Richards"

@@ -7,11 +7,11 @@ version: '3'
 info:
   companyName: "Craig Richards" # The name of the company
   productName: "Hermes Editor" # The name of the application
-  productIdentifier: "com.hermes.editor" # The unique product identifier
+  productIdentifier: "com.qxquantum.hermes" # The unique product identifier
   description: "Academic markdown editor" # The application description
   copyright: "(c) 2026 Craig Richards" # Copyright text
   comments: "Academic markdown editor with LaTeX math and Vega-Lite charts" # Comments
-  version: "0.7.0" # The application version
+  version: "0.9.0" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension
   #                               # If not set and Assets.car exists, defaults to "appicon"
