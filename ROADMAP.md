@@ -624,6 +624,20 @@ which is the multi-part document idea dropped on 2026-08-06.
       `menu.go` since the role does not provide one, and whether the choice
       persists in `Settings` like sync scrolling does.
 
+- [x] **Report an Issue… goes to GitHub Issues, for real.** Done 2026-08-27,
+      unreleased. The hosted form carried out of v0.9.0 is dropped: a GitHub
+      issue is public, threaded and lands where the work is tracked, which the
+      cost of an account buys. The change is more than the decision, though.
+      `feedbackURL` used to send `version=` and `os=` as query parameters, and
+      GitHub reads only its own — `title`, `body`, `labels` — so the fields
+      the whole item existed for were silently discarded and the page opened
+      empty. They now travel inside a prefilled `body`, with the headings a
+      useful report has (what happened, what you expected, steps to reproduce)
+      left for the reporter to fill in. `help_test.go` asserts the body carries
+      both and that no ignored parameters are sent. Verified in the packaged
+      app, where `CFBundleShortVersionString` is readable, so the version line
+      shows the real number rather than "unknown".
+
 ## v1.0.0 — Production
 
 Distribution is step 1 of the website work: GitHub Releases for the binary and
