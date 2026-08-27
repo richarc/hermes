@@ -168,7 +168,7 @@ queued behind it adds UI.
       an unrelated edit, and a sparse row commits `b: ''` where it had no key,
       which Vega-Lite draws as a point at zero rather than filtering out.
 
-## v0.7.0 — Code blocks and diagrams
+## v0.7.0 — Code blocks and diagrams ✅ (shipped in v0.9.0, 2026-08-27)
 
 Fenced code is the one block type Hermes renders worse than the plain
 markdown it started from — plus the two items v0.6 deferred, both of which
@@ -317,7 +317,7 @@ want brainstorming before they want code.
       always light, and a highlighter theming itself from the dark palette
       would otherwise have produced a near-white listing on paper.
 
-## v0.8.0 — Design system
+## v0.8.0 — Design system ✅ (shipped in v0.9.0, 2026-08-27)
 
 The UI has grown feature by feature; this is the release that makes it look
 like one program.
@@ -371,7 +371,7 @@ like one program.
       absolute measure does not. Design:
       [docs/superpowers/specs/2026-08-25-preview-and-pdf-styling-design.md](docs/superpowers/specs/2026-08-25-preview-and-pdf-styling-design.md).
 
-## v0.9.0 — Bug fixes and pre-production
+## v0.9.0 — Bug fixes and pre-production ✅ (released 2026-08-27)
 
 - [x] Work the deferred review findings below. Done 2026-08-26. The three that
       lost the user's work — ⌘Q quitting without a prompt, ⌘Z after File → New
@@ -385,35 +385,47 @@ like one program.
       Two entries remain there deliberately. They are not debt — they record a
       limitation and a decision not to write a particular test, and both are
       worth keeping written down so neither is rediscovered as news.
-- [ ] **A signed, notarized download on GitHub Releases.** Brought forward
-      from v1.0, because a pre-production release nobody can install is not
-      one. Everything Hermes built until now was ad-hoc signed — enough to run
-      locally and no use to anyone else, since a download carries
-      `com.apple.quarantine` and Gatekeeper refuses an ad-hoc signature
-      outright with "Hermes is damaged and can't be opened", which reads as
-      broken rather than as a security prompt.
+- [x] **A signed, notarized download on GitHub Releases.** Shipped 2026-08-27
+      as v0.9.0. Brought forward from v1.0, because a pre-production release
+      nobody can install is not one. Everything Hermes built until now was
+      ad-hoc signed — enough to run locally and no use to anyone else, since a
+      download carries `com.apple.quarantine` and Gatekeeper refuses an
+      ad-hoc signature outright with "Hermes is damaged and can't be opened",
+      which reads as broken rather than as a security prompt.
       Decisions taken: **universal, not arm64-only**, so an Intel user gets an
       app rather than a baffling failure. **A zip, not a DMG** — it notarizes
-      identically and needs no layout work; a DMG can come later. **One
-      v0.9.0 covering everything since v0.6.0**, rather than back-filling
-      v0.7.0 and v0.8.0 tags: both were finished and never cut, and no binary
-      has ever been downloaded, so intermediate tags would be bookkeeping for
-      an audience of nobody. And the bundle identifier moved to
-      `com.qxquantum.hermes` while it was still cheap to move — settings live
-      under an XDG `hermes/` path rather than the bundle ID, so no
-      preferences were stranded.
-      Done: the Developer ID Application certificate (2026-08-27 — note that
-      "Apple Development" and "3rd Party Mac Developer Application" are
-      neither of them this, and that its G2 intermediate has to be installed
-      or every identity reads `CSSMERR_TP_NOT_TRUSTED`), and `wails3 task
-      release`, which exists because the two tasks that look like they would
-      do this are not a release: `darwin:sign:notarize` resolves `deps:
-      [package]` to the darwin Taskfile's own copy and so notarizes a bundle
-      with no licences, and the root `package` re-signs ad-hoc last, which
-      would replace a Developer ID signature with one Gatekeeper rejects.
-      Remaining: notarization credentials on the machine, then the release
-      itself. `build/config.yml`'s `version` must match the tag — manual
-      today, and worth a check in CI.
+      identically and needs no layout work. **One v0.9.0 covering everything
+      since v0.6.0**, rather than back-filling v0.7.0 and v0.8.0 tags: both
+      were finished and never cut, and no binary had ever been downloaded, so
+      intermediate tags would have been bookkeeping for an audience of
+      nobody. And the bundle identifier moved to `com.qxquantum.hermes` while
+      it was still cheap — settings live under an XDG `hermes/` path rather
+      than the bundle ID, so nothing was stranded.
+      Three traps, each of which cost real time and none of which announce
+      themselves. **The certificate type**: "Apple Development" runs on your
+      own machines and "3rd Party Mac Developer Application" is for the Mac
+      App Store; neither is Developer ID, and the portal offers all three
+      without saying so. **The intermediate**: a Developer ID certificate is
+      issued by "Developer ID Certification Authority" (G2), *not* by WWDR, so
+      installing it is a separate step — without it the certificate is
+      present and correct while every identity reads `CSSMERR_TP_NOT_TRUSTED`
+      and `security find-identity -v -p codesigning` finds nothing at all.
+      **The ordering**: `codesign` seals `Contents/`, so anything touching the
+      bundle afterwards invalidates it — which is why `darwin:sign:notarize`
+      would have notarized a bundle with no licences (its `deps: [package]`
+      resolves to the darwin Taskfile's own copy) and why running the root
+      `package` after signing would have replaced the Developer ID signature
+      with an ad-hoc one.
+      Hence `wails3 task release` in the root Taskfile, which is the whole
+      procedure in one ordered place, and `release:verify`, which asks the
+      question that matters: `spctl` says "accepted, source=Notarized
+      Developer ID", where `codesign --verify` alone would happily pass an
+      ad-hoc signature. Hardened runtime needed no entitlements — WebKit
+      starts fine under it, which was the one genuine unknown.
+      Still manual and worth a CI check: `build/config.yml`'s `version` has to
+      match the tag. A mismatch ships a build whose Help → Report an Issue
+      form lies about which version it came from, which is the one thing that
+      form exists to get right.
 - [x] **A Help menu.** Shipped 2026-08-23. Hermes had none — `menu.go` added
       App, File, Edit, Insert, Format, View and Window — and Wails' `HelpMenu`
       role is no use, containing a single "Learn More" item pointing at
