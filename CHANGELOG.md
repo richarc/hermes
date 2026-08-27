@@ -65,7 +65,6 @@ design system for the app's own chrome, and the pre-production round of fixes.
   have frozen. It still refuses, rather than throwing away a chart you are
   part-way through building, but it now says why. The same was true of closing
   the window.
-
 - Export PDF no longer loses the end of the document. A long paper exported
   with its bibliography cut off part-way, because the page count was worked
   out before the print panel was shown and then applied to a document that had
