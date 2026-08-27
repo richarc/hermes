@@ -392,7 +392,7 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 			osVersion = env.OSInfo.Version
 		}
 		if err := app.Browser.OpenURL(feedbackURL(appVersion(), osName, osVersion)); err != nil {
-			log.Printf("could not open the feedback form: %v", err)
+			log.Printf("could not open the issue page: %v", err)
 		}
 	})
 

@@ -13,19 +13,23 @@ func TestFeedbackURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	q := parsed.Query()
+	body := parsed.Query().Get("body")
 
 	// The version fields are the entire reason this is built in the app
 	// rather than being a plain link: users never think to include them, and
-	// without them a report is usually unactionable.
-	if q.Get("version") != "0.7.0" {
-		t.Errorf("version = %q, want 0.7.0", q.Get("version"))
+	// without them a report is usually unactionable. GitHub only reads its own
+	// parameters, so they have to arrive inside the issue body.
+	if !strings.Contains(body, "**Hermes version:** 0.7.0\n") {
+		t.Errorf("body does not carry the version: %q", body)
 	}
-	if q.Get("os") != "macOS 26.3.1" {
-		t.Errorf("os = %q, want \"macOS 26.3.1\"", q.Get("os"))
+	if !strings.Contains(body, "**Operating system:** macOS 26.3.1\n") {
+		t.Errorf("body does not carry the OS: %q", body)
 	}
 	if !strings.HasPrefix(got, feedbackBaseURL) {
-		t.Errorf("does not point at the feedback form: %q", got)
+		t.Errorf("does not point at GitHub Issues: %q", got)
+	}
+	if parsed.Query().Has("version") || parsed.Query().Has("os") {
+		t.Errorf("version and os must travel in the body, not as parameters GitHub ignores: %q", got)
 	}
 }
 
@@ -38,11 +42,12 @@ func TestFeedbackURLEscapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	if v := parsed.Query().Get("version"); v != "0.7.0+dev" {
-		t.Errorf("version = %q, want 0.7.0+dev", v)
+	body := parsed.Query().Get("body")
+	if !strings.Contains(body, "**Hermes version:** 0.7.0+dev\n") {
+		t.Errorf("version mangled: %q", body)
 	}
-	if v := parsed.Query().Get("os"); v != "macOS Sequoia 26.3.1" {
-		t.Errorf("os = %q, want \"macOS Sequoia 26.3.1\"", v)
+	if !strings.Contains(body, "**Operating system:** macOS Sequoia 26.3.1\n") {
+		t.Errorf("os mangled: %q", body)
 	}
 }
 
@@ -55,8 +60,8 @@ func TestFeedbackURLWithoutAVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	if v := parsed.Query().Get("version"); v != "unknown" {
-		t.Errorf("version = %q, want \"unknown\"", v)
+	if body := parsed.Query().Get("body"); !strings.Contains(body, "**Hermes version:** unknown\n") {
+		t.Errorf("body should say the version is unknown: %q", body)
 	}
 }
 

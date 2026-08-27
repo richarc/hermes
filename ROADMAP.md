@@ -457,10 +457,14 @@ like one program.
       `osDescription` are split out of the menu closure so they are testable —
       AppKit menu construction is not exercisable headlessly, the same reason
       `quitRequest` and `localImagePath` are separate from what calls them.
-      What shipped is the route, not its destination: the hosted form was
-      never built, so `feedbackBaseURL` still names GitHub Issues. That is
-      carried forward as its own item under v0.10 rather than left buried in a
-      ticked entry in a closed release.
+      The hosted form this item originally called for (Tally, Formspree or
+      similar) was dropped on 2026-08-27 and GitHub Issues made the
+      destination rather than the stand-in. The objection to it — an account,
+      and a page that reads as developer territory — is real, but a report
+      there is public, threaded and lands where the work is tracked, and the
+      new-issue URL takes a prefilled `body`, which is what the version and OS
+      now travel in (GitHub ignores query parameters it does not know, so the
+      old `version=`/`os=` fields would have arrived as nothing at all).
 - [x] **Ship the licence texts inside the bundle.** Shipped 2026-08-24. Having
       `LICENSE`, `NOTICE` and `licenses/citeproc-js.LICENSE` in the repository
       satisfies source distribution and not binary distribution — Apache-2.0
@@ -619,22 +623,6 @@ which is the multi-part document idea dropped on 2026-08-06.
       whether a Spelling and Grammar submenu has to be built by hand in
       `menu.go` since the role does not provide one, and whether the choice
       persists in `Settings` like sync scrolling does.
-
-- [ ] **A hosted feedback form.** Carried out of v0.9.0, which shipped with a
-      stand-in: Help → "Report an Issue…" points `feedbackBaseURL` in
-      `help.go` at GitHub Issues, which demands an account and reads as
-      developer territory — the opposite of what the item was for. Everything
-      else about that route already works and does not change: the menu item,
-      the version and OS fields prefilled through the URL, and the tests
-      around `feedbackURL` and `osDescription`. What is missing is a form
-      (Tally, Formspree or similar) and one constant.
-      It matters more now than it did while Hermes had to be built from
-      source. A public download means the people most likely to hit a bug are
-      exactly the ones least likely to open a GitHub account to report it, and
-      a report that never arrives is indistinguishable from a release with no
-      bugs in it.
-      `docsURL` is the same shape of placeholder and waits on the docs site
-      under v1.0. The two could land together; neither blocks the other.
 
 ## v1.0.0 — Production
 

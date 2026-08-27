@@ -8,28 +8,34 @@ import (
 
 // Where the Help menu points.
 //
-// Both are placeholders standing in for destinations that do not exist yet:
-// the documentation site and a hosted feedback form. They point at the public
-// repository meanwhile, so neither menu item is a dead link. Replacing them is
-// a one-line change each — nothing else in this file assumes what they are.
+// docsURL is a placeholder standing in for the documentation site, which does
+// not exist yet; it points at the repository meanwhile so the menu item is not
+// a dead link. Replacing it is a one-line change — nothing else assumes what
+// it is.
+//
+// feedbackBaseURL is not a placeholder. A hosted form (Tally, Formspree or
+// similar) was considered and rejected on 2026-08-27 in favour of GitHub
+// Issues: a report there is public, threaded, and lands where the work is
+// tracked, and the URL can prefill the body — so the cost of an account is
+// paid for by a report that can be acted on and replied to.
 const (
 	// TODO: replace with the documentation site when it ships.
 	docsURL = "https://github.com/richarc/hermes#readme"
 
-	// TODO: replace with the hosted feedback form (Tally, Formspree or
-	// similar). GitHub Issues is the stand-in, not the intended destination:
-	// it demands an account and reads as developer territory, which is the
-	// opposite of what this item is for.
 	feedbackBaseURL = "https://github.com/richarc/hermes/issues/new"
 )
 
-// feedbackURL is the report form with the details a user would never think to
-// include already filled in.
+// feedbackURL is the new-issue page with the details a user would never think
+// to include already filled in.
 //
 // Which is the whole point of building this into the application rather than
 // putting a link in the README: a report that does not say which version it
 // came from usually cannot be acted on, and asking people to find that out is
 // how you get no reports at all.
+//
+// GitHub reads only its own query parameters — `title`, `body`, `labels` and
+// so on — so the version and OS travel inside `body`, as the head of an issue
+// the reporter finishes writing, rather than as fields of their own.
 //
 // Split from the menu closure so it is reachable by a test, the same reason
 // quitRequest and localImagePath are separate from what calls them — AppKit
@@ -41,9 +47,18 @@ func feedbackURL(appVersion, osName, osVersion string) string {
 		appVersion = "unknown"
 	}
 	q := url.Values{}
-	q.Set("version", appVersion)
-	q.Set("os", osDescription(osName, osVersion))
+	q.Set("body", feedbackBody(appVersion, osDescription(osName, osVersion)))
 	return feedbackBaseURL + "?" + q.Encode()
+}
+
+// feedbackBody is the prefilled head of an issue: the environment as a short
+// list, then the headings a useful report has, left for the reporter to fill.
+func feedbackBody(appVersion, os string) string {
+	return "**Hermes version:** " + appVersion + "\n" +
+		"**Operating system:** " + os + "\n\n" +
+		"**What happened**\n\n\n" +
+		"**What you expected**\n\n\n" +
+		"**Steps to reproduce**\n\n"
 }
 
 // osDescription joins an operating system's name and version into something a

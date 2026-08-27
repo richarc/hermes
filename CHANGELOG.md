@@ -5,6 +5,16 @@ All notable changes to Hermes are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Help → Report an Issue… now opens a new GitHub issue as its destination
+  rather than as a stand-in for a hosted form, and prefills the issue body
+  with the Hermes version, the operating system and the headings a useful
+  report has. The version and OS used to be sent as query parameters GitHub
+  does not read, so they never reached the page.
+
 ## [0.9.0] - 2026-08-27
 
 The first release you can download and run. Everything before this had to be
