@@ -361,7 +361,7 @@ frontend/src/
   lib/foldCommands.ts Fold-all-code-blocks
   lib/scrollSync.ts   Editor/preview anchoring
 docs/
-  test-document.md    Manual verification document — every feature, in order
+  test-document.md    Manual verification document — markdown, then how it renders
   hermes-authoring.md How to write a document Hermes reads, for humans or AI
   zotero-setup.md     Better BibTeX setup, and the picker's failure modes
   zotero-export-text.bib  Bibliography for it, auto-synced from Zotero
@@ -381,12 +381,12 @@ go test ./. && go build -o /dev/null .   # note ./. not ./...
 wails3 task common:generate:bindings     # after changing a service API
 ```
 
-`docs/test-document.md` is the manual counterpart to the test suites: open it
-in Hermes after any substantial change and work down it. Each section states
-what correct looks like, so a wrong result is visible without knowing the
-implementation, and the last section is meant to look broken. Section 10 is
-the quickest way to see citations working — every supported form, plus the
-deliberate error cases.
+`docs/test-document.md` is the manual counterpart to the test suites, written
+to be read as an exported PDF: every section shows the markdown in a code
+block and then the same text rendered, so the page itself is the evidence.
+Open it in Hermes after any substantial change and press ⌘E. Section 9 is the
+quickest way to see citations working — every supported form, plus the
+deliberate error cases — and section 11 is meant to look broken.
 
 ## Known limitations
 
