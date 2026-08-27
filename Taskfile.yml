@@ -46,6 +46,21 @@ tasks:
 
       Copied with .txt extensions so double-clicking one opens it rather than
       prompting for an application.
+    cmds:
+      - task: bundle:licences:copy
+      # Signing must come last: codesign seals Contents/Resources, so files
+      # added afterwards invalidate the signature.
+      #
+      # Ad-hoc, because this is the development path. The release task does
+      # the same copy and then signs once with the Developer ID instead — if
+      # this ran there it would overwrite that signature with this one, and
+      # Gatekeeper rejects an ad-hoc signature on a download outright.
+      - codesign --force --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+
+  bundle:licences:copy:
+    summary: Copies the licence texts in, without signing
+    platforms: [darwin]
+    internal: true
     vars:
       LICENCE_DIR: '{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources/licences'
     cmds:
@@ -54,9 +69,124 @@ tasks:
       - cp NOTICE "{{.LICENCE_DIR}}/NOTICE.txt"
       - cp licenses/citeproc-js.LICENSE "{{.LICENCE_DIR}}/citeproc-js.LICENSE.txt"
       - cp frontend/src/assets/csl/LICENSE.md "{{.LICENCE_DIR}}/csl-styles.LICENSE.md"
-      # Signing must come last: codesign seals Contents/Resources, so files
-      # added afterwards invalidate the signature.
-      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+
+  release:
+    summary: Builds a signed, notarized, stapled zip for distribution
+    platforms: [darwin]
+    desc: |
+      The whole point of this task is the ORDER. Every step is placed relative
+      to the signature, because codesign seals Contents/ and anything that
+      touches the bundle afterwards invalidates it:
+
+        test -> build universal -> bundle -> copy licences -> sign ->
+        notarize -> staple -> zip
+
+      Why not `wails3 task darwin:sign:notarize`, which looks like it does
+      this: its `deps: [package]` resolves inside build/darwin/Taskfile.yml to
+      *that* file's package task, not the root one, so it notarizes a bundle
+      with no licences in it — see bundle:licences for why they have to be
+      there. And the root `package` re-signs ad-hoc at the end, so running it
+      after signing swaps a Developer ID signature for an ad-hoc one, which
+      Gatekeeper rejects outright ("Hermes is damaged and can't be opened").
+      Neither is a fault in those tasks; they simply are not a release.
+
+      Universal, not arm64-only: an Intel user downloading an arm64 build gets
+      a baffling failure rather than a message.
+
+      A zip, not a DMG: it notarizes identically and needs no layout work.
+      Built with `ditto -c -k --keepParent` rather than `zip`, which does not
+      preserve the symlinks and extended attributes a signed bundle depends
+      on — a zip built the wrong way passes locally and fails after download.
+
+      The zip is made TWICE, and that is not a mistake. Notarization takes an
+      archive, not a bundle, so one is submitted; stapling then writes the
+      ticket into the .app, which changes it, so the archive that ships has to
+      be made again afterwards. Skip the second and you ship an unstapled app
+      that fails to launch for anyone offline.
+
+      First-time setup, once per machine:
+
+        xcrun notarytool store-credentials "hermes-notary" \
+          --apple-id <apple-id> --team-id <team-id> \
+          --password <app-specific-password>
+
+      Override the defaults with:
+        wails3 task release IDENTITY="Developer ID Application: ..." NOTARY_PROFILE=other
+    vars:
+      IDENTITY: '{{.IDENTITY | default "Developer ID Application"}}'
+      NOTARY_PROFILE: '{{.NOTARY_PROFILE | default "hermes-notary"}}'
+      # Read from build/config.yml rather than duplicated here: that file is
+      # what stamps CFBundleShortVersionString, which help.go reads back out
+      # for the feedback form. Two copies would drift and the report would lie
+      # about which build it came from.
+      VERSION:
+        sh: awk '/^  version:/ {gsub(/"/, "", $2); print $2}' build/config.yml
+      APP: '{{.BIN_DIR}}/{{.APP_NAME}}.app'
+      ZIP: '{{.BIN_DIR}}/Hermes-Editor-{{.VERSION}}-macos-universal.zip'
+    preconditions:
+      - sh: 'security find-identity -v -p codesigning | grep -q "{{.IDENTITY}}"'
+        msg: |
+          No "{{.IDENTITY}}" identity in the keychain.
+
+          Note that "Apple Development" and "3rd Party Mac Developer
+          Application" are NOT this: the first runs on your own machines, the
+          second is for the Mac App Store. Distributing a download needs a
+          Developer ID Application certificate, and its issuing intermediate
+          ("Developer ID Certification Authority", G2) has to be installed
+          too — without it the certificate is present but every identity reads
+          CSSMERR_TP_NOT_TRUSTED and this check finds nothing.
+
+          Xcode -> Settings -> Accounts -> Manage Certificates -> + does both.
+    cmds:
+      # A release must not ship what the tests reject. CI gates main, but a
+      # tag is cut from a working tree, and the working tree is what is about
+      # to be built.
+      - go test ./.
+      - '{{.PACKAGE_MANAGER}} --prefix frontend test'
+      # create:app:bundle never cleans, so a Resources file deleted since the
+      # last package would otherwise survive into the release.
+      - rm -rf "{{.APP}}"
+      - task: darwin:package:universal
+      - task: bundle:licences:copy
+      # --options runtime (hardened runtime) and --timestamp are both required
+      # for notarization; without either, submission is rejected rather than
+      # the app being. No --deep: Apple deprecated it for signing, and this
+      # bundle has no nested code for it to reach anyway.
+      - codesign --force --options runtime --timestamp --sign "{{.IDENTITY}}" "{{.APP}}"
+      - codesign --verify --strict --verbose=2 "{{.APP}}"
+      - ditto -c -k --keepParent "{{.APP}}" "{{.ZIP}}"
+      # --wait blocks until Apple has an answer, usually a few minutes. On
+      # "Invalid", the reason is not printed here — fetch it with:
+      #   xcrun notarytool log <submission-id> --keychain-profile {{.NOTARY_PROFILE}}
+      - xcrun notarytool submit "{{.ZIP}}" --keychain-profile "{{.NOTARY_PROFILE}}" --wait
+      # Staples the ticket into the bundle so it launches on a machine that
+      # cannot reach Apple to ask.
+      - xcrun stapler staple "{{.APP}}"
+      - rm -f "{{.ZIP}}"
+      - ditto -c -k --keepParent "{{.APP}}" "{{.ZIP}}"
+      - task: release:verify
+      - 'echo "Release artefact: {{.ZIP}}"'
+
+  release:verify:
+    summary: Checks a built .app the way Gatekeeper will
+    platforms: [darwin]
+    desc: |
+      Run against bin/<app>.app after `release`, or after unzipping a
+      downloaded artefact to check what users actually get.
+
+      spctl is the one that matters: codesign only proves the signature is
+      intact, and an ad-hoc signature is intact too. "source=Notarized
+      Developer ID" is the answer being looked for; "source=Unnotarized
+      Developer ID" means the staple did not take.
+    vars:
+      APP: '{{.APP | default (printf "%s/%s.app" .BIN_DIR .APP_NAME)}}'
+    cmds:
+      - codesign --verify --deep --strict --verbose=2 "{{.APP}}"
+      - codesign -dv --verbose=4 "{{.APP}}" 2>&1 | grep -E "Authority|TeamIdentifier|Timestamp|flags"
+      - xcrun stapler validate "{{.APP}}"
+      - spctl -a -vvv -t exec "{{.APP}}"
+      # Proves the licences survived signing rather than being sealed out.
+      - test -f "{{.APP}}/Contents/Resources/licences/NOTICE.txt"
 
   run:
     summary: Runs the application
