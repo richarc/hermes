@@ -192,7 +192,7 @@ def concurrence(rho):
 
 ## A complete example
 
-```markdown
+````markdown
 ---
 bibliography: references.bib
 csl: apa
@@ -242,7 +242,7 @@ flowchart LR
 ```
 
 Fidelity fell with distance, remaining above the classical bound throughout.
-```
+````
 
 That document produces two numbered figures — "Figure 1 — Synchronisation
 pipeline" and "Figure 2 — Fidelity against fibre length" — two resolved
