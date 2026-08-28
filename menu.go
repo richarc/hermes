@@ -33,7 +33,7 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	}
 
 	file := menu.AddSubmenu("File")
-	file.Add("New").SetAccelerator("cmdorctrl+n").OnClick(func(*application.Context) {
+	file.Add("New…").SetAccelerator("cmdorctrl+n").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:new")
 	})
 	file.Add("Open…").SetAccelerator("cmdorctrl+o").OnClick(func(*application.Context) {

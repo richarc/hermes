@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- File → New… (⌘N) is a real flow rather than a template dropped into an
+  untitled buffer. A small dialog asks whether the document has a
+  bibliography and, if so, which of the five bundled citation styles to use;
+  the save panel then names the document, and Hermes writes it with *live*
+  `bibliography:` and `csl:` keys and creates the `.bib` beside it, seeded
+  with a comment. Citations resolve from the first keystroke, with no
+  save-then-name-then-create-the-file-by-hand step and no "Bibliography not
+  found" toast. A `.bib` that already exists beside the chosen name is left
+  untouched and simply pointed at. Untick the box and you get the familiar
+  commented template, saved under the name you chose. The welcome pane's
+  "New document" button goes through the same dialog; a first launch with
+  nothing to show still opens straight into an untitled template.
+
 ### Changed
 
 - Help → Report an Issue… now opens a new GitHub issue as its destination

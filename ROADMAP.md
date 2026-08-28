@@ -558,26 +558,34 @@ which is the multi-part document idea dropped on 2026-08-06.
       the document, so reopening one means parsing pipe-table syntax rather
       than JSON, and alignment markers (`:---`, `---:`) have no equivalent in
       `DataTable` and would need somewhere to live.
-- [ ] A real New Document flow, rather than a template dropped into an
-      untitled buffer. Reported from real use on 2026-08-19. Today File → New
-      seeds `NEW_DOCUMENT_TEMPLATE` with the `bibliography` and `csl` keys
-      commented out, and the document stays unsaved and unnamed until the
-      first ⌘S — so a citation cannot resolve until the author has saved,
-      named a `.bib`, and created that file by hand elsewhere. The proposal:
-      ask for the filename up front, ask whether the document has a
-      bibliography, and if it does, create the `.bib` beside it and write a
-      live `bibliography:` key instead of a commented-out one. That removes
-      the step where the author has to know a `.bib` is resolved relative to
-      the document. Points to settle: whether this replaces File → New or
-      sits beside it (the current zero-friction path is worth keeping for a
-      scratch document); whether an empty `.bib` should be created or one
-      seeded with a comment, given `parseBib` warns on entries it cannot
-      parse; what happens when the file already exists; and whether the
-      dialog also takes the citation style, since `csl` is the other key and
-      the five bundled styles are otherwise discoverable only from the
-      template's comments. Related: `unsavedBibliographyMessage` exists
-      precisely because an unsaved document cannot load a bibliography — a
-      good flow here would make that message rare rather than routine.
+- [x] **A real New Document flow.** Done 2026-08-28, unreleased. Reported
+      from real use on 2026-08-19: File → New seeded a template with the
+      `bibliography` and `csl` keys commented out into an untitled buffer, so
+      a citation could not resolve until the author had saved, named a
+      `.bib`, and created that file by hand elsewhere. Now ⌘N (and the
+      welcome pane's button) opens a dialog — *Include a bibliography*, ticked
+      by default, with a *Citation style* dropdown of the five bundled styles
+      beneath it — then the native save panel names the document, and
+      `DocumentService.CreateDocument` writes the `.md` with live keys and a
+      `.bib` beside it seeded with a `%` comment (an empty file reads as a
+      failed write, and `parseBib` has nothing to warn about). The points
+      listed when this was scoped were settled as follows. It *replaces*
+      File → New rather than sitting beside it: one way to make a document,
+      and a scratch document is one untick away — the untitled template
+      survives only as the first-launch state, where a dialog before the
+      window has settled would be hostile. The save panel's own Replace?
+      prompt guards an existing `.md`; an existing `.bib` is never touched,
+      because a library beside the chosen name is exactly what the author
+      wants to point at. The dialog does take the style, since it is the only
+      place the five names become discoverable without reading comments.
+      The order of the two prompts is forced: the live key names the `.bib`
+      after the document's stem, unknown until the panel is answered, so the
+      binding is split — `ChooseNewDocumentPath` then `CreateDocument` — and
+      the second half is testable with no dialog at all. The text itself is
+      composed in `documentTemplate.ts` (`newDocumentText`, `BIBLIOGRAPHY_SEED`)
+      and passed to Go as content, so the template stays in one language.
+      `unsavedBibliographyMessage` still exists, but the path that showed it
+      routinely is gone.
 - [ ] A clickable table of contents in the exported PDF. The same heading
       data the outline panel above needs, with a different consumer, so the
       two should be designed together rather than twice. Two distinct pieces:

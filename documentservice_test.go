@@ -295,3 +295,67 @@ func TestReadDataFile(t *testing.T) {
 		t.Error("expected an error for a file over the size limit")
 	}
 }
+
+// CreateDocument writes the document and, when asked, a bibliography beside
+// it, so a new document's live `bibliography:` key resolves from the first
+// keystroke rather than after the author has saved and created the file by
+// hand.
+func TestCreateDocumentWritesBothFiles(t *testing.T) {
+	s := newTestService(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "paper.md")
+
+	doc, err := s.CreateDocument(path, "---\nbibliography: paper.bib\n---\n", "paper.bib", "% refs\n")
+	if err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+	if doc.Path != path || doc.Content != "---\nbibliography: paper.bib\n---\n" {
+		t.Errorf("got %+v", doc)
+	}
+	md, err := os.ReadFile(path)
+	if err != nil || string(md) != doc.Content {
+		t.Errorf("document on disk = %q, %v", md, err)
+	}
+	bib, err := os.ReadFile(filepath.Join(dir, "paper.bib"))
+	if err != nil || string(bib) != "% refs\n" {
+		t.Errorf("bibliography on disk = %q, %v", bib, err)
+	}
+	if !slices.Contains(s.RecentFiles(), path) {
+		t.Error("new document not added to recents")
+	}
+	if s.IsDirty() {
+		t.Error("a freshly created document must not be dirty")
+	}
+}
+
+// An existing library beside the chosen name is exactly what the author wants
+// to point at; it must never be replaced by the seed.
+func TestCreateDocumentKeepsExistingBibliography(t *testing.T) {
+	s := newTestService(t)
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "paper.bib")
+	if err := os.WriteFile(existing, []byte("@book{k, title={T}}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.CreateDocument(filepath.Join(dir, "paper.md"), "x", "paper.bib", "% seed\n"); err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+	bib, _ := os.ReadFile(existing)
+	if string(bib) != "@book{k, title={T}}\n" {
+		t.Errorf("existing bibliography was overwritten: %q", bib)
+	}
+}
+
+func TestCreateDocumentWithoutBibliography(t *testing.T) {
+	s := newTestService(t)
+	dir := t.TempDir()
+
+	if _, err := s.CreateDocument(filepath.Join(dir, "notes.md"), "# Notes\n", "", ""); err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "notes.md" {
+		t.Errorf("expected only notes.md in %s, got %v", dir, entries)
+	}
+}

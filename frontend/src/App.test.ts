@@ -34,6 +34,8 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
       Settings: vi.fn(async () => settings.current),
       UpdateSettings: vi.fn(async () => {}),
       ImportData: vi.fn(async () => ''),
+      ChooseNewDocumentPath: vi.fn(async () => ''),
+      CreateDocument: vi.fn(async (path: string, content: string, _bibName: string, _bibContent: string) => ({ path, content })),
     },
   }
 })
@@ -129,44 +131,89 @@ describe('welcome pane', () => {
 })
 
 describe('new documents', () => {
-  const templated = (target: HTMLElement) =>
+  const editorText = (target: HTMLElement) =>
     target.querySelector('.editor-pane')?.textContent ?? ''
+  const dialog = (target: HTMLElement) =>
+    target.querySelector('dialog[aria-label="New document"]') as HTMLDialogElement | null
 
-  it('seeds the template and is not dirty', async () => {
+  it('opens the New… dialog from the welcome pane and File → New', async () => {
     recents.current = ['/papers/thesis.md']
     const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
 
     buttonByText(target, 'New document')!.click()
     flushSync()
+    expect(dialog(target)?.open).toBe(true)
 
-    expect(templated(target)).toContain('bibliography: references.bib')
-    // The status bar appends " •" only while dirty. A template the user never
-    // touched must not prompt on close.
-    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
-  })
-
-  it('templates the document from File → New', async () => {
-    recents.current = ['/papers/thesis.md']
-    const { target } = mountApp()
-    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    buttonByText(target, 'Cancel')!.click()
+    flushSync()
+    expect(dialog(target)?.open).toBe(false)
+    // Cancelling made nothing: the welcome pane is still there.
+    expect(target.querySelector('.welcome')).not.toBeNull()
 
     listeners['menu:new']({ data: null })
     flushSync()
-
-    expect(templated(target)).toContain('bibliography: references.bib')
-    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
+    expect(dialog(target)?.open).toBe(true)
   })
 
-  it('dismisses the welcome pane', async () => {
+  it('creates the document and its bibliography beside it, then loads it', async () => {
+    recents.current = ['/papers/thesis.md']
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
+
+    buttonByText(target, 'New document')!.click()
+    flushSync()
+    buttonByText(target, 'Create…')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
+    const [path, content, bibName, bibContent] = DocumentService.CreateDocument.mock.calls[0]
+    expect(path).toBe('/papers/draft.md')
+    expect(content).toContain('bibliography: draft.bib')
+    expect(content).toContain('csl: apa')
+    expect(bibName).toBe('draft.bib')
+    expect(bibContent.startsWith('%')).toBe(true)
+
+    await vi.waitFor(() => expect(editorText(target)).toContain('bibliography: draft.bib'))
+    expect(target.querySelector('.welcome')).toBeNull()
+    // A document that was just written to disk is not dirty.
+    expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
+    expect(target.querySelector('.status-bar')?.textContent).toContain('draft.md')
+  })
+
+  it('writes the commented template and no bibliography when unticked', async () => {
+    recents.current = ['/papers/thesis.md']
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/notes.md')
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
+
+    buttonByText(target, 'New document')!.click()
+    flushSync()
+    const box = dialog(target)!.querySelector('input[type="checkbox"]') as HTMLInputElement
+    box.click()
+    flushSync()
+    expect(dialog(target)!.querySelector('select')).toBeNull()
+    buttonByText(target, 'Create…')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
+    const [, content, bibName] = DocumentService.CreateDocument.mock.calls[0]
+    expect(content).toContain('# bibliography: references.bib')
+    expect(bibName).toBe('')
+  })
+
+  it('does nothing when the save panel is cancelled', async () => {
     recents.current = ['/papers/thesis.md']
     const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
 
     buttonByText(target, 'New document')!.click()
     flushSync()
+    buttonByText(target, 'Create…')!.click()
 
-    expect(target.querySelector('.welcome')).toBeNull()
+    await vi.waitFor(() => expect(DocumentService.ChooseNewDocumentPath).toHaveBeenCalled())
+    await Promise.resolve()
+    expect(DocumentService.CreateDocument).not.toHaveBeenCalled()
+    expect(target.querySelector('.welcome')).not.toBeNull()
   })
 })
 

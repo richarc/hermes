@@ -1,3 +1,5 @@
+import { STYLE_IDS } from './citations'
+
 /**
  * Seed text for a new document.
  *
@@ -22,3 +24,30 @@ export const NEW_DOCUMENT_TEMPLATE = `---
 # csl: apa
 ---
 `
+
+/**
+ * What a bibliography created by File → New… starts as. A comment rather than
+ * nothing: an empty file is easy to mistake for a failed write, and `%` lines
+ * are exactly what parseBib skips, so there is nothing for it to warn about.
+ */
+export const BIBLIOGRAPHY_SEED = `% Bibliography for the document beside this file.
+% Export from Zotero (Better BibTeX keeps it in sync) or paste BibTeX entries here.
+`
+
+/**
+ * The text of a document created by File → New…, given the stem of its
+ * chosen filename. With a bibliography the keys are *live* — the `.bib` is
+ * created beside the document by the same action, so there is no missing-file
+ * toast to avoid and no reason to make the author uncomment anything. Without
+ * one, the ordinary commented template is right: it explains how to add a
+ * bibliography later.
+ */
+export function newDocumentText(stem: string, withBibliography: boolean, csl: string): string {
+  if (!withBibliography) return NEW_DOCUMENT_TEMPLATE
+  if (!STYLE_IDS.includes(csl)) throw new Error(`unknown citation style: ${csl}`)
+  return `---
+bibliography: ${stem}.bib
+csl: ${csl}
+---
+`
+}

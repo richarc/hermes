@@ -7,7 +7,8 @@
   import Preview from './Preview.svelte'
   import { render } from './lib/renderer'
   import { debounce } from './lib/debounce'
-  import { NEW_DOCUMENT_TEMPLATE } from './lib/documentTemplate'
+  import { NEW_DOCUMENT_TEMPLATE, BIBLIOGRAPHY_SEED, newDocumentText } from './lib/documentTemplate'
+  import NewDocument from './NewDocument.svelte'
   import { parseFrontmatter } from './lib/frontmatter'
   import { parseBib } from './lib/bibliography'
   import { resolveTheme, applyTheme, type ThemeSetting } from './lib/theme'
@@ -318,11 +319,14 @@
     updatePreview(text)
   }
 
-  function loadDocument(docPath: string, docContent: string) {
+  // `cursor` is 'end' for a document created a moment ago, so typing starts
+  // below its frontmatter; the 'start' default is for opening a file, which
+  // must not relocate where ⌘⇧C and the Format-menu commands act.
+  function loadDocument(docPath: string, docContent: string, cursor: 'start' | 'end' = 'start') {
     path = docPath
     content = docContent
     welcomeDismissed = true
-    editor.setContent(docContent) // fires onEditorChange, queueing a render
+    editor.setContent(docContent, cursor) // fires onEditorChange, queueing a render
     savedContent = docContent
     // Render now rather than 250 ms from now, and drop the queued pass: it
     // would only re-render this same text.
@@ -363,14 +367,40 @@
     // menu:new fires regardless of focus (and regardless of whether the
     // chart builder modal is covering the editor), so this must refuse
     // rather than swap the whole document out from under an open modal.
-    if (chartOpen) return
+    if (chartOpen || newOpen) return
     if (dirty) {
       pendingAction = 'new'
       return
     }
-    doNew()
+    newOpen = true
   }
 
+  // File → New… is two prompts: this dialog (bibliography? which style?) and
+  // then the native save panel. The order is forced by the frontmatter: the
+  // live `bibliography:` key names a `.bib` after the document's own stem,
+  // which is not known until the panel has been answered.
+  let newOpen = $state(false)
+
+  async function createDocument(withBibliography: boolean, csl: string) {
+    newOpen = false
+    try {
+      const chosen = await DocumentService.ChooseNewDocumentPath()
+      if (!chosen) return // cancelled
+      const stem = chosen.replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '')
+      const text = newDocumentText(stem, withBibliography, csl)
+      const bibName = withBibliography ? `${stem}.bib` : ''
+      const doc = await DocumentService.CreateDocument(chosen, text, bibName, BIBLIOGRAPHY_SEED)
+      loadDocument(doc.path, doc.content, 'end')
+    } catch (err) {
+      toast(`Could not create document: ${err}`)
+    }
+  }
+
+  // The first-launch scratch document: an untitled, templated buffer. Every
+  // other route to a new document goes through createDocument above, which
+  // saves and names the file first; this stays for the launch with nothing
+  // to show, where a dialog before the window has even settled would be
+  // hostile.
   function doNew() {
     path = null
     // 'end' lands the cursor (and focus) below the frontmatter so the user
@@ -398,8 +428,8 @@
 
   function requestOpen() {
     // Same reasoning as requestNew: menu:open must not swap the document out
-    // from under an open chart builder modal.
-    if (chartOpen) return
+    // from under an open chart builder modal, or the New… dialog.
+    if (chartOpen || newOpen) return
     if (dirty) {
       pendingAction = 'open'
       return
@@ -419,8 +449,9 @@
 
   function requestOpenRecent(p: string) {
     // Same reasoning as requestNew: menu- and welcome-pane-triggered opens
-    // must not swap the document out from under an open chart builder modal.
-    if (chartOpen) return
+    // must not swap the document out from under an open chart builder modal,
+    // or the New… dialog.
+    if (chartOpen || newOpen) return
     if (dirty) {
       pendingAction = 'open'
       pendingRecentPath = p
@@ -488,7 +519,7 @@
     pendingAction = null
     pendingRecentPath = null
     if (action === 'quit') void DocumentService.Quit()
-    else if (action === 'new') doNew()
+    else if (action === 'new') newOpen = true
     else if (action === 'open') {
       if (recentPath) void openRecent(recentPath)
       else void doOpen()
@@ -638,6 +669,8 @@
       </div>
     </div>
   {/if}
+
+  <NewDocument open={newOpen} onclose={() => (newOpen = false)} oncreate={(b, c) => void createDocument(b, c)} />
 
   <Dialog
     open={pendingAction !== null}

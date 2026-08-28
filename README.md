@@ -25,7 +25,8 @@ on screen is rendered from it.
   table, so a block looks the same as you write it, after it renders, and in
   the PDF. Insert → Code Block writes the fence for you.
 - **Writing tools** — formatting commands with shortcuts, block folding, an
-  Insert menu, recent files, and a templated new document.
+  Insert menu, recent files, and a New… flow that names the document and
+  creates its bibliography beside it before you type a word.
 - **Dark theme** — System, Light or Dark, remembered between sessions. Exported
   PDFs stay light regardless.
 - **PDF export** — the preview, including charts, diagrams and references.
@@ -282,7 +283,7 @@ Orientation** and is remembered between sessions.
 
 | Shortcut | Action |
 |---|---|
-| ⌘N | New document |
+| ⌘N | New… (name the document, create its bibliography) |
 | ⌘O | Open… |
 | ⌘S | Save |
 | ⌘⇧S | Save As… |

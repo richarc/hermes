@@ -9,8 +9,37 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+/**
+ * ChooseNewDocumentPath asks where a new document should live. It is the
+ * first half of File → New…: the frontend needs the chosen name before it can
+ * compose the document, because the live `bibliography:` key names a `.bib`
+ * after the document's own stem. Empty when the panel is cancelled.
+ * 
+ * The panel's own "Replace?" prompt is what guards an existing `.md`; nothing
+ * here checks for one.
+ */
+export function ChooseNewDocumentPath(): $CancellablePromise<string> {
+    return $Call.ByID(3379613135);
+}
+
 export function ClearRecents(): $CancellablePromise<void> {
     return $Call.ByID(3493938995);
+}
+
+/**
+ * CreateDocument is the second half: it writes the document, and — when
+ * bibName is set — a bibliography beside it, resolved the same way a
+ * `bibliography:` key is. A bibliography that already exists is left exactly
+ * as it is: a library beside the chosen name is what the author wants to
+ * point at, not something to replace with a seed. Only bibContent's write is
+ * conditional; the document itself is always written, since the save panel
+ * has already confirmed any replacement.
+ * 
+ * Split from the dialog so it is testable without one, the same reason
+ * feedbackURL and quitRequest are separate from what calls them.
+ */
+export function CreateDocument(path: string, content: string, bibName: string, bibContent: string): $CancellablePromise<$models.Document> {
+    return $Call.ByID(839519561, path, content, bibName, bibContent);
 }
 
 /**
