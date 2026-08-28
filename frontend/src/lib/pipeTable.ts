@@ -82,3 +82,51 @@ export function parsePipeTable(text: string): ParsePipeResult {
   })
   return { ok: true, table: { header, align, rows } }
 }
+
+/** Column width in code points, so an accented character still lines up. */
+function width(s: string): number {
+  return [...s].length
+}
+
+function escapeCell(s: string): string {
+  return s.replace(/\|/g, '\\|')
+}
+
+function pad(s: string, w: number): string {
+  return s + ' '.repeat(Math.max(0, w - width(s)))
+}
+
+function delimiter(align: Alignment, w: number): string {
+  switch (align) {
+    case 'left':
+      return ':' + '-'.repeat(w - 1)
+    case 'right':
+      return '-'.repeat(w - 1) + ':'
+    case 'center':
+      return ':' + '-'.repeat(w - 2) + ':'
+    default:
+      return '-'.repeat(w)
+  }
+}
+
+/**
+ * Writes a padded pipe table: every column as wide as its widest cell (never
+ * narrower than 3, so the delimiter is always at least `---`), alignment
+ * colons in the delimiter row, `|` inside a cell escaped. No trailing
+ * newline — the caller decides how the block is placed.
+ */
+export function serializePipeTable(table: PipeTable): string {
+  const cols = table.header.length
+  const header = table.header.map(escapeCell)
+  const rows = table.rows.map((r) => r.map(escapeCell))
+  const widths = Array.from({ length: cols }, (_, c) =>
+    Math.max(3, width(header[c] ?? ''), ...rows.map((r) => width(r[c] ?? ''))),
+  )
+  const line = (cells: string[]) =>
+    '| ' + cells.map((cell, c) => pad(cell, widths[c])).join(' | ') + ' |'
+  return [
+    line(header),
+    line(widths.map((w, c) => delimiter(table.align[c] ?? null, w))),
+    ...rows.map(line),
+  ].join('\n')
+}
