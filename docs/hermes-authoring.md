@@ -126,10 +126,10 @@ the cursor; with the cursor inside an existing table the same command opens
 it for editing and Update replaces it. Cells hold ordinary markdown, so
 `**bold**`, links and `[@citations]` work inside them.
 
-| Sample   | n   | Mean |
-| :------- | --: | ---: |
-| Control  |  12 |  4.1 |
-| Treated  |  11 |  6.3 |
+| Sample  | n   | Mean |
+| :------ | --: | ---: |
+| Control | 12  | 4.1  |
+| Treated | 11  | 6.3  |
 
 ## Charts
 

@@ -561,7 +561,8 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       `@lezer/markdown` so `enclosingTable` has a node to find, and opening
       with the cursor in a table edits it in place; `commitTable` re-validates
       the range by comparing it against the text captured when the builder
-      opened, as `commitChart` does.
+      opened, rather than by re-parsing it — the same guard `commitChart`
+      applies.
 - [x] **A real New Document flow.** Done 2026-08-28, unreleased. Reported
       from real use on 2026-08-19: File → New seeded a template with the
       `bibliography` and `csl` keys commented out into an untitled buffer, so
