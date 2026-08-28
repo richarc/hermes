@@ -519,26 +519,14 @@ like one program.
 
 Three features drawn from a survey of similar products (2026-08-08), kept
 because they serve paper-writing specifically rather than because other
-editors have them. What was deliberately *not* taken: seamless in-place
-WYSIWYG editing, which would replace the split view, scroll sync and the
-chart placeholders at once and fights a domain where a Vega-Lite spec and a
-citation key have no meaningful inline visual form; and a file-tree sidebar,
-which is the multi-part document idea dropped on 2026-08-06.
+editors have them; one of the three, Pandoc export, moved to v1.1.0 on
+2026-08-28 to become a hosted paid feature. What was deliberately *not*
+taken: seamless in-place WYSIWYG editing, which would replace the split view,
+scroll sync and the chart placeholders at once and fights a domain where a
+Vega-Lite spec and a citation key have no meaningful inline visual form; and
+a file-tree sidebar, which is the multi-part document idea dropped on
+2026-08-06.
 
-- [ ] Export to DOCX and LaTeX through Pandoc. Hermes already builds toward
-      Pandoc without collecting the payoff: `![caption](img)` was chosen
-      because it is exactly Pandoc's figure convention, citations are `[@key]`,
-      and the figures design argues captions live in each format's native home
-      so a Pandoc conversion keeps them. Meanwhile the only output is PDF
-      through the print panel, and co-authors and journals want `.docx`. The
-      decision to settle first is the dependency: shell out to a Pandoc the
-      user installed (simple, but fails on a fresh machine and needs a
-      not-found path that explains itself), or bundle one (a much larger
-      binary, though v1.0 is already facing signing and notarization, so the
-      packaging conversation is open anyway). Bibliography handling needs
-      thought too — Pandoc can resolve citations itself from the same `.bib`,
-      which may mean handing it the raw markdown rather than anything Hermes
-      has already rendered.
 - [x] **An outline panel.** Done 2026-08-28, unreleased. The document's
       headings, indented by level, in a 220 px column left of the editor,
       with click-to-jump. It was as cheap as predicted, because the data did
@@ -683,6 +671,80 @@ which is the multi-part document idea dropped on 2026-08-06.
       app, where `CFBundleShortVersionString` is readable, so the version line
       shows the real number rather than "unknown".
 
+## v0.11.0 — Rendering performance
+
+From a measurement pass on 2026-08-28: `renderDocument()` timed in vitest on
+the repository's own documents, and the preview's DOM replacement timed in
+headless Chrome against the real `style.css` (WebKit will differ in the
+absolute numbers; the shape is the same). The parse is not the cost —
+markdown-it runs at ~50 MB/s, a 75 KB paper in about 1 ms. What costs is
+that three things are redone in full on every keystroke pause however
+little changed: the whole preview DOM is torn down and rebuilt, every
+formula goes back through KaTeX, and citeproc re-derives every citation and
+the bibliography. Baseline: `docs/test-document.md` is 1.4 ms of JS and
+3.4 ms of DOM, 9.7 ms of JS with the APA formatter loaded; 300 inline plus
+300 display equations is 36 ms of JS and **150 ms** of DOM across 64 000
+nodes; 30 citation clusters cost 15–17 ms in `format()` alone. Things
+checked and found fine, so nobody chases them: scroll-sync anchor
+measurement (≤1.5 ms, cached, one forced layout), the per-keystroke
+`doc.toString()` and dirty compare, the hydrator caches, and the Go bridge,
+which carries nothing per keystroke but `SetDirty` on a real change.
+
+- [ ] **Reconcile the preview instead of replacing it.**
+      `Preview.svelte`'s effect does `sheet.innerHTML = html`, which is the
+      dominant cost and the root of the next item too: every KaTeX span is
+      laid out again, every chart node is detached and re-attached, every
+      code block is re-cloned from its cache, every `<img>` is a new
+      element. Two designs. *Block-level reconciliation*: markdown-it's
+      level-0 tokens already carry `map`, so render each top-level block to
+      its own string and reconcile `.sheet`'s children by comparing block
+      HTML, leaving unchanged blocks — and the hydrated charts, code,
+      diagrams and formulas inside them — untouched, which fits the
+      hydrators' existing key-on-content design. *DOM morphing*
+      (idiomorph/morphdom-style): simpler to bolt on, but needs a hook to
+      skip `.vega-lite-chart` nodes whose `data-spec` is unchanged so a live
+      Vega view is never morphed into a placeholder. Either way a typical
+      keystroke should go from 3–150 ms of DOM work to about 1 ms. The tests
+      around `data-source-line` and chart caching are the safety net, since
+      this changes Preview's contract with the hydrators and scroll sync.
+- [ ] **Stop refetching local images on every render.** `localimages.go`
+      answers with `Cache-Control: no-store` so an edit made in another
+      application shows up, and because the preview recreates every `<img>`
+      per render that forces a fresh fetch and file read per image per
+      keystroke pause. Keep the freshness and lose the transfer:
+      `http.ServeFile` already emits `Last-Modified` and honours
+      `If-Modified-Since`, so `no-cache` gives a 304 revalidation instead of
+      the bytes (stamping the mtime into the query string is the
+      alternative). Inferred from the code and browser cache semantics
+      rather than a trace — confirm in Web Inspector's network tab first.
+      Worth doing even after the item above, for the block that did change.
+- [ ] **Memoise the citation formatter.** `citations.ts`'s `format()` calls
+      `rebuildProcessorState` and `makeBibliography` on every render,
+      whether or not the keystroke touched a citation — 15 ms for 30
+      clusters. Keep the last cluster list (serialised) and its result, and
+      return the result again when the list is the same. Self-contained.
+- [ ] **Memoise KaTeX.** `@vscode/markdown-it-katex` calls `renderToString`
+      for every formula on every render, ~60 µs each. `renderer.ts` already
+      wraps `math_block`; wrap `math_inline` the same way and put both
+      through an LRU keyed on the TeX source and display mode. With the
+      reconciliation item this makes a maths-heavy paper free to edit.
+- [ ] **Make the debounce earn its 250 ms.** `App.svelte`'s `updatePreview`
+      waits a fixed 250 ms, which once renders are cheap is the whole
+      perceived latency. Either drop it to about 100 ms or make it adaptive
+      — clamp twice the last measured render time between ~60 and 300 ms —
+      so a small document feels immediate and a huge one never queues.
+      After the reconciliation item, so the shorter wait is not paid on an
+      expensive render.
+- [ ] **Embed charts concurrently.** `charts.ts`'s hydrator awaits `embed`
+      inside its `for` loop, so a paper with eight charts pays eight Vega
+      embeds one after another on first open and on a chart-width change.
+      `Promise.all` over the uncached placeholders, keeping the generation
+      guard, overlaps them.
+- [ ] **Profile in the real webview before starting.** The DOM numbers above
+      are Chrome's. Add `performance.mark`s around `renderInto` and the
+      Preview effect and take one profile in Safari's Web Inspector attached
+      to the app, so each item above is judged against WebKit figures.
+
 ## v1.0.0 — Production
 
 Distribution is step 1 of the website work: GitHub Releases for the binary and
@@ -718,6 +780,29 @@ separate, much larger project and is deliberately not part of this.
       enrolment becoming an organization one, say — that needs a transitional
       release. Cheapest while there are few users.
 - [ ] Windows and Linux stay in the backlog.
+
+## v1.1.0 — Advanced features (SaaS back end)
+
+Paid features served by a hosted back end rather than the desktop binary,
+decided 2026-08-28. Pandoc export moves here from v0.10.0: the dependency
+question it turns on below — shell out to a user-installed Pandoc, or bundle
+one — dissolves when the conversion runs on a server Hermes controls, and
+`.docx`/LaTeX output is the first thing worth charging for.
+
+- [ ] Export to DOCX and LaTeX through Pandoc. Hermes already builds toward
+      Pandoc without collecting the payoff: `![caption](img)` was chosen
+      because it is exactly Pandoc's figure convention, citations are `[@key]`,
+      and the figures design argues captions live in each format's native home
+      so a Pandoc conversion keeps them. Meanwhile the only output is PDF
+      through the print panel, and co-authors and journals want `.docx`. The
+      decision that used to come first — the dependency: shell out to a
+      Pandoc the user installed (simple, but fails on a fresh machine and
+      needs a not-found path that explains itself), or bundle one (a much
+      larger binary, though v1.0 is already facing signing and notarization,
+      so the packaging conversation is open anyway). Bibliography handling needs
+      thought too — Pandoc can resolve citations itself from the same `.bib`,
+      which may mean handing it the raw markdown rather than anything Hermes
+      has already rendered.
 
 ## Backlog (unscheduled)
 
