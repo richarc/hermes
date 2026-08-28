@@ -628,6 +628,35 @@ dialog::backdrop { background: var(--backdrop); }
   color: var(--muted-strong);
 }
 
+/* Table builder — same dialog shell as the chart builder, sized for a grid. */
+.table-builder {
+  width: min(56rem, 90vw);
+  max-width: min(56rem, 90vw);
+  text-align: left;
+}
+.table-builder h2 { margin-bottom: 16px; }
+.table-grid { overflow-x: auto; margin-bottom: 12px; }
+.table-grid table { border-collapse: collapse; }
+.table-grid th, .table-grid td { padding: 2px; }
+.table-grid input {
+  width: 100%;
+  min-width: 8rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.table-grid input.th-cell { font-weight: 600; }
+.align-group { display: flex; gap: 2px; }
+.align-group .align { padding: 0 6px; font-size: 12px; }
+.align-group .align[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.table-grid .remove-row, .table-grid .remove-col { padding: 0 6px; font-size: 12px; color: var(--muted); }
+.table-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+.table-import label { display: block; margin-bottom: 4px; font-size: 13px; color: var(--muted); }
+.table-import textarea { width: 100%; font-family: monospace; }
+.table-builder .field-error { color: var(--cite-error-fg); margin-top: 8px; }
+
 .toast {
   position: fixed; bottom: 16px; right: 16px;
   background: var(--toast-bg); color: var(--toast-fg); padding: 10px 16px; border-radius: 6px;
