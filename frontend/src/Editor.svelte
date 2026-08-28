@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { EditorView, basicSetup } from 'codemirror'
   import { markdown } from '@codemirror/lang-markdown'
+  import { Table } from '@lezer/markdown'
   import { languages } from '@codemirror/language-data'
   import { keymap, type Command } from '@codemirror/view'
   import { EditorState, Prec } from '@codemirror/state'
@@ -339,6 +340,35 @@
     return null
   }
 
+  export interface TableBlock {
+    from: number
+    to: number
+    text: string
+  }
+
+  /**
+   * The GFM table containing the cursor, or null.
+   *
+   * Same two load-bearing details as enclosingChartBlock, for the same
+   * reasons: forceParsing first, because a table late in a long paper is not
+   * in the tree until parsing is forced; and resolveInner on both sides, so
+   * a cursor at the exact start or exact end of the table still counts. The
+   * Lezer GFM grammar lang-markdown installs already produces `Table`.
+   */
+  export function enclosingTable(): TableBlock | null {
+    forceParsing(view, view.state.doc.length, 5000)
+    const tree = syntaxTree(view.state)
+    const pos = view.state.selection.main.head
+
+    for (const side of [1, -1] as const) {
+      let node: SyntaxNode | null = tree.resolveInner(pos, side)
+      while (node && node.name !== 'Table') node = node.parent
+      if (!node) continue
+      return { from: node.from, to: node.to, text: view.state.doc.sliceString(node.from, node.to) }
+    }
+    return null
+  }
+
   /**
    * The document text between two positions, or '' if the range does not fit
    * inside the current document. Callers use the empty result as "this range
@@ -375,7 +405,7 @@
       basicSetup,
       hermesTheme,
       syntaxHighlighting(hermesHighlight),
-      markdown({ codeLanguages: languages }),
+      markdown({ codeLanguages: languages, extensions: [Table] }),
       EditorView.lineWrapping,
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onchange(u.state.doc.toString())

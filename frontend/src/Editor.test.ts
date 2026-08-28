@@ -22,6 +22,7 @@ interface EditorApi {
   lineCount(): number
   topVisibleLine(): number
   enclosingChartBlock(): ChartBlock | null
+  enclosingTable(): { from: number; to: number; text: string } | null
   replaceRange(from: number, to: number, text: string): void
 }
 
@@ -531,6 +532,46 @@ describe('chart block lookup', () => {
     expect(view.state.doc.toString()).toContain('"mark": "bar"')
     expect(view.state.doc.toString()).not.toContain('"mark": "line"')
     expect(view.state.selection.main.head).toBe(block.from + 32)
+    cleanup()
+  })
+})
+
+describe('Editor.enclosingTable', () => {
+  const TABLE = '| a | b |\n| --- | --- |\n| 1 | 2 |'
+  const DOC = `# Results\n\n${TABLE}\n\nAfter.\n`
+
+  function atPosition(pos: number) {
+    const { target, editor, cleanup } = mountEditor()
+    editor.setContent(DOC)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: pos } })
+    return { editor, cleanup }
+  }
+
+  it('finds the table from a body cell, with its exact text', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('| 1'))
+    const block = editor.enclosingTable()
+    expect(block).not.toBeNull()
+    expect(block!.text).toBe(TABLE)
+    expect(DOC.slice(block!.from, block!.to)).toBe(TABLE)
+    cleanup()
+  })
+
+  it('finds the table from the very start of the header row', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('| a'))
+    expect(editor.enclosingTable()).not.toBeNull()
+    cleanup()
+  })
+
+  it('finds the table from the end of the last row', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('| 2 |') + '| 2 |'.length)
+    expect(editor.enclosingTable()).not.toBeNull()
+    cleanup()
+  })
+
+  it('finds nothing in prose', () => {
+    const { editor, cleanup } = atPosition(DOC.indexOf('After'))
+    expect(editor.enclosingTable()).toBeNull()
     cleanup()
   })
 })
