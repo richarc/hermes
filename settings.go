@@ -19,6 +19,7 @@ type Settings struct {
 	FigureAlignment  string `json:"figureAlignment"`
 	ChartWidth       string `json:"chartWidth"`
 	PaperSize        string `json:"paperSize"`
+	ShowOutline      bool   `json:"showOutline"`
 }
 
 func defaultSettings() Settings {
@@ -29,6 +30,7 @@ func defaultSettings() Settings {
 		FigureAlignment:  "centre",
 		ChartWidth:       "medium",
 		PaperSize:        "a4",
+		ShowOutline:      false,
 	}
 }
 
@@ -37,7 +39,8 @@ func defaultSettings() Settings {
 // so neither a hand-edited settings file nor a bad binding call can leave the
 // app holding a preference it cannot act on.
 func (s Settings) normalise() Settings {
-	// SyncScrolling needs no clause: every value a bool can hold is valid.
+	// SyncScrolling and ShowOutline need no clause: every value a bool can
+	// hold is valid.
 	// Only fields with a restricted set of legal values are clamped here.
 	if s.PrintOrientation != "portrait" && s.PrintOrientation != "landscape" {
 		s.PrintOrientation = defaultSettings().PrintOrientation

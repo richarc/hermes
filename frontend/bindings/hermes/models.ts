@@ -20,4 +20,5 @@ export interface Settings {
     "figureAlignment": string;
     "chartWidth": string;
     "paperSize": string;
+    "showOutline": boolean;
 }

@@ -366,3 +366,24 @@ func TestFigureSettingsAreIndependentOfTheOthers(t *testing.T) {
 		t.Errorf("changing the chart width disturbed the other settings: %+v", got)
 	}
 }
+
+func TestShowOutlineDefaultsToOff(t *testing.T) {
+	s := newTestService(t)
+	if s.Settings().ShowOutline {
+		t.Error("want the outline hidden by default")
+	}
+}
+
+func TestShowOutlinePersists(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+
+	next := s.Settings()
+	next.ShowOutline = true
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if !NewDocumentService(recentsPath).Settings().ShowOutline {
+		t.Error("want the outline setting persisted across instances")
+	}
+}

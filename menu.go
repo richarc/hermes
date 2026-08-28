@@ -241,6 +241,17 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		}
 	})
 
+	// ⌘⌥O: CodeMirror claims nothing on it (checked against defaultKeymap and
+	// foldKeymap), and the fold chords already establish ⌘⌥ as the View
+	// menu's modifier. The panel's own arrow is the mouse route.
+	view.AddCheckbox("Outline", viewCurrent.ShowOutline).SetAccelerator("cmdorctrl+alt+o").OnClick(func(*application.Context) {
+		next := docs.Settings()
+		next.ShowOutline = !next.ShowOutline
+		if err := docs.UpdateSettings(next); err != nil {
+			log.Printf("could not save outline visibility: %v", err)
+		}
+	})
+
 	view.AddSeparator()
 	appearance := view.AddSubmenu("Appearance")
 	themes := []struct {

@@ -5,7 +5,9 @@
   import type { Settings } from '../bindings/hermes/models'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
-  import { render } from './lib/renderer'
+  import { renderDocument, type RenderOptions } from './lib/renderer'
+  import { type OutlineEntry } from './lib/outline'
+  import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
   import { NEW_DOCUMENT_TEMPLATE, BIBLIOGRAPHY_SEED, newDocumentText } from './lib/documentTemplate'
   import NewDocument from './NewDocument.svelte'
@@ -55,6 +57,37 @@
   let editor: ReturnType<typeof Editor>
   let preview: ReturnType<typeof Preview>
   let syncScrolling = $state(false)
+  let showOutline = $state(false)
+  let outline = $state<OutlineEntry[]>([])
+
+  // Every render feeds both the preview and the outline; one function so a
+  // call site cannot update one and leave the other a document behind.
+  function renderInto(text: string) {
+    const opts: RenderOptions = { formatter, chartWidth, docPath: path }
+    const result = renderDocument(text, opts)
+    html = result.html
+    outline = result.outline
+  }
+
+  // The panel's own arrows. The View menu owns the same setting, so this is a
+  // read-modify-write of the whole value — the menu only ever changes the
+  // field it owns, and so does this.
+  async function setOutlineShown(shown: boolean) {
+    try {
+      const current: Settings = await DocumentService.Settings()
+      await DocumentService.UpdateSettings({ ...current, showOutline: shown })
+    } catch (err) {
+      toast(`Could not save outline visibility: ${err}`)
+    }
+  }
+
+  // An explicit jump moves both panes, whatever Sync Scrolling says: the
+  // author chose that heading, and following is a different thing from
+  // being taken there.
+  function jumpToLine(line: number) {
+    editor.goToLine(line)
+    preview.syncToLine(line, editor.lineCount())
+  }
   let themeSetting = $state<ThemeSetting>('system')
   let chartWidth = $state<ChartWidth>('medium')
   let figureAlign = $state<FigureAlignment>('centre')
@@ -82,7 +115,7 @@
   const fmCsl = $derived(fm.csl)
 
   const updatePreview = debounce((text: string) => {
-    html = render(text, { formatter, chartWidth, docPath: path })
+    renderInto(text)
   }, 250)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
@@ -150,7 +183,7 @@
   $effect(() => {
     void formatter
     void chartWidth
-    html = render(untrack(() => content), { formatter, chartWidth, docPath: path })
+    renderInto(untrack(() => content))
   })
 
   async function insertCitation() {
@@ -331,7 +364,7 @@
     // Render now rather than 250 ms from now, and drop the queued pass: it
     // would only re-render this same text.
     updatePreview.cancel()
-    html = render(docContent, { formatter, chartWidth, docPath: path })
+    renderInto(docContent)
     void refreshRecents()
   }
 
@@ -342,6 +375,7 @@
   async function refreshSettings() {
     const s: Settings = await DocumentService.Settings()
     syncScrolling = s.syncScrolling
+    showOutline = s.showOutline
     themeSetting = s.theme as ThemeSetting
     // Go normalises both on the way out, so the cast is a spelling of what
     // the binding cannot express rather than an unchecked assumption.
@@ -422,7 +456,7 @@
     // user never edited.
     savedContent = NEW_DOCUMENT_TEMPLATE
     updatePreview.cancel() // the render below supersedes it
-    html = render(NEW_DOCUMENT_TEMPLATE, { formatter, chartWidth, docPath: path })
+    renderInto(NEW_DOCUMENT_TEMPLATE)
     welcomeDismissed = true
   }
 
@@ -632,6 +666,16 @@
   </header>
 
   <main class="panes">
+    {#if showOutline}
+      <Outline entries={outline} onjump={jumpToLine} onhide={() => void setOutlineShown(false)} />
+    {:else}
+      <button
+        class="outline-arrow outline-reveal"
+        onclick={() => void setOutlineShown(true)}
+        title="Show outline (⌘⌥O)"
+        aria-label="Show outline">›</button
+      >
+    {/if}
     <section class="editor-pane" style="width: {editorWidth}%">
       <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} onscroll={onEditorScroll} />
     </section>

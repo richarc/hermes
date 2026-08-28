@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import type Token from 'markdown-it/lib/token.mjs'
+import { outlinePlugin, type OutlineEntry } from './outline'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
 import {
@@ -26,6 +27,7 @@ const katexPlugin = ((katexPluginModule as { default?: unknown }).default ??
  */
 interface RenderEnv {
   citations?: CitationCluster[]
+  outline?: OutlineEntry[]
   sourceLineOffset: number
   chartWidthPx: number
   /** Absolute path of the open document; '' when it has never been saved. */
@@ -59,6 +61,7 @@ md.core.ruler.push('source_line', (state) => {
 // Pushed after source_line so a paragraph that becomes a <figure> already
 // carries its anchor, and the retag carries it along.
 md.use(figurePlugin)
+md.use(outlinePlugin)
 
 /**
  * A document-relative image source is rewritten onto the local-image route.
@@ -260,7 +263,18 @@ export interface RenderOptions {
   docPath?: string | null
 }
 
+export interface RenderResult {
+  html: string
+  /** The document's headings, for the outline panel. */
+  outline: OutlineEntry[]
+}
+
+/** render() for callers that only want the HTML — every test and most rules. */
 export function render(markdown: string, opts?: RenderOptions): string {
+  return renderDocument(markdown, opts).html
+}
+
+export function renderDocument(markdown: string, opts?: RenderOptions): RenderResult {
   const { body, bodyStartLine } = parseFrontmatter(markdown)
   const env: RenderEnv = {
     sourceLineOffset: bodyStartLine - 1,
@@ -268,9 +282,10 @@ export function render(markdown: string, opts?: RenderOptions): string {
     docPath: opts?.docPath ?? '',
   }
   let html = md.render(body, env)
+  const outline = env.outline ?? []
   const clusters = env.citations ?? []
   const formatter = opts?.formatter
-  if (!formatter || clusters.length === 0) return html
+  if (!formatter || clusters.length === 0) return { html, outline }
 
   const { texts, bibliographyHtml } = formatter.format(
     clusters.map((c) => (resolvable(formatter, c) ? c : { items: [] })),
@@ -303,7 +318,7 @@ export function render(markdown: string, opts?: RenderOptions): string {
     const docLines = markdown.split(/\r\n?|\n/).length
     html += `<h2 data-source-line="${docLines}">References</h2>\n${bibliographyHtml}\n`
   }
-  return html
+  return { html, outline }
 }
 
 function resolvable(f: CitationFormatter, c: CitationCluster): boolean {

@@ -308,6 +308,33 @@ textarea:focus-visible,
 }
 
 .panes { flex: 1; display: flex; min-height: 0; }
+
+/* The outline panel: a fixed-width column left of the editor, and the arrow
+   that retracts it. When hidden, the same arrow (pointing the other way) sits
+   as a slim tab on the editor's left edge, so the mouse route back does not
+   depend on remembering the chord. */
+.outline {
+  flex: 0 0 220px; overflow: auto; border-right: 1px solid var(--border);
+  background: var(--bg); font-size: 0.85em; display: flex; flex-direction: column;
+}
+.outline-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 6px 6px 12px; font-weight: 600; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.outline-arrow {
+  padding: 0 8px; line-height: 1.4; font-size: 1.1em; min-width: 0;
+}
+.outline-reveal {
+  flex: 0 0 auto; align-self: flex-start; border-radius: 0 0 6px 0; border-left: 0; border-top: 0;
+}
+.outline ul { list-style: none; margin: 0; padding: 6px 0; }
+.outline-entry {
+  display: block; width: 100%; text-align: left; padding: 3px 8px 3px 0;
+  overflow: hidden; text-overflow: ellipsis; text-wrap: nowrap; color: var(--fg);
+}
+.outline-entry:hover { color: var(--accent); }
+.outline-empty { margin: 12px; color: var(--muted); }
 .editor-pane { border-right: 1px solid var(--border); overflow: auto; }
 .editor-host, .editor-host .cm-editor { height: 100%; }
 .preview-pane { flex: 1; overflow: auto; padding: 24px 0; background: var(--desk); }
@@ -636,7 +663,7 @@ dialog::backdrop { background: var(--backdrop); }
      palette does not appear: the sheet is invariant light on screen already,
      so there is nothing to re-light — which is the whole reason this block
      used to be fifty lines longer. */
-  .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog {
+  .toolbar, .status-bar, .editor-pane, .divider, .welcome, .toast, dialog, .outline, .outline-reveal {
     display: none !important;
   }
   .panes { display: block; }

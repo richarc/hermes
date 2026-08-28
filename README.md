@@ -25,8 +25,9 @@ on screen is rendered from it.
   table, so a block looks the same as you write it, after it renders, and in
   the PDF. Insert → Code Block writes the fence for you.
 - **Writing tools** — formatting commands with shortcuts, block folding, an
-  Insert menu, recent files, and a New… flow that names the document and
-  creates its bibliography beside it before you type a word.
+  Insert menu, recent files, an outline panel of the document's headings
+  with click-to-jump, and a New… flow that names the document and creates
+  its bibliography beside it before you type a word.
 - **Dark theme** — System, Light or Dark, remembered between sessions. Exported
   PDFs stay light regardless.
 - **PDF export** — the preview, including charts, diagrams and references.
@@ -289,6 +290,7 @@ Orientation** and is remembered between sessions.
 | ⌘⇧S | Save As… |
 | ⌘⇧C | Insert Citation… (Zotero picker) |
 | ⌘E | Export PDF… |
+| ⌘⌥O | Show or hide the outline panel |
 | ⌘B / ⌘I | Bold / italic |
 | ⌘⇧K / ⌘⇧X | Inline code / strikethrough |
 | ⌘1 … ⌘6 | Heading level; ⌘0 back to paragraph |

@@ -257,6 +257,22 @@
   }
 
   /**
+   * Put the cursor at the start of a 1-based line, scroll it into view and
+   * take focus — what clicking an outline entry does. Out-of-range lines
+   * clamp rather than throw: the outline was built from a render that may be
+   * a keystroke behind the document.
+   */
+  export function goToLine(line: number): void {
+    const n = Math.min(Math.max(1, line), view.state.doc.lines)
+    const pos = view.state.doc.line(n).from
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: 24 }),
+    })
+    view.focus()
+  }
+
+  /**
    * The 1-based line at the top of the visible editor area.
    *
    * Resolved through posAtCoords at the scroller's top-left corner rather than

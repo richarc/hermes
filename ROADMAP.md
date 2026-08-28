@@ -539,15 +539,30 @@ which is the multi-part document idea dropped on 2026-08-06.
       thought too — Pandoc can resolve citations itself from the same `.bib`,
       which may mean handing it the raw markdown rather than anything Hermes
       has already rendered.
-- [ ] An outline panel: the document's heading structure, with click-to-jump.
-      Cheaper than it looks, because the data already exists. `renderer.ts`'s
-      `source_line` core rule stamps every top-level block — headings
-      included — with its document line, so an outline is a second consumer of
-      the token pass `figures.ts` already walks, and jumping to an entry is
-      `scrollSync.ts`'s existing line-to-offset mapping run in reverse. The
-      open questions are where it lives (a third pane, or an overlay), whether
-      it is driven from the editor's syntax tree or the renderer's tokens, and
-      whether it scrolls the editor, the preview, or both.
+- [x] **An outline panel.** Done 2026-08-28, unreleased. The document's
+      headings, indented by level, in a 220 px column left of the editor,
+      with click-to-jump. It was as cheap as predicted, because the data did
+      already exist: `lib/outline.ts` is a markdown-it core rule beside
+      `figurePlugin` that reads the `data-source-line` stamp `source_line`
+      already put on every `heading_open`, so an entry's line is by
+      construction the line the preview anchors that heading to. The three
+      open questions were settled thus. *Where:* a retractable third pane, not
+      an overlay — it is for keeping open while writing. View → Outline
+      (⌘⌥O; CodeMirror claims nothing on that chord) toggles the persisted
+      `ShowOutline` setting, and the panel's own ‹ arrow — or the › tab that
+      replaces it when hidden — writes the same setting through a
+      read-modify-write of `Settings`, so the menu checkbox and the arrow can
+      never disagree. *Driven by:* the renderer's tokens, not the editor's
+      syntax tree — one parser, one notion of a heading (setext included,
+      fenced `#` excluded for free), testable through `render()`. The cost is
+      that the outline trails the editor by the render debounce, which is
+      invisible in practice. `render()` keeps returning a string for its
+      hundred-odd test call sites; `renderDocument()` returns `{ html,
+      outline }` and App feeds both from one `renderInto` so a call site
+      cannot update one and leave the other a document behind. *Scrolls:*
+      both panes, regardless of Sync Scrolling — `Editor.goToLine` places the
+      cursor and scrolls, `preview.syncToLine` follows — because an explicit
+      jump is not the same act as following. Hidden by the print stylesheet.
 - [ ] A table builder. Markdown tables are the worst hand-editing experience
       left in Hermes, and this is the same shape of problem the chart builder
       already solved — with most of the parts already built. `lib/dataTable.ts`
@@ -586,6 +601,28 @@ which is the multi-part document idea dropped on 2026-08-06.
       and passed to Go as content, so the template stays in one language.
       `unsavedBibliographyMessage` still exists, but the path that showed it
       routinely is gone.
+- [ ] **Choose the bibliography in the New Document flow.** From testing on
+      2026-08-28: the flow above always creates `<stem>.bib`, and that is the
+      wrong answer for two ordinary cases — an author who already has a
+      library and wants to point the new document at it, and one who keeps
+      a shared `references.bib` for several documents. The design agreed but
+      not yet built: after Create… and before the save panel, an
+      intermediate *Bibliography* dialog with three choices. *Same name as
+      the document* (the default, today's behaviour); *a new file with a
+      different name*, from a text field with `.bib` appended if missing,
+      created beside the document and seeded as now; and *an existing
+      file*, from a Choose… button onto the native open panel filtered to
+      `.bib`, written into the frontmatter relative to the document when it
+      is in the document's folder or below and absolute otherwise —
+      `resolveAgainstDoc` already takes both. Continue stays disabled until
+      the second choice has a name or the third has a file; the dialog is
+      skipped when the bibliography box is unticked. Code: a
+      `ChooseBibliography` binding for the open panel, `newDocumentText`
+      taking the bibliography *name* rather than deriving it from the stem,
+      and `CreateDocument` skipping the write for an empty seed as it already
+      does for an existing file. An alternative considered: the three radios
+      inside the first dialog under the checkbox, one step fewer; the
+      intermediate dialog was preferred.
 - [ ] A clickable table of contents in the exported PDF. The same heading
       data the outline panel above needs, with a different consumer, so the
       two should be designed together rather than twice. Two distinct pieces:
