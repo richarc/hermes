@@ -375,7 +375,14 @@
       }
       editor.replaceRange(tableTarget.from, tableTarget.to, text)
     } else {
-      editor.insertBlockAtCursor(text + '\n')
+      // Unlike commitChart's fence, a GFM table does not terminate itself —
+      // its last row keeps absorbing whatever text follows until a blank
+      // line breaks it, so a plain trailing '\n' here would turn the next
+      // paragraph into a bogus table row. Separate with a blank line, unless
+      // one is already there (or there is nothing after the cursor at all),
+      // in which case a bare '\n' avoids tripling up into two blank lines.
+      const separator = editor.isFollowedByBlankLine() ? '\n' : '\n\n'
+      editor.insertBlockAtCursor(text + separator)
     }
     closeTableBuilder()
   }

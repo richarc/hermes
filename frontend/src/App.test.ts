@@ -892,6 +892,36 @@ describe('table builder', () => {
     expect(target.querySelector('.table-builder')).toBeNull()
   })
 
+  it('inserting above prose leaves a blank line before it, not swallowing the paragraph', async () => {
+    const content = '# Results\n\nAfter.\n'
+    const target = await openDoc(content)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: content.indexOf('After.') } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    typeCell(target, 0, 0, 'x')
+    buttonByText(target, 'Insert table')!.click()
+    flushSync()
+    const doc = view.state.doc.toString()
+    expect(doc).toContain('|\n\nAfter.')
+    expect(doc).not.toContain('|\nAfter.')
+  })
+
+  it('inserting at the end of a document does not leave a double blank line', async () => {
+    const content = '# Results\n\nJust prose.\n'
+    const target = await openDoc(content)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: view.state.doc.length } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    typeCell(target, 0, 0, 'x')
+    buttonByText(target, 'Insert table')!.click()
+    flushSync()
+    const doc = view.state.doc.toString()
+    expect(doc.endsWith('\n\n')).toBe(false)
+    expect(doc.endsWith('|\n')).toBe(true)
+  })
+
   it('replaces the table under the cursor', async () => {
     const target = await openDoc(WITH_TABLE)
     const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!

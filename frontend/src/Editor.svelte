@@ -243,6 +243,26 @@
   }
 
   /**
+   * Whether the document, right after the cursor, is already blank there — an
+   * empty document tail or a line break followed by nothing but whitespace
+   * before the next non-blank line, treated loosely here as "starts with a
+   * newline" since that is the only case callers need to distinguish.
+   *
+   * This exists for callers inserting a block that, unlike a fenced code
+   * block, does not terminate itself: a table's last row keeps absorbing
+   * whatever text follows it until a blank line breaks the block, so a caller
+   * that always appends a blind `'\n\n'` separator would triple up against an
+   * existing blank line, and one that always appends a single `'\n'` would
+   * fuse the table into the next paragraph (see insertBlockAtCursor's
+   * commitTable caller in App.svelte). Checking first lets the caller pick.
+   */
+  export function isFollowedByBlankLine(): boolean {
+    const at = view.state.selection.main.to
+    const rest = view.state.doc.sliceString(at, view.state.doc.length)
+    return rest.length === 0 || rest.startsWith('\n')
+  }
+
+  /**
    * Runs an editor command. Typed `Command` rather than `StateCommand` because
    * CodeMirror's fold commands need the view — and a `StateCommand` works when
    * handed a view too, so this one signature serves both kinds.
