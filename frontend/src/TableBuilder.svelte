@@ -110,6 +110,18 @@
 
   // Same reason as ChartBuilder's paste box: the modal does not stop keystrokes
   // reaching the editor beneath it if focus is left behind. Runs once.
+  //
+  // This effect must run *after* Dialog.svelte's focusDefaultButton, which
+  // focuses `.modal-buttons .primary` (the Insert/Update button) once the
+  // dialog opens — otherwise that focus would win and the effect's own
+  // focus() call here would be a no-op against a button that grabbed focus
+  // later. Verified in a real browser (headless Chrome, 2026-08-28); jsdom
+  // cannot exercise the ordering because Dialog's jsdom fallback path skips
+  // showModal() entirely (see Dialog.svelte), so focusDefaultButton never
+  // runs there and this effect always "wins" in tests regardless of order. A
+  // Svelte upgrade that changes effect scheduling would surface as the
+  // Insert/Update button holding focus when the table builder opens, instead
+  // of the first header cell.
   let firstHeader: HTMLInputElement | undefined = $state()
   $effect(() => {
     firstHeader?.focus()
@@ -133,6 +145,7 @@
                     data-col={c}
                     data-align={a.value ?? 'none'}
                     aria-pressed={align[c] === a.value ? 'true' : 'false'}
+                    aria-label={a.title}
                     title={a.title}
                     onclick={() => setAlign(c, a.value)}>{a.label}</button>
                 {/each}

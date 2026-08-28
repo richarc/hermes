@@ -372,8 +372,10 @@
    * Same two load-bearing details as enclosingChartBlock, for the same
    * reasons: forceParsing first, because a table late in a long paper is not
    * in the tree until parsing is forced; and resolveInner on both sides, so
-   * a cursor at the exact start or exact end of the table still counts. The
-   * Lezer GFM grammar lang-markdown installs already produces `Table`.
+   * a cursor at the exact start or exact end of the table still counts.
+   * `markdown()` defaults to plain CommonMark, which has no table syntax at
+   * all — `Table` only exists in the tree because editorExtensions() passes
+   * `extensions: [Table]` (from `@lezer/markdown`) to `markdown()` below.
    */
   export function enclosingTable(): TableBlock | null {
     forceParsing(view, view.state.doc.length, 5000)

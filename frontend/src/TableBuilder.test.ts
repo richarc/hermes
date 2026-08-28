@@ -84,6 +84,14 @@ describe('TableBuilder', () => {
     cleanup()
   })
 
+  it('gives each alignment button an accessible name matching its title', () => {
+    const { target, cleanup } = mountBuilder()
+    for (const btn of target.querySelectorAll<HTMLButtonElement>('button.align[data-col="0"]')) {
+      expect(btn.getAttribute('aria-label')).toBe(btn.getAttribute('title'))
+    }
+    cleanup()
+  })
+
   it('adds and removes rows and columns, never removing the last column', () => {
     const { target, cleanup } = mountBuilder()
     button(target, '+ Row').click()
