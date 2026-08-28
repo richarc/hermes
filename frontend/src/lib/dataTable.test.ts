@@ -38,6 +38,20 @@ describe('parseDelimited', () => {
     expect(t.rows[0]).toEqual({ id: 1, label: 'alpha' })
   })
 
+  it('exposes raw cell strings untouched by numeric coercion, for a quantitative column', () => {
+    const r = parseDelimited('id,amount\n007,1.50\n042,1e3\n')
+    if (!r.ok) throw new Error(`expected success, got: ${r.message}`)
+    expect(r.table.columns.map((c) => c.type)).toEqual(['quantitative', 'quantitative'])
+    expect(r.table.rows).toEqual([
+      { id: 7, amount: 1.5 },
+      { id: 42, amount: 1000 },
+    ])
+    expect(r.raw).toEqual([
+      ['007', '1.50'],
+      ['042', '1e3'],
+    ])
+  })
+
   it('types ISO dates as temporal and keeps them as strings', () => {
     const t = ok('when,n\n2026-01-05,3\n2026-02-06,4\n')
     expect(t.columns[0]).toEqual({ name: 'when', type: 'temporal' })

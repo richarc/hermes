@@ -12,7 +12,7 @@ export interface DataTable {
 }
 
 export type ParseResult =
-  | { ok: true; table: DataTable }
+  | { ok: true; table: DataTable; raw: string[][] }
   | { ok: false; message: string }
 
 // Deliberately strict rather than Date.parse, which accepts bare integers in
@@ -71,6 +71,14 @@ export function inferType(values: string[]): FieldType {
  * happens per line, which keeps this simple and covers the clipboard cases
  * that matter. A field with an embedded newline reports a row-length error
  * rather than being silently mangled.
+ *
+ * The `ok` result's `raw` carries every cell as the trimmed string
+ * `splitLine` produced, in the same row/column order as `table.rows` and
+ * `table.columns` but untouched by `inferType`'s numeric coercion. The chart
+ * builder wants typed values — Vega-Lite needs a real number to plot a
+ * quantitative axis — but the table builder's contract is "cells are raw
+ * markdown source": `007` and `1.50` are meaningful text a table cell should
+ * preserve, not the numbers 7 and 1.5. `raw` lets a caller choose.
  */
 export function parseDelimited(text: string): ParseResult {
   const normalised = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '')
@@ -129,7 +137,7 @@ export function parseDelimited(text: string): ParseResult {
     return row
   })
 
-  return { ok: true, table: { columns, rows } }
+  return { ok: true, table: { columns, rows }, raw }
 }
 
 /**

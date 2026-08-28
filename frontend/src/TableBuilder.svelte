@@ -93,10 +93,15 @@
       return
     }
     importError = ''
-    const names = result.table.columns.map((col) => col.name)
-    header = names
-    align = names.map(() => null)
-    rows = result.table.rows.map((row) => names.map((n) => String(row[n] ?? '')))
+    // result.table.rows is unusable here: parseDelimited types a quantitative
+    // column's cells as JS numbers, so round-tripping through String() would
+    // reformat cells the user typed (007 -> 7, 1.50 -> 1.5, 1e3 -> 1000) even
+    // though the table builder's contract is "cells are raw markdown source".
+    // result.raw carries the same cells as the trimmed strings splitLine
+    // produced, untouched by that coercion.
+    header = result.table.columns.map((col) => col.name)
+    align = header.map(() => null)
+    rows = result.raw
   }
 
   function commit() {

@@ -143,6 +143,20 @@ describe('TableBuilder', () => {
     cleanup()
   })
 
+  it('imports numeric-looking cells verbatim, without reformatting them', () => {
+    const { target, oncommit, cleanup } = mountBuilder()
+    button(target, 'Import').click()
+    flushSync()
+    const box = target.querySelector<HTMLTextAreaElement>('#table-import')!
+    box.value = 'id,amount\n007,1.50\n'
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    expect(cells(target).map((i) => i.value)).toEqual(['007', '1.50'])
+    button(target, 'Insert table').click()
+    expect(oncommit.mock.calls[0][0].rows).toEqual([['007', '1.50']])
+    cleanup()
+  })
+
   it('reports import text that does not parse and leaves the grid alone', () => {
     const { target, cleanup } = mountBuilder()
     type(cells(target)[0], 'keep')
