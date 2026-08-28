@@ -72,6 +72,19 @@ function buttonByText(root: HTMLElement, text: string): HTMLButtonElement | unde
   return [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
 }
 
+// Shared by the chart-builder and table-builder describes below: both open
+// the same recent document the same way, so this is hoisted rather than
+// duplicated per describe.
+async function openDoc(content: string) {
+  recents.current = ['/tmp/paper.md']
+  DocumentService.OpenPath.mockResolvedValueOnce({ path: '/tmp/paper.md', content })
+  const { target } = mountApp()
+  await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+  listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+  await vi.waitFor(() => expect(target.textContent).toContain('Results'))
+  return target
+}
+
 // jsdom does not implement matchMedia at all (not a stub — simply absent), and
 // App's onMount calls it unconditionally. Install a default fake before every
 // test so mounts outside the theme suite don't crash; theme tests overwrite
@@ -521,16 +534,6 @@ describe('chart builder', () => {
     '',
   ].join('\n')
 
-  async function openDoc(content: string) {
-    recents.current = ['/tmp/paper.md']
-    DocumentService.OpenPath.mockResolvedValueOnce({ path: '/tmp/paper.md', content })
-    const { target } = mountApp()
-    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
-    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
-    await vi.waitFor(() => expect(target.textContent).toContain('Results'))
-    return target
-  }
-
   it('opens an empty builder from prose', async () => {
     const target = await openDoc('# Results\n\nJust prose.\n')
     listeners['menu:insert-chart']({ data: null })
@@ -850,6 +853,125 @@ describe('chart builder', () => {
       'dialog[aria-label="Unsaved changes"]',
     )!
     expect(confirmDialog.getAttribute('role')).toBe('alertdialog')
+  })
+})
+
+describe('table builder', () => {
+  const WITH_TABLE = ['# Results', '', '| a | b |', '| --- | --- |', '| 1 | 2 |', '', 'After.', ''].join('\n')
+
+  function typeCell(target: HTMLElement, row: number, col: number, value: string) {
+    const input = target.querySelector<HTMLInputElement>(`input.td-cell[data-row="${row}"][data-col="${col}"]`)!
+    input.value = value
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+  }
+
+  it('opens from the menu and from the toolbar', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.querySelector('.table-builder')).not.toBeNull()
+    buttonByText(target, 'Cancel')!.click()
+    flushSync()
+    expect(target.querySelector('.table-builder')).toBeNull()
+    buttonByText(target, 'Table')!.click()
+    flushSync()
+    expect(target.querySelector('.table-builder')).not.toBeNull()
+  })
+
+  it('inserts a padded table at the cursor as its own block', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: view.state.doc.length } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    typeCell(target, 0, 0, 'x')
+    buttonByText(target, 'Insert table')!.click()
+    flushSync()
+    expect(view.state.doc.toString()).toContain('| Column 1 | Column 2 | Column 3 |\n| -------- | -------- | -------- |\n| x        |          |          |')
+    expect(target.querySelector('.table-builder')).toBeNull()
+  })
+
+  it('replaces the table under the cursor', async () => {
+    const target = await openDoc(WITH_TABLE)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: WITH_TABLE.indexOf('| 1') } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Update table')
+    typeCell(target, 0, 1, '42')
+    buttonByText(target, 'Update table')!.click()
+    flushSync()
+    const doc = view.state.doc.toString()
+    expect(doc).toContain('| a   | b   |\n| --- | --- |\n| 1   | 42  |')
+    expect(doc).not.toContain('| 1 | 2 |')
+    expect(doc).toContain('After.')
+  })
+
+  it('refuses to commit when the target moved while open', async () => {
+    const target = await openDoc(WITH_TABLE)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    const inside = WITH_TABLE.indexOf('| 1')
+    view.dispatch({ selection: { anchor: inside } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    view.dispatch({ changes: { from: inside, to: inside, insert: 'XYZ\n\n' } })
+    const stray = view.state.doc.toString()
+    buttonByText(target, 'Update table')!.click()
+    flushSync()
+    expect(target.textContent).toContain("wasn't changed")
+    expect(view.state.doc.toString()).toBe(stray)
+    expect(target.querySelector('.table-builder')).toBeNull()
+  })
+
+  it('a second menu:insert-table while open is a no-op', async () => {
+    const target = await openDoc(WITH_TABLE)
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ selection: { anchor: WITH_TABLE.indexOf('After') } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Insert table')
+    view.dispatch({ selection: { anchor: WITH_TABLE.indexOf('| 1') } })
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.querySelectorAll('.table-builder')).toHaveLength(1)
+    expect(target.textContent).toContain('Insert table')
+  })
+
+  it('the chart and table builders refuse to open over each other', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).toBeNull()
+    buttonByText(target, 'Cancel')!.click()
+    flushSync()
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.querySelector('.table-builder')).toBeNull()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+  })
+
+  it('does not open over the welcome pane', async () => {
+    recents.current = ['/tmp/paper.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    expect(target.querySelector('.table-builder')).toBeNull()
+  })
+
+  it('refuses to quit audibly while the builder is open', async () => {
+    const target = await openDoc('# Results\n\nJust prose.\n')
+    listeners['menu:insert-table']({ data: null })
+    flushSync()
+    listeners['close:confirm']({ data: null })
+    flushSync()
+    expect(target.textContent).toContain('Finish or cancel the table before quitting')
+    expect(target.querySelector('.table-builder')).not.toBeNull()
   })
 })
 

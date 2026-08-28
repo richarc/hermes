@@ -34,6 +34,8 @@
   import type { Command } from '@codemirror/view'
   import { foldAllCodeBlocks } from './lib/foldCommands'
   import ChartBuilder from './ChartBuilder.svelte'
+  import TableBuilder from './TableBuilder.svelte'
+  import { parsePipeTable, serializePipeTable, type PipeTable } from './lib/pipeTable'
   import Dialog from './Dialog.svelte'
   import { readSpec, type BuilderState } from './lib/chartSpec'
   import type { ChartWidth, FigureAlignment } from './lib/figures'
@@ -190,7 +192,7 @@
     // Same reasoning as the chartOpen guards below: the chart builder modal
     // does not block the keyboard, so this must refuse to touch the document
     // while it's open rather than trust that focus alone kept it out.
-    if (chartOpen) return
+    if (chartOpen || tableOpen) return
     try {
       const picked = await DocumentService.PickCitations()
       if (picked) {
@@ -240,6 +242,7 @@
     // chartTarget WOULD update, turning a pending insert into a replace of
     // whatever block the cursor happens to be in.
     if (chartOpen) return
+    if (tableOpen) return
     // Same guard as applyFormat: menu items fire regardless of focus, so
     // without it this would act on the hidden document behind the welcome pane.
     if (showWelcome) return
@@ -311,12 +314,78 @@
     editor.runCommand(foldAllCodeBlocks)
   }
 
+  let tableOpen = $state(false)
+  let tableInitial: PipeTable | null = $state(null)
+  let tableTarget: { from: number; to: number } | null = null
+  // The exact text captured at the target range when the builder opened.
+  // commitTable compares against this rather than merely re-parsing the live
+  // range: parsePipeTable is deliberately lenient about trailing rows (it
+  // treats any non-blank line after the delimiter as a data row, pipes or
+  // not), so a stray edit that inserts a bogus row ahead of the table's own
+  // rows — pushing the tail of the original block out of the stashed
+  // [from, to) window — still parses "successfully" even though it is no
+  // longer the table that was opened. An exact-text check catches that;
+  // parsePipeTable alone would not.
+  let tableOriginalText = ''
+
+  // Mirrors openChartBuilder guard for guard; see the comments there.
+  function openTableBuilder() {
+    if (tableOpen || chartOpen || newOpen) return
+    if (showWelcome) return
+    if (pendingAction) return
+
+    const block = editor.enclosingTable()
+    if (!block) {
+      tableInitial = null
+      tableTarget = null
+      tableOpen = true
+      return
+    }
+    const result = parsePipeTable(block.text)
+    if (!result.ok) {
+      // Rare: Lezer only produces a Table for text that is one. Refuse rather
+      // than open a fresh builder targeted at a block we could not read.
+      toast("That table couldn't be read, so it can't be opened here.")
+      return
+    }
+    tableInitial = result.table
+    tableTarget = { from: block.from, to: block.to }
+    tableOriginalText = block.text
+    tableOpen = true
+  }
+
+  function closeTableBuilder() {
+    tableOpen = false
+    tableInitial = null
+    tableTarget = null
+    tableOriginalText = ''
+  }
+
+  function commitTable(table: PipeTable) {
+    const text = serializePipeTable(table)
+    if (tableTarget) {
+      // Same safety net as commitChart: the range was captured when the
+      // builder opened and is not remapped, so prove it still holds the same
+      // table before overwriting it.
+      const current = editor.textInRange(tableTarget.from, tableTarget.to)
+      if (current !== tableOriginalText) {
+        toast("That table moved while the builder was open, so it wasn't changed.")
+        closeTableBuilder()
+        return
+      }
+      editor.replaceRange(tableTarget.from, tableTarget.to, text)
+    } else {
+      editor.insertBlockAtCursor(text + '\n')
+    }
+    closeTableBuilder()
+  }
+
   function applyFormat(name: string) {
     // Menu accelerators fire regardless of focus, so a guard is required:
     // without it, Cmd-B on the welcome screen would edit a hidden document —
     // and, for the same reason, Cmd-B while the chart builder modal is open
     // would edit the document behind it.
-    if (showWelcome || chartOpen) return
+    if (showWelcome || chartOpen || tableOpen) return
     const cmd = FORMAT_COMMANDS[name]
     if (cmd) editor.runCommand(cmd)
   }
@@ -332,7 +401,7 @@
     // Same guard as applyFormat: menu accelerators fire regardless of focus,
     // so without it a chord on the welcome screen — or with the chart
     // builder open — would act on a hidden document.
-    if (showWelcome || chartOpen) return
+    if (showWelcome || chartOpen || tableOpen) return
     const cmd = FOLD_COMMANDS[name]
     if (cmd) editor.runCommand(cmd)
   }
@@ -342,7 +411,7 @@
     // focus, so without it this would write into the hidden document behind
     // the welcome pane — or into the one behind the chart builder, which
     // cannot intercept an event arriving through Go's bus.
-    if (showWelcome || chartOpen) return
+    if (showWelcome || chartOpen || tableOpen) return
     editor.insertCodeBlockAtCursor(language)
   }
 
@@ -401,7 +470,7 @@
     // menu:new fires regardless of focus (and regardless of whether the
     // chart builder modal is covering the editor), so this must refuse
     // rather than swap the whole document out from under an open modal.
-    if (chartOpen || newOpen) return
+    if (chartOpen || tableOpen || newOpen) return
     if (dirty) {
       pendingAction = 'new'
       return
@@ -463,7 +532,7 @@
   function requestOpen() {
     // Same reasoning as requestNew: menu:open must not swap the document out
     // from under an open chart builder modal, or the New… dialog.
-    if (chartOpen || newOpen) return
+    if (chartOpen || tableOpen || newOpen) return
     if (dirty) {
       pendingAction = 'open'
       return
@@ -485,7 +554,7 @@
     // Same reasoning as requestNew: menu- and welcome-pane-triggered opens
     // must not swap the document out from under an open chart builder modal,
     // or the New… dialog.
-    if (chartOpen || newOpen) return
+    if (chartOpen || tableOpen || newOpen) return
     if (dirty) {
       pendingAction = 'open'
       pendingRecentPath = p
@@ -603,6 +672,10 @@
         toast('Finish or cancel the chart before quitting.')
         return
       }
+      if (tableOpen) {
+        toast('Finish or cancel the table before quitting.')
+        return
+      }
       pendingAction = 'quit'
     })
     Events.On('recents:changed', () => void refreshRecents())
@@ -612,6 +685,7 @@
       void DocumentService.ExportPDF(path ?? '').catch((e) => toast(String(e)))
     })
     Events.On('menu:insert-chart', () => openChartBuilder())
+    Events.On('menu:insert-table', () => openTableBuilder())
     Events.On('menu:insert-code', (ev: { data: unknown }) => {
       // '' is the Plain text item, and a legitimate payload — a bare fence.
       if (typeof ev.data === 'string') insertCodeBlock(ev.data)
@@ -662,6 +736,7 @@
     <button onclick={() => void save()}>Save</button>
     <button onclick={() => void insertCitation()}>Cite</button>
     <button onclick={openChartBuilder}>Chart</button>
+    <button onclick={openTableBuilder}>Table</button>
     <button onclick={() => void DocumentService.ExportPDF(path ?? '').catch((e) => toast(String(e)))}>Export PDF</button>
   </header>
 
@@ -714,6 +789,29 @@
     </div>
   {/if}
 
+  <!-- Both builders are placed ahead of NewDocument and the confirm Dialog
+       below: those two are mounted unconditionally (they own visibility via
+       their own `open` prop, not an {#if}), so their footer buttons —
+       including ones labelled "Cancel" — are always present in the DOM.
+       Putting the builders first means a plain `document.querySelectorAll`
+       lookup (as the test helpers here do) finds the builder's own button
+       first, matching what a user actually sees on top. -->
+  {#if chartOpen}
+    <ChartBuilder
+      initial={chartInitial}
+      oncommit={commitChart}
+      oncancel={() => {
+        chartOpen = false
+        chartInitial = null
+        chartTarget = null
+      }}
+    />
+  {/if}
+
+  {#if tableOpen}
+    <TableBuilder initial={tableInitial} oncommit={commitTable} oncancel={closeTableBuilder} />
+  {/if}
+
   <NewDocument open={newOpen} onclose={() => (newOpen = false)} oncreate={(b, c) => void createDocument(b, c)} />
 
   <Dialog
@@ -740,17 +838,5 @@
 
   {#if toastMsg}
     <div class="toast" role="status">{toastMsg}</div>
-  {/if}
-
-  {#if chartOpen}
-    <ChartBuilder
-      initial={chartInitial}
-      oncommit={commitChart}
-      oncancel={() => {
-        chartOpen = false
-        chartInitial = null
-        chartTarget = null
-      }}
-    />
   {/if}
 </div>

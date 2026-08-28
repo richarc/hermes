@@ -128,6 +128,9 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 	insert.Add("Chart…").OnClick(func(*application.Context) {
 		app.Event.Emit("menu:insert-chart", nil)
 	})
+	insert.Add("Table…").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:insert-table", nil)
+	})
 
 	// A submenu rather than a dialog: a code fence is a delimiter and a
 	// language name, and the only part carrying value is choosing the language
