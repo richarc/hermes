@@ -91,9 +91,12 @@ accented character still lines up.
 The same shape as `enclosingChartBlock`, and for the same reasons:
 `forceParsing` first, because a table late in a long paper is not in the tree
 until parsing is forced, then `resolveInner` on both sides of the cursor,
-walking up to a `Table` node. Returns `{ from, to, text }` or `null`. The
-Lezer GFM grammar `lang-markdown` already installs produces `Table`,
-`TableRow`, `TableCell` and `TableDelimiter`, so there is no grammar work.
+walking up to a `Table` node. Returns `{ from, to, text }` or `null`.
+`markdown()` defaults to plain CommonMark, which has no table syntax at all,
+so `Editor.svelte` passes `extensions: [Table]` to `markdown()` to get
+`Table`, `TableRow`, `TableCell` and `TableDelimiter` into the tree.
+`@lezer/markdown`, which exports that `Table` extension, became an explicit
+dependency for this.
 
 ### `TableBuilder.svelte` (new)
 
