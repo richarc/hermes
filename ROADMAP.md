@@ -551,16 +551,17 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       both panes, regardless of Sync Scrolling — `Editor.goToLine` places the
       cursor and scrolls, `preview.syncToLine` follows — because an explicit
       jump is not the same act as following. Hidden by the print stylesheet.
-- [ ] A table builder. Markdown tables are the worst hand-editing experience
-      left in Hermes, and this is the same shape of problem the chart builder
-      already solved — with most of the parts already built. `lib/dataTable.ts`
-      parses delimited text into typed columns and rows, and `toDelimited`
-      (v0.6) renders a table back to text, so a builder is largely those two
-      plus a grid and a pipe-table serializer. Two things the chart builder
-      does not have to worry about: a markdown table is *editable as text* in
-      the document, so reopening one means parsing pipe-table syntax rather
-      than JSON, and alignment markers (`:---`, `---:`) have no equivalent in
-      `DataTable` and would need somewhere to live.
+- [x] **A table builder.** Done 2026-08-28, unreleased. Built as the roadmap
+      predicted, with one deliberate departure: alignment and cell text got
+      their own `lib/pipeTable.ts` (parse and padded serialise, cells as raw
+      markdown source) rather than stretching `DataTable`, whose columns carry
+      a chart *type* instead. The grid is an editable one, not a paste box
+      with a preview; import through `parseDelimited` replaces the grid one
+      way. `Editor.svelte` now installs the `Table` extension from
+      `@lezer/markdown` so `enclosingTable` has a node to find, and opening
+      with the cursor in a table edits it in place; `commitTable` re-validates
+      the range by comparing it against the text captured when the builder
+      opened, as `commitChart` does.
 - [x] **A real New Document flow.** Done 2026-08-28, unreleased. Reported
       from real use on 2026-08-19: File → New seeded a template with the
       `bibliography` and `csl` keys commented out into an untitled buffer, so

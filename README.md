@@ -13,6 +13,9 @@ on screen is rendered from it.
 - **Charts** — Vega-Lite specs in fenced blocks become live charts, and a
   graphical builder writes them for you: paste a table, pick a chart type,
   insert. Eleven types, including histograms, heatmaps, error bars and pie.
+- **Tables** — a builder with an editable grid, per-column alignment and
+  CSV/TSV import writes a padded pipe table, and reopens the one under the
+  cursor for editing.
 - **Diagrams** — Mermaid flowcharts, sequence diagrams, state machines and the
   rest, from a ` ```mermaid ` fence.
 - **Figures** — a caption makes a figure: give a chart a title, a diagram a

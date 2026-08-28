@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same render that feeds the preview, so an entry lands exactly where the
   preview anchors that heading, and a `#` inside a code fence or a blockquote
   is not an entry. The panel never prints.
+- A table builder: Insert → Table… (or the toolbar's Table button) opens an
+  editable grid with per-column alignment and CSV/TSV import, and writes a
+  padded pipe table; run it with the cursor inside a table to edit that one.
 - File → New… (⌘N) is a real flow rather than a template dropped into an
   untitled buffer. A small dialog asks whether the document has a
   bibliography and, if so, which of the five bundled citation styles to use;

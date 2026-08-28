@@ -117,6 +117,20 @@ above it.
 Only top-level blocks are numbered. A chart or diagram inside a list item or a
 blockquote still renders, but takes no figure number.
 
+## Tables
+
+GFM pipe tables render as tables. Insert → Table… opens a grid: type into the
+cells, add or remove rows and columns, set a column's alignment, or paste
+comma- or tab-separated text under Import. Insert writes a padded table at
+the cursor; with the cursor inside an existing table the same command opens
+it for editing and Update replaces it. Cells hold ordinary markdown, so
+`**bold**`, links and `[@citations]` work inside them.
+
+| Sample   | n   | Mean |
+| :------- | --: | ---: |
+| Control  |  12 |  4.1 |
+| Treated  |  11 |  6.3 |
+
 ## Charts
 
 A `vega-lite` fenced block holding a Vega-Lite JSON spec. Inline the data so
