@@ -659,6 +659,32 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       `menu.go` since the role does not provide one, and whether the choice
       persists in `Settings` like sync scrolling does.
 
+- [ ] Autosave. Nothing exists today: a document is written only on ⌘S,
+      Save As…, or the Save button of the unsaved-changes dialog, so a crash
+      or force-quit loses everything since the last explicit save (noted
+      2026-08-30). The write side is already safe — `atomicwrite.go` writes
+      a temporary file and renames it, so a save is all-or-nothing — which
+      makes a timer-driven save cheap to add. Decisions to make first. *What
+      model:* the macOS one, where the file on disk simply tracks the editor
+      and ⌘S becomes a courtesy, or an explicit Save kept as the act of
+      record with autosave as crash insurance. The second fits a paper
+      better: an author mid-rewrite does not want a half-edited section on
+      disk where a co-author's Git checkout or Pandoc run will see it. So:
+      a *recovery draft*, written beside the settings file rather than over
+      the document, keyed by the document's path, removed on save or clean
+      close, and offered back on the next open of that document if newer
+      than the file. *When:* debounced a couple of seconds after the last
+      change, sharing the render debounce's shape in `App.svelte`, never on
+      a fixed interval — an idle document should not be written at all.
+      *Unsaved documents:* have no path to key on, so the draft is keyed
+      "untitled" and offered on the next launch. *Externally edited files:*
+      a draft never overwrites the document, so the overwrite hazard the
+      macOS model has does not arise; whether ⌘S itself should notice an
+      external change since open (mtime, as the bibliography watcher already
+      does for `.bib`) is a separate item. Persisted as an `AutoSave`
+      field in `Settings`, on by default, with a View or Hermes menu toggle
+      like Sync Scrolling.
+
 - [x] **Report an Issue… goes to GitHub Issues, for real.** Done 2026-08-27,
       unreleased. The hosted form carried out of v0.9.0 is dropped: a GitHub
       issue is public, threaded and lands where the work is tracked, which the
