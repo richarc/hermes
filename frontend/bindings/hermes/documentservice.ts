@@ -10,6 +10,15 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * ChooseBibliography is the open panel behind "an existing file" in the New
+ * Document flow. It returns "" when the author cancels, so the caller can
+ * tell a cancel from an error, as ChooseNewDocumentPath does.
+ */
+export function ChooseBibliography(): $CancellablePromise<string> {
+    return $Call.ByID(1637356601);
+}
+
+/**
  * ChooseNewDocumentPath asks where a new document should live. It is the
  * first half of File → New…: the frontend needs the chosen name before it can
  * compose the document, because the live `bibliography:` key names a `.bib`

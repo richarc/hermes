@@ -170,6 +170,16 @@ func (s *DocumentService) ChooseNewDocumentPath() (string, error) {
 		PromptForSingleSelection()
 }
 
+// ChooseBibliography is the open panel behind "an existing file" in the New
+// Document flow. It returns "" when the author cancels, so the caller can
+// tell a cancel from an error, as ChooseNewDocumentPath does.
+func (s *DocumentService) ChooseBibliography() (string, error) {
+	return application.Get().Dialog.OpenFile().
+		SetTitle("Choose Bibliography").
+		AddFilter("BibTeX files", "*.bib").
+		PromptForSingleSelection()
+}
+
 // CreateDocument is the second half: it writes the document, and — when
 // bibName is set — a bibliography beside it, resolved the same way a
 // `bibliography:` key is. A bibliography that already exists is left exactly

@@ -347,6 +347,31 @@ func TestCreateDocumentKeepsExistingBibliography(t *testing.T) {
 	}
 }
 
+// The New Document flow's "an existing file" choice hands CreateDocument an
+// absolute path outside the document's folder and no seed. The library must
+// be left alone and nothing written beside the document.
+func TestCreateDocumentPointsAtExistingLibraryElsewhere(t *testing.T) {
+	s := newTestService(t)
+	libDir := t.TempDir()
+	library := filepath.Join(libDir, "refs.bib")
+	if err := os.WriteFile(library, []byte("@book{k, title={T}}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+
+	if _, err := s.CreateDocument(filepath.Join(dir, "paper.md"), "x", library, ""); err != nil {
+		t.Fatalf("CreateDocument: %v", err)
+	}
+	bib, _ := os.ReadFile(library)
+	if string(bib) != "@book{k, title={T}}\n" {
+		t.Errorf("library was overwritten: %q", bib)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 || entries[0].Name() != "paper.md" {
+		t.Errorf("expected only paper.md in %s, got %v", dir, entries)
+	}
+}
+
 func TestCreateDocumentWithoutBibliography(t *testing.T) {
 	s := newTestService(t)
 	dir := t.TempDir()
