@@ -591,8 +591,13 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       and passed to Go as content, so the template stays in one language.
       `unsavedBibliographyMessage` still exists, but the path that showed it
       routinely is gone.
-- [ ] **Choose the bibliography in the New Document flow.** From testing on
-      2026-08-28: the flow above always creates `<stem>.bib`, and that is the
+- [x] **Choose the bibliography in the New Document flow.** Done 2026-08-30,
+      unreleased, as designed below; `NewDocument.svelte` holds both steps
+      behind one `open` flag, so App's guards did not change, and the
+      relative-or-absolute decision (`bibliographyReference`) runs after the
+      save panel, since the document's folder is not known before it. From
+      testing on 2026-08-28: the flow above always created `<stem>.bib`, and
+      that is the
       wrong answer for two ordinary cases — an author who already has a
       library and wants to point the new document at it, and one who keeps
       a shared `references.bib` for several documents. The design agreed but

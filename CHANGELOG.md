@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The New Document flow asks which bibliography to use: a file named after
+  the document (as before), a new file with a name of your choosing, or an
+  existing library chosen from the open panel — written into the frontmatter
+  relative to the document when it sits in the document's folder or below,
+  absolute otherwise.
 - An outline panel: the document's headings, indented by level, in a column
   left of the editor. Clicking one puts the cursor on that heading and
   scrolls both panes to it — whatever Sync Scrolling is set to, since being
