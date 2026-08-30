@@ -4,6 +4,14 @@
 
 Hermes is a desktop app built with **Wails v3 (beta)** — `v3.0.0-beta.12`, pinned identically across `go.mod`, the `wails3` CLI and `@wailsio/runtime`, which must be bumped together: a Go backend with a Svelte 5 + TypeScript + Vite frontend rendered in a native webview. The Go module is named `hermes`, so generated bindings live under `frontend/bindings/hermes`.
 
+## Voice - Claude Code Communication Rules
+- Speak to me like I am a product manager
+- Never use tech buzzwords, flowery language, or hype.
+- Keep summaries strictly technical, plain-text, and raw. 
+- Format your task summaries exactly like a standard Git commit message body (bulleted, action-oriented, short sentences).
+- Do not add "TED Talk" summaries, preambles, or optimistic conclusions about what was built.
+- no need to add styled language, use plain english!
+
 ## Commands
 
 Wails v3 uses [Task](https://taskfile.dev) for orchestration; `wails3 task <name>` and `task <name>` are equivalent. The root `Taskfile.yml` dispatches `build`/`package`/`run` to the platform-specific Taskfile in `build/<GOOS>/`.
