@@ -35,19 +35,39 @@ export const BIBLIOGRAPHY_SEED = `% Bibliography for the document beside this fi
 `
 
 /**
- * The text of a document created by File → New…, given the stem of its
- * chosen filename. With a bibliography the keys are *live* — the `.bib` is
- * created beside the document by the same action, so there is no missing-file
- * toast to avoid and no reason to make the author uncomment anything. Without
- * one, the ordinary commented template is right: it explains how to add a
- * bibliography later.
+ * The text of a document created by File → New…, given the frontmatter value
+ * naming its bibliography, or null for none. With a bibliography the keys are
+ * *live* — the `.bib` either already exists or is created beside the document
+ * by the same action, so there is no missing-file toast to avoid and no
+ * reason to make the author uncomment anything. Without one, the ordinary
+ * commented template is right: it explains how to add a bibliography later.
  */
-export function newDocumentText(stem: string, withBibliography: boolean, csl: string): string {
-  if (!withBibliography) return NEW_DOCUMENT_TEMPLATE
+export function newDocumentText(bibliography: string | null, csl: string): string {
+  if (bibliography === null) return NEW_DOCUMENT_TEMPLATE
   if (!STYLE_IDS.includes(csl)) throw new Error(`unknown citation style: ${csl}`)
   return `---
-bibliography: ${stem}.bib
+bibliography: ${bibliography}
 csl: ${csl}
 ---
 `
+}
+
+/**
+ * How the frontmatter should name an existing bibliography: relative when
+ * the file is in the document's folder or below, absolute otherwise. Both
+ * forms resolve through Go's resolveAgainstDoc; the relative one survives
+ * the folder being moved or shared, which is why it is preferred when it
+ * can be. The directory check is against `dir + '/'`, so a sibling folder
+ * whose name merely starts with the document's does not count as inside.
+ */
+export function bibliographyReference(bibPath: string, docPath: string): string {
+  const dir = docPath.replace(/[^\/]*$/, '')
+  return bibPath.startsWith(dir) ? bibPath.slice(dir.length) : bibPath
+}
+
+/** A typed bibliography name with `.bib` guaranteed; '' when nothing was typed. */
+export function withBibExtension(name: string): string {
+  const trimmed = name.trim()
+  if (trimmed === '') return ''
+  return /\.bib$/i.test(trimmed) ? trimmed : `${trimmed}.bib`
 }

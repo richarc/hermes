@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { NEW_DOCUMENT_TEMPLATE, BIBLIOGRAPHY_SEED, newDocumentText } from './documentTemplate'
+import {
+  NEW_DOCUMENT_TEMPLATE,
+  BIBLIOGRAPHY_SEED,
+  newDocumentText,
+  bibliographyReference,
+  withBibExtension,
+} from './documentTemplate'
 import { parseFrontmatter } from './frontmatter'
 import { STYLE_IDS } from './citations'
 import { render } from './renderer'
@@ -34,8 +40,8 @@ describe('NEW_DOCUMENT_TEMPLATE', () => {
 })
 
 describe('newDocumentText', () => {
-  it('writes live bibliography and csl keys named after the document', () => {
-    const text = newDocumentText('paper', true, 'ieee')
+  it('writes live bibliography and csl keys from the given reference', () => {
+    const text = newDocumentText('paper.bib', 'ieee')
     const fm = parseFrontmatter(text)
     expect(fm.bibliography).toBe('paper.bib')
     expect(fm.csl).toBe('ieee')
@@ -43,12 +49,56 @@ describe('newDocumentText', () => {
     expect(render(text).trim()).toBe('')
   })
 
+  it('writes an absolute reference as given', () => {
+    const fm = parseFrontmatter(newDocumentText('/Users/a/Library/refs.bib', 'apa'))
+    expect(fm.bibliography).toBe('/Users/a/Library/refs.bib')
+  })
+
   it('falls back to the commented template when there is no bibliography', () => {
-    expect(newDocumentText('paper', false, 'ieee')).toBe(NEW_DOCUMENT_TEMPLATE)
+    expect(newDocumentText(null, 'ieee')).toBe(NEW_DOCUMENT_TEMPLATE)
   })
 
   it('refuses a style it does not bundle', () => {
-    expect(() => newDocumentText('paper', true, 'mla')).toThrow()
+    expect(() => newDocumentText('paper.bib', 'mla')).toThrow()
+  })
+})
+
+describe('bibliographyReference', () => {
+  it('is the bare name for a file in the document folder', () => {
+    expect(bibliographyReference('/Users/a/paper/refs.bib', '/Users/a/paper/paper.md')).toBe('refs.bib')
+  })
+
+  it('is a relative path for a file below the document folder', () => {
+    expect(bibliographyReference('/Users/a/paper/lib/refs.bib', '/Users/a/paper/paper.md')).toBe(
+      'lib/refs.bib',
+    )
+  })
+
+  it('is absolute for a file anywhere else', () => {
+    expect(bibliographyReference('/Users/a/Library/refs.bib', '/Users/a/paper/paper.md')).toBe(
+      '/Users/a/Library/refs.bib',
+    )
+  })
+
+  it('does not treat a sibling folder with the same prefix as inside', () => {
+    expect(bibliographyReference('/Users/a/paper2/refs.bib', '/Users/a/paper/paper.md')).toBe(
+      '/Users/a/paper2/refs.bib',
+    )
+  })
+})
+
+describe('withBibExtension', () => {
+  it('appends .bib when missing and trims', () => {
+    expect(withBibExtension('  references ')).toBe('references.bib')
+  })
+
+  it('leaves an existing .bib alone, case-insensitively', () => {
+    expect(withBibExtension('refs.bib')).toBe('refs.bib')
+    expect(withBibExtension('refs.BIB')).toBe('refs.BIB')
+  })
+
+  it('is empty for an empty name', () => {
+    expect(withBibExtension('   ')).toBe('')
   })
 })
 
