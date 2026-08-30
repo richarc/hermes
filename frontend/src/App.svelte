@@ -9,8 +9,13 @@
   import { type OutlineEntry } from './lib/outline'
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
-  import { NEW_DOCUMENT_TEMPLATE, BIBLIOGRAPHY_SEED, newDocumentText } from './lib/documentTemplate'
-  import NewDocument from './NewDocument.svelte'
+  import {
+    NEW_DOCUMENT_TEMPLATE,
+    BIBLIOGRAPHY_SEED,
+    newDocumentText,
+    bibliographyReference,
+  } from './lib/documentTemplate'
+  import NewDocument, { type BibliographyChoice } from './NewDocument.svelte'
   import { parseFrontmatter } from './lib/frontmatter'
   import { parseBib } from './lib/bibliography'
   import { resolveTheme, applyTheme, type ThemeSetting } from './lib/theme'
@@ -491,18 +496,41 @@
   // which is not known until the panel has been answered.
   let newOpen = $state(false)
 
-  async function createDocument(withBibliography: boolean, csl: string) {
+  async function createDocument(bibliography: BibliographyChoice | null, csl: string) {
     newOpen = false
     try {
       const chosen = await DocumentService.ChooseNewDocumentPath()
       if (!chosen) return // cancelled
-      const stem = chosen.replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '')
-      const text = newDocumentText(stem, withBibliography, csl)
-      const bibName = withBibliography ? `${stem}.bib` : ''
-      const doc = await DocumentService.CreateDocument(chosen, text, bibName, BIBLIOGRAPHY_SEED)
+      // The frontmatter value and CreateDocument's bibName are the same
+      // string: both resolve against the document, so what the document
+      // says is exactly what gets created (or, for an existing file, found).
+      // Only an existing file needs the document's folder to be known, which
+      // is why this runs after the save panel rather than in the dialog.
+      const { name: bibName, seed } = bibliographyFor(bibliography, chosen)
+      const text = newDocumentText(bibName === '' ? null : bibName, csl)
+      const doc = await DocumentService.CreateDocument(chosen, text, bibName, seed)
       loadDocument(doc.path, doc.content, 'end')
     } catch (err) {
       toast(`Could not create document: ${err}`)
+    }
+  }
+
+  function bibliographyFor(
+    choice: BibliographyChoice | null,
+    docPath: string,
+  ): { name: string; seed: string } {
+    if (choice === null) return { name: '', seed: '' }
+    switch (choice.kind) {
+      case 'same': {
+        const stem = docPath.replace(/^.*[\\/]/, '').replace(/\.[^.]*$/, '')
+        return { name: `${stem}.bib`, seed: BIBLIOGRAPHY_SEED }
+      }
+      case 'new':
+        return { name: choice.name, seed: BIBLIOGRAPHY_SEED }
+      case 'existing':
+        // No seed: the file exists, and CreateDocument leaves an existing
+        // file alone regardless.
+        return { name: bibliographyReference(choice.path, docPath), seed: '' }
     }
   }
 

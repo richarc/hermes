@@ -36,6 +36,7 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
       UpdateSettings: vi.fn(async (_next: typeof DEFAULT_SETTINGS) => {}),
       ImportData: vi.fn(async () => ''),
       ChooseNewDocumentPath: vi.fn(async () => ''),
+      ChooseBibliography: vi.fn(async () => ''),
       CreateDocument: vi.fn(async (path: string, content: string, _bibName: string, _bibContent: string) => ({ path, content })),
     },
   }
@@ -170,15 +171,27 @@ describe('new documents', () => {
     expect(dialog(target)?.open).toBe(true)
   })
 
-  it('creates the document and its bibliography beside it, then loads it', async () => {
+  async function openNewDialog() {
     recents.current = ['/papers/thesis.md']
-    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
     const { target } = mountApp()
     await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
-
     buttonByText(target, 'New document')!.click()
     flushSync()
+    return target
+  }
+
+  const radio = (target: HTMLElement, value: string) =>
+    dialog(target)!.querySelector(`input[type="radio"][value="${value}"]`) as HTMLInputElement
+
+  it('creates the document and its bibliography beside it, then loads it', async () => {
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
+    const target = await openNewDialog()
     buttonByText(target, 'Create…')!.click()
+    flushSync()
+    // Step two: the bibliography choice, defaulting to the document's name.
+    expect(radio(target, 'same').checked).toBe(true)
+    expect(DocumentService.ChooseNewDocumentPath).not.toHaveBeenCalled()
+    buttonByText(target, 'Continue…')!.click()
 
     await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
     const [path, content, bibName, bibContent] = DocumentService.CreateDocument.mock.calls[0]
@@ -193,6 +206,81 @@ describe('new documents', () => {
     // A document that was just written to disk is not dirty.
     expect(target.querySelector('.status-bar')?.textContent).not.toContain('•')
     expect(target.querySelector('.status-bar')?.textContent).toContain('draft.md')
+  })
+
+  it('creates a bibliography with a different name, adding .bib', async () => {
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
+    const target = await openNewDialog()
+    buttonByText(target, 'Create…')!.click()
+    flushSync()
+    radio(target, 'new').click()
+    flushSync()
+    expect((buttonByText(target, 'Continue…') as HTMLButtonElement).disabled).toBe(true)
+    const name = dialog(target)!.querySelector('input[type="text"]') as HTMLInputElement
+    name.value = 'shared'
+    name.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    expect((buttonByText(target, 'Continue…') as HTMLButtonElement).disabled).toBe(false)
+    buttonByText(target, 'Continue…')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
+    const [, content, bibName, bibContent] = DocumentService.CreateDocument.mock.calls[0]
+    expect(content).toContain('bibliography: shared.bib')
+    expect(bibName).toBe('shared.bib')
+    expect(bibContent.startsWith('%')).toBe(true)
+  })
+
+  it('points at an existing library, relative when beside the document', async () => {
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
+    DocumentService.ChooseBibliography.mockResolvedValueOnce('/papers/lib/refs.bib')
+    const target = await openNewDialog()
+    buttonByText(target, 'Create…')!.click()
+    flushSync()
+    radio(target, 'existing').click()
+    flushSync()
+    expect((buttonByText(target, 'Continue…') as HTMLButtonElement).disabled).toBe(true)
+    buttonByText(target, 'Choose…')!.click()
+    await vi.waitFor(() => expect(dialog(target)!.textContent).toContain('/papers/lib/refs.bib'))
+    expect((buttonByText(target, 'Continue…') as HTMLButtonElement).disabled).toBe(false)
+    buttonByText(target, 'Continue…')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
+    const [, content, bibName, bibContent] = DocumentService.CreateDocument.mock.calls[0]
+    expect(content).toContain('bibliography: lib/refs.bib')
+    expect(bibName).toBe('lib/refs.bib')
+    expect(bibContent).toBe('')
+  })
+
+  it('points at an existing library absolutely when it is elsewhere', async () => {
+    DocumentService.ChooseNewDocumentPath.mockResolvedValueOnce('/papers/draft.md')
+    DocumentService.ChooseBibliography.mockResolvedValueOnce('/Users/me/Library/refs.bib')
+    const target = await openNewDialog()
+    buttonByText(target, 'Create…')!.click()
+    flushSync()
+    radio(target, 'existing').click()
+    flushSync()
+    buttonByText(target, 'Choose…')!.click()
+    await vi.waitFor(() => expect(dialog(target)!.textContent).toContain('/Users/me/Library/refs.bib'))
+    buttonByText(target, 'Continue…')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.CreateDocument).toHaveBeenCalled())
+    const [, content, bibName] = DocumentService.CreateDocument.mock.calls[0]
+    expect(content).toContain('bibliography: /Users/me/Library/refs.bib')
+    expect(bibName).toBe('/Users/me/Library/refs.bib')
+  })
+
+  it('goes back to the first step without losing the style', async () => {
+    const target = await openNewDialog()
+    const select = dialog(target)!.querySelector('select') as HTMLSelectElement
+    select.value = 'ieee'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+    buttonByText(target, 'Create…')!.click()
+    flushSync()
+    buttonByText(target, 'Back')!.click()
+    flushSync()
+    expect((dialog(target)!.querySelector('select') as HTMLSelectElement).value).toBe('ieee')
+    expect(buttonByText(target, 'Create…')).toBeDefined()
   })
 
   it('writes the commented template and no bibliography when unticked', async () => {
@@ -216,13 +304,10 @@ describe('new documents', () => {
   })
 
   it('does nothing when the save panel is cancelled', async () => {
-    recents.current = ['/papers/thesis.md']
-    const { target } = mountApp()
-    await vi.waitFor(() => expect(buttonByText(target, 'New document')).toBeDefined())
-
-    buttonByText(target, 'New document')!.click()
-    flushSync()
+    const target = await openNewDialog()
     buttonByText(target, 'Create…')!.click()
+    flushSync()
+    buttonByText(target, 'Continue…')!.click()
 
     await vi.waitFor(() => expect(DocumentService.ChooseNewDocumentPath).toHaveBeenCalled())
     await Promise.resolve()
