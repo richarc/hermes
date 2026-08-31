@@ -419,6 +419,16 @@ textarea:focus-visible,
 .sheet .tok-function { color: var(--doc-syn-function); }
 .sheet .tok-comment { color: var(--doc-syn-meta); }
 .sheet .tok-link { color: var(--doc-syn-link); }
+/* The table of contents is document content, styled as a page element: the
+   list plain, the links in the document's own ink rather than link blue —
+   a printed contents page is not a row of hyperlinks, even though every
+   entry is one. */
+.sheet nav.toc ul { list-style: none; margin: 0 0 0 0; padding-left: 0; }
+.sheet nav.toc ul ul { padding-left: 1.5em; margin-bottom: 0; }
+.sheet nav.toc li { margin: 0.15em 0; }
+.sheet nav.toc a { color: var(--doc-fg); text-decoration: none; }
+.sheet nav.toc a:hover { text-decoration: underline; }
+
 .sheet table { border-collapse: collapse; }
 .sheet th, .sheet td { border: 1px solid var(--doc-border); padding: 6px 10px; }
 .sheet hr { border: 0; border-top: 1px solid var(--doc-border); margin: 1.5em 0; }

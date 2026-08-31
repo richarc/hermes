@@ -22,6 +22,7 @@ export const NEW_DOCUMENT_TEMPLATE = `---
 # apa, chicago-author-date, ieee, vancouver, harvard.
 # bibliography: references.bib
 # csl: apa
+# toc: true  (a [[toc]] paragraph positions the contents)
 ---
 `
 

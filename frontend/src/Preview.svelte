@@ -117,8 +117,25 @@
     if (!anchor) return
     e.preventDefault()
     const href = anchor.getAttribute('href')
-    if (href && /^https?:\/\//i.test(href)) {
+    if (!href) return
+    if (/^https?:\/\//i.test(href)) {
       void Browser.OpenURL(href)
+      return
+    }
+    // A fragment link — a ToC entry, or a hand-written [text](#slug) — moves
+    // this pane to its target. scrollTop arithmetic rather than
+    // scrollIntoView, so the measurement matches collectAnchors' coordinate
+    // space (and jsdom, where these tests run, has no scrollIntoView).
+    // Matched by property, not by selector: a slug can contain characters a
+    // selector would need escaped, and CSS.escape does not exist under jsdom.
+    if (href.startsWith('#')) {
+      const id = decodeURIComponent(href.slice(1))
+      const target = [...sheet.querySelectorAll<HTMLElement>('[id]')].find((el) => el.id === id)
+      if (!target) return
+      container.scrollTop =
+        target.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop
     }
   }
 </script>

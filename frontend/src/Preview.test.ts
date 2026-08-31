@@ -132,3 +132,38 @@ describe('Preview figure alignment', () => {
     expect(container.querySelector('.sheet')!.hasAttribute('data-figure-align')).toBe(false)
   })
 })
+
+describe('in-document links', () => {
+  it('scrolls the pane to the fragment target instead of navigating', async () => {
+    const { target, pane, cleanup } = mountPreview(
+      '<nav class="toc"><a href="#methods">Methods</a></nav><h1 id="methods">Methods</h1>',
+    )
+    const { Browser } = await import('@wailsio/runtime')
+    const link = target.querySelector('a')!
+    const heading = target.querySelector('#methods') as HTMLElement
+    // jsdom has no layout: stand in for the two rects the scroll needs.
+    heading.getBoundingClientRect = () => ({ top: 300 }) as DOMRect
+    pane.getBoundingClientRect = () => ({ top: 100 }) as DOMRect
+
+    const notPrevented = link.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+
+    expect(notPrevented).toBe(false) // handled, not left to navigate
+    expect(Browser.OpenURL).not.toHaveBeenCalled()
+    expect(pane.scrollTop).toBe(200)
+    cleanup()
+  })
+
+  it('ignores a fragment with no matching id', async () => {
+    const { target, pane, cleanup } = mountPreview('<a href="#missing">gone</a>')
+    const { Browser } = await import('@wailsio/runtime')
+    pane.scrollTop = 40
+    target.querySelector('a')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
+    expect(Browser.OpenURL).not.toHaveBeenCalled()
+    expect(pane.scrollTop).toBe(40)
+    cleanup()
+  })
+})
