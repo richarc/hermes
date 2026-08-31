@@ -2,6 +2,7 @@ import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
 import type Token from 'markdown-it/lib/token.mjs'
 import { outlinePlugin, type OutlineEntry } from './outline'
+import { tocPlugin, tocNavHtml, tocDepth, type TocEnv, DEFAULT_TOC_DEPTH } from './toc'
 import { parseFrontmatter } from './frontmatter'
 import { citationPlugin, type CitationFormatter, type CitationCluster } from './citations'
 import {
@@ -25,7 +26,7 @@ const katexPlugin = ((katexPluginModule as { default?: unknown }).default ??
  * once here rather than cast at each use: the fence renderer reads the chart
  * width out of it, and the source_line rule reads the frontmatter offset.
  */
-interface RenderEnv {
+interface RenderEnv extends TocEnv {
   citations?: CitationCluster[]
   outline?: OutlineEntry[]
   sourceLineOffset: number
@@ -62,6 +63,9 @@ md.core.ruler.push('source_line', (state) => {
 // carries its anchor, and the retag carries it along.
 md.use(figurePlugin)
 md.use(outlinePlugin)
+// After outlinePlugin, so a future consumer of both sees consistent data;
+// after source_line always, since it reads the stamps.
+md.use(tocPlugin)
 
 /**
  * A document-relative image source is rewritten onto the local-image route.
@@ -275,13 +279,22 @@ export function render(markdown: string, opts?: RenderOptions): string {
 }
 
 export function renderDocument(markdown: string, opts?: RenderOptions): RenderResult {
-  const { body, bodyStartLine } = parseFrontmatter(markdown)
+  const fm = parseFrontmatter(markdown)
+  const { body, bodyStartLine } = fm
   const env: RenderEnv = {
     sourceLineOffset: bodyStartLine - 1,
     chartWidthPx: chartWidthPx(opts?.chartWidth),
     docPath: opts?.docPath ?? '',
+    tocEnabled: fm.toc === 'true',
+    tocDepth: tocDepth(fm['toc-depth']),
   }
   let html = md.render(body, env)
+  // A ToC asked for but not placed by a [[toc]] marker goes at the top.
+  if (env.tocEnabled && !env.tocPlaced) {
+    const depth = env.tocDepth ?? DEFAULT_TOC_DEPTH
+    const listed = (env.tocItems ?? []).filter((it) => it.entry.level <= depth)
+    html = tocNavHtml(listed, 1) + html
+  }
   const outline = env.outline ?? []
   const clusters = env.citations ?? []
   const formatter = opts?.formatter
