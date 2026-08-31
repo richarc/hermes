@@ -10,6 +10,13 @@ describe('parseFrontmatter', () => {
     expect(fm.body).toBe('# Title\n')
   })
 
+  it('extracts toc and toc-depth', () => {
+    const fm = parseFrontmatter('---\ntoc: true\ntoc-depth: 2\n---\nBody\n')
+    expect(fm.toc).toBe('true')
+    expect(fm['toc-depth']).toBe('2')
+    expect(fm.body).toBe('Body\n')
+  })
+
   it('handles quoted values and extra whitespace', () => {
     const doc = '---\nbibliography:  "my refs.bib"\n---\nText'
     const fm = parseFrontmatter(doc)

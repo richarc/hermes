@@ -2,6 +2,9 @@ export interface Frontmatter {
   body: string
   bibliography?: string
   csl?: string
+  /** Raw values; lib/toc.ts owns their interpretation. */
+  toc?: string
+  'toc-depth'?: string
   /**
    * 1-based line of the original document on which `body` starts. The renderer
    * passes markdown-it only the body, so its line numbers are body-relative;
@@ -10,7 +13,7 @@ export interface Frontmatter {
   bodyStartLine: number
 }
 
-const KNOWN_KEYS = ['bibliography', 'csl'] as const
+const KNOWN_KEYS = ['bibliography', 'csl', 'toc', 'toc-depth'] as const
 
 // A leading block fenced by lines of exactly ---, accepting either line ending
 // so documents authored on Windows parse the same as ones authored on Unix.
