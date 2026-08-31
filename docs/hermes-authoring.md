@@ -12,18 +12,21 @@ for producing a Hermes document.
 
 ---
 
-## Frontmatter: exactly two keys
+## Frontmatter: exactly four keys
 
 ```markdown
 ---
 bibliography: references.bib
 csl: apa
+toc: true
+toc-depth: 3
 ---
 ```
 
-`bibliography` and `csl` are the **only** keys Hermes reads. Both are optional.
-The path is resolved relative to the document, so the `.bib` normally sits
-beside it.
+`bibliography`, `csl`, `toc` and `toc-depth` are the **only** keys Hermes
+reads. All are optional. The bibliography path is resolved relative to the
+document, so the `.bib` normally sits beside it; `toc` and `toc-depth` are
+described under [A table of contents](#a-table-of-contents) below.
 
 `csl` must be one of five bundled styles — `apa`, `chicago-author-date`,
 `ieee`, `vancouver`, `harvard`. Anything else falls back to APA with a warning.
@@ -130,6 +133,19 @@ it for editing and Update replaces it. Cells hold ordinary markdown, so
 | :------ | --: | ---: |
 | Control | 12  | 4.1  |
 | Treated | 11  | 6.3  |
+
+## A table of contents
+
+Set `toc: true` in the frontmatter and the document gets a contents page:
+every heading is a link that works in the preview and in the exported PDF.
+By default the contents sit at the top and list headings down to level
+three; `toc-depth: 2` (1–6) changes the cut-off.
+
+To put a title page or an introduction before the contents, write a
+paragraph containing exactly `[[toc]]` where the contents belong. Only
+headings *after* that point are listed — a title above it stays out of its
+own contents page — though every heading still gets an anchor, so
+`[see the appendix](#appendix)` works anywhere in the document.
 
 ## Charts
 

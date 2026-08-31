@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A table of contents: `toc: true` in the frontmatter renders a contents
+  page whose entries are clickable in the preview and in the exported PDF —
+  WebKit writes them as real PDF link annotations. A `[[toc]]` paragraph
+  positions it (only headings after it are listed, so a title page stays
+  out); `toc-depth` (default 3) sets how deep it goes. Every heading now
+  carries an anchor id, so hand-written `[text](#slug)` links work too.
 - The New Document flow asks which bibliography to use: a file named after
   the document (as before), a new file with a name of your choosing, or an
   existing library chosen from the open panel — written into the frontmatter

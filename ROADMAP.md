@@ -618,7 +618,25 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       does for an existing file. An alternative considered: the three radios
       inside the first dialog under the checkbox, one step fewer; the
       intermediate dialog was preferred.
-- [ ] A clickable table of contents in the exported PDF. The same heading
+- [x] **A clickable table of contents in the exported PDF.** Done
+      2026-08-31, unreleased. The spike the item below asked for was run
+      first and answered yes: the exact export path (`printOperationWith-
+      PrintInfo:`, zero margins, `@page` CSS) turns `#fragment` links onto
+      `id`'d elements into real GoTo annotations with correct page
+      destinations, so no external PDF writer was needed. Built as designed:
+      `toc: true` and `toc-depth` (1–6, default 3, Pandoc's vocabulary) in
+      the frontmatter; `lib/toc.ts` is a markdown-it core rule after
+      `source_line` that gives every level-0 heading a slugified,
+      deduplicated anchor id whether or not a ToC renders — which makes
+      hand-written `[text](#slug)` links work in preview and PDF for free —
+      and replaces the first level-0 `[[toc]]` paragraph with the rendered
+      contents, listing only headings *after* it, which is what lets a title
+      page precede the contents without appearing in them. No marker puts
+      the contents at the top. The preview's click handler scrolls fragment
+      links in-pane instead of handing them to the browser. The appended
+      References heading is never an item (it is synthesised after the token
+      pass), and a `[[toc]]` in a fence is fence content. The original
+      sketch follows. The same heading
       data the outline panel above needs, with a different consumer, so the
       two should be designed together rather than twice. Two distinct pieces:
       a rendered contents list at the top of the document (straightforward —
