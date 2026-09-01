@@ -387,3 +387,42 @@ func TestShowOutlinePersists(t *testing.T) {
 		t.Error("want the outline setting persisted across instances")
 	}
 }
+
+func TestAutoSaveDefaultsToOn(t *testing.T) {
+	s := newTestService(t)
+	if !s.Settings().AutoSave {
+		t.Error("autosave must default to on")
+	}
+}
+
+func TestAutoSavePersists(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+	next := s.Settings()
+	next.AutoSave = false
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if NewDocumentService(recentsPath).Settings().AutoSave {
+		t.Error("want autosave off after update, in a fresh service")
+	}
+}
+
+// A settings file written before this field existed has no autoSave key.
+// The loader used to unmarshal into a zero Settings, so an absent bool read
+// as false — which would have switched autosave off for every existing
+// install on upgrade. Absent keys must take the default instead.
+func TestSettingsFileWithoutAutoSaveKeyReadsAsOn(t *testing.T) {
+	dir := t.TempDir()
+	body := `{"printOrientation":"landscape","syncScrolling":true}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := NewDocumentService(filepath.Join(dir, "recents.json")).Settings()
+	if !got.AutoSave {
+		t.Error("an absent autoSave key must read as the default, on")
+	}
+	if got.PrintOrientation != "landscape" || !got.SyncScrolling {
+		t.Errorf("present keys must still be read: %+v", got)
+	}
+}

@@ -20,6 +20,8 @@ type Settings struct {
 	ChartWidth       string `json:"chartWidth"`
 	PaperSize        string `json:"paperSize"`
 	ShowOutline      bool   `json:"showOutline"`
+	// Writes a recovery draft while the document is dirty. See recovery.go.
+	AutoSave bool `json:"autoSave"`
 }
 
 func defaultSettings() Settings {
@@ -31,6 +33,7 @@ func defaultSettings() Settings {
 		ChartWidth:       "medium",
 		PaperSize:        "a4",
 		ShowOutline:      false,
+		AutoSave:         true,
 	}
 }
 
@@ -39,8 +42,8 @@ func defaultSettings() Settings {
 // so neither a hand-edited settings file nor a bad binding call can leave the
 // app holding a preference it cannot act on.
 func (s Settings) normalise() Settings {
-	// SyncScrolling and ShowOutline need no clause: every value a bool can
-	// hold is valid.
+	// SyncScrolling, ShowOutline and AutoSave need no clause: every value a
+	// bool can hold is valid.
 	// Only fields with a restricted set of legal values are clamped here.
 	if s.PrintOrientation != "portrait" && s.PrintOrientation != "landscape" {
 		s.PrintOrientation = defaultSettings().PrintOrientation
@@ -127,7 +130,11 @@ func (st *settingsStore) loadLocked() Settings {
 	st.current = defaultSettings()
 	st.loaded = true
 	if data, err := os.ReadFile(st.path); err == nil {
-		var parsed Settings
+		// Over the defaults, not a zero value: a key absent from the file
+		// (one written before the field existed) keeps its default. With a
+		// zero value an absent bool read as false, which is wrong for any
+		// bool whose default is true.
+		parsed := defaultSettings()
 		if err := json.Unmarshal(data, &parsed); err == nil {
 			st.current = parsed.normalise()
 		}
