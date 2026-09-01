@@ -11,7 +11,7 @@ This page and the introduction below sit **before** the `[[toc]]` marker, so
 neither heading appears in the contents. Everything after the marker does,
 down to level three.
 
-# Introduction
+# Introduction ----
 
 Two things to try here: click the contents entries in the preview, and
 export the PDF and click them there. Also try a hand-written link straight
