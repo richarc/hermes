@@ -8,5 +8,6 @@ export {
 
 export type {
     Document,
+    Draft,
     Settings
 } from "./models.js";

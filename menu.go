@@ -255,6 +255,17 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		}
 	})
 
+	// Below Outline: a persisted on/off like Sync Scrolling, and the View
+	// menu is where those live. No accelerator; this is set once, not
+	// toggled mid-sentence. Same read-modify-write as the two above.
+	view.AddCheckbox("Autosave", viewCurrent.AutoSave).OnClick(func(*application.Context) {
+		next := docs.Settings()
+		next.AutoSave = !next.AutoSave
+		if err := docs.UpdateSettings(next); err != nil {
+			log.Printf("could not save autosave: %v", err)
+		}
+	})
+
 	view.AddSeparator()
 	appearance := view.AddSubmenu("Appearance")
 	themes := []struct {

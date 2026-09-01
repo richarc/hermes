@@ -51,6 +51,10 @@ export function CreateDocument(path: string, content: string, bibName: string, b
     return $Call.ByID(839519561, path, content, bibName, bibContent);
 }
 
+export function DiscardDraft(docPath: string): $CancellablePromise<void> {
+    return $Call.ByID(607038005, docPath);
+}
+
 /**
  * ExportPDF asks for a destination and renders the document there with no
  * print panel. The panel is deliberately not used: paper size is a setting
@@ -121,6 +125,10 @@ export function RecentFiles(): $CancellablePromise<string[] | null> {
     return $Call.ByID(3158636934);
 }
 
+export function RecoverDraft(docPath: string): $CancellablePromise<$models.Draft> {
+    return $Call.ByID(2854644563, docPath);
+}
+
 export function Save(path: string, content: string): $CancellablePromise<void> {
     return $Call.ByID(494444433, path, content);
 }
@@ -158,4 +166,14 @@ export function UpdateSettings(next: $models.Settings): $CancellablePromise<void
  */
 export function WatchBibliography(path: string, docPath: string): $CancellablePromise<void> {
     return $Call.ByID(3958672815, path, docPath);
+}
+
+/**
+ * WriteDraft, DiscardDraft and RecoverDraft are the recovery-draft bindings.
+ * The frontend decides *when* (lib/recoveryDraft.ts: debounced while dirty,
+ * discarded on the dirty-to-clean transition); the store decides whether a
+ * draft is still worth offering. See recovery.go.
+ */
+export function WriteDraft(docPath: string, content: string): $CancellablePromise<void> {
+    return $Call.ByID(1661680238, docPath, content);
 }

@@ -7,6 +7,16 @@ export interface Document {
 }
 
 /**
+ * Draft is what RecoverDraft hands the frontend. Found false means there is
+ * nothing worth offering: no draft, or one the document on disk has caught
+ * up with. Content is the draft's full text.
+ */
+export interface Draft {
+    "found": boolean;
+    "content": string;
+}
+
+/**
  * Settings holds every persisted user preference in one value. Adding a
  * preference means adding a field with a json tag, a default in
  * defaultSettings, and a clamp in normalise — persistence, change
@@ -21,4 +31,9 @@ export interface Settings {
     "chartWidth": string;
     "paperSize": string;
     "showOutline": boolean;
+
+    /**
+     * Writes a recovery draft while the document is dirty. See recovery.go.
+     */
+    "autoSave": boolean;
 }
