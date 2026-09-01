@@ -1280,6 +1280,23 @@ describe('recovery drafts', () => {
     await vi.waitFor(() => expect(DocumentService.DiscardDraft).toHaveBeenCalledWith('/tmp/paper.md'))
   })
 
+  it('discards the draft under the untitled key when the first save of a new document renames it', async () => {
+    // save() sets `path` and clears dirty in the same tick, so by the time
+    // the keeper's effect sees the clean transition, docPath is already the
+    // new path — the untitled draft would be orphaned without dirtyPath.
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.cm-scroller')).not.toBeNull())
+
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } })
+    flushSync()
+
+    DocumentService.SaveAs.mockResolvedValueOnce('/tmp/new.md')
+    listeners['menu:save']({ data: null })
+
+    await vi.waitFor(() => expect(DocumentService.DiscardDraft).toHaveBeenCalledWith(''))
+  })
+
   it('writes nothing while Autosave is off', async () => {
     settings.current = { ...DEFAULT_SETTINGS, autoSave: false }
     const target = await openDoc('# Results\n')
@@ -1289,6 +1306,15 @@ describe('recovery drafts', () => {
 
     await new Promise((r) => setTimeout(r, 80)) // four debounce windows
     expect(DocumentService.WriteDraft).not.toHaveBeenCalled()
+
+    // Prove the harness can observe a write at all, so the assertion above
+    // cannot be passing because nothing here is capable of calling
+    // WriteDraft in the first place.
+    settings.current = { ...DEFAULT_SETTINGS, autoSave: true }
+    listeners['settings:changed']({ data: null })
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'y' } })
+    flushSync()
+    await vi.waitFor(() => expect(DocumentService.WriteDraft).toHaveBeenCalled())
   })
 
   it('offers a newer draft on open, and Restore puts it in the editor as unsaved', async () => {
@@ -1361,6 +1387,20 @@ describe('recovery drafts', () => {
     // No recents, so the first-launch template takes over as it always has.
     await vi.waitFor(() => expect(target.querySelector('.status-bar')!.textContent).toContain('Untitled'))
     expect(target.textContent).not.toContain('# Scratch')
+  })
+
+  it('Esc dismisses the recover dialog without discarding the draft', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '' ? { found: true, content: '# Scratch\n\nnever saved\n' } : { found: false, content: '' },
+    )
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+
+    recoverDialog(target).dispatchEvent(new Event('cancel'))
+    flushSync()
+
+    expect(recoverDialog(target).open).toBe(false)
+    expect(DocumentService.DiscardDraft).not.toHaveBeenCalled()
   })
 
   it('waits for the draft queue before quitting after Save', async () => {

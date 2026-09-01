@@ -137,6 +137,36 @@ func TestRecoverDropsADraftIdenticalToTheDocument(t *testing.T) {
 	if got.Found {
 		t.Error("a draft equal to the file has nothing to offer")
 	}
+	if _, err := os.Stat(filepath.Join(d.dir, draftKey(doc)+".json")); !os.IsNotExist(err) {
+		t.Error("a draft identical to the document must be deleted, not just hidden")
+	}
+}
+
+func TestRecoverDropsADraftWithTheSameMtimeAsTheDocument(t *testing.T) {
+	d := newTestDraftStore(t)
+	doc := filepath.Join(t.TempDir(), "paper.md")
+	if err := os.WriteFile(doc, []byte("v1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.write(doc, "v1 plus"); err != nil {
+		t.Fatal(err)
+	}
+	draftInfo, err := os.Stat(filepath.Join(d.dir, draftKey(doc)+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The rule is "at or after": a document stamped with the draft's exact
+	// mtime must be treated as caught up, not as strictly older.
+	if err := os.Chtimes(doc, draftInfo.ModTime(), draftInfo.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := d.find(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Found {
+		t.Error("a document with the same mtime as the draft must not be offered")
+	}
 }
 
 func TestRecoverOffersTheDraftWhenTheDocumentIsGone(t *testing.T) {
@@ -176,6 +206,9 @@ func TestRecoverDropsEmptyAndUnreadableDrafts(t *testing.T) {
 	if got, _ := d.find(""); got.Found {
 		t.Error("an empty draft must not be offered")
 	}
+	if _, err := os.Stat(filepath.Join(d.dir, draftKey("")+".json")); !os.IsNotExist(err) {
+		t.Error("an empty draft must be deleted, not just hidden")
+	}
 	doc := "/papers/x.md"
 	if err := os.MkdirAll(d.dir, 0o700); err != nil {
 		t.Fatal(err)
@@ -186,6 +219,9 @@ func TestRecoverDropsEmptyAndUnreadableDrafts(t *testing.T) {
 	got, err := d.find(doc)
 	if err != nil || got.Found {
 		t.Errorf("an unreadable draft must read as not found without error, got %+v, %v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(d.dir, draftKey(doc)+".json")); !os.IsNotExist(err) {
+		t.Error("an unreadable draft must be deleted, not just hidden")
 	}
 }
 
@@ -214,7 +250,11 @@ func TestPruneRemovesOnlyOldDrafts(t *testing.T) {
 }
 
 func TestPruneOnAMissingDirectoryIsANoOp(t *testing.T) {
-	newTestDraftStore(t).prune(time.Now()) // must not panic or create the dir
+	d := newTestDraftStore(t)
+	d.prune(time.Now()) // must not panic or create the dir
+	if _, err := os.Stat(d.dir); !os.IsNotExist(err) {
+		t.Error("prune must not create the drafts directory")
+	}
 }
 
 func TestDocumentServiceExposesTheDraftStore(t *testing.T) {

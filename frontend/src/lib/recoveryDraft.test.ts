@@ -99,6 +99,31 @@ describe('createDraftKeeper', () => {
     expect(s.discard).toHaveBeenCalledExactlyOnceWith('/p.md')
   })
 
+  it('discards the old key as well as the new one when the path changes on the clean transition', async () => {
+    // Save As, and the first save of an untitled document, set the new path
+    // and clear dirty in the same tick — so the update that goes clean
+    // already carries the NEW docPath. Without remembering the dirty path,
+    // the draft under the OLD key (here, the untitled '') would never be
+    // discarded.
+    const s = sink()
+    const k = createDraftKeeper(s, 100)
+    k.update('', 'a', true, true)
+    k.update('/x.md', 'a', false, true)
+    await k.settle()
+    expect(s.discard).toHaveBeenNthCalledWith(1, '')
+    expect(s.discard).toHaveBeenNthCalledWith(2, '/x.md')
+    expect(s.discard).toHaveBeenCalledTimes(2)
+  })
+
+  it('discards exactly once when the clean transition keeps the same path', async () => {
+    const s = sink()
+    const k = createDraftKeeper(s, 100)
+    k.update('/p.md', 'a', true, true)
+    k.update('/p.md', 'a', false, true)
+    await k.settle()
+    expect(s.discard).toHaveBeenCalledExactlyOnceWith('/p.md')
+  })
+
   it('reset drops the pending write and forgets the dirty state', async () => {
     const s = sink()
     const k = createDraftKeeper(s, 100)

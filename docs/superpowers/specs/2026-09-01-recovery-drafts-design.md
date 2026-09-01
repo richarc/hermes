@@ -83,6 +83,9 @@ Buttons: **Discard Draft**, **Restore** (primary, default).
   dirty and the status bar shows it. The draft file stays until the next
   clean transition.
 - Discard Draft: `DiscardDraft(path)` and the file's content stays.
+- Esc (or any other dismissal) closes the dialog without deleting the draft;
+  it is offered again the next time that document is opened, the same as a
+  document swap. Only Discard Draft deletes.
 
 The dialog is not raised while the chart or table builder is open; opening
 a document is already refused in that state, so no new guard is needed.

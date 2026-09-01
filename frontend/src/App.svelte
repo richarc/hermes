@@ -2,7 +2,7 @@
   import { onMount, untrack } from 'svelte'
   import { Events } from '@wailsio/runtime'
   import { DocumentService } from '../bindings/hermes'
-  import type { Settings } from '../bindings/hermes/models'
+  import type { Settings, Draft } from '../bindings/hermes/models'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
   import { renderDocument, type RenderOptions } from './lib/renderer'
@@ -10,7 +10,6 @@
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
   import { createDraftKeeper, DRAFT_DEBOUNCE_MS } from './lib/recoveryDraft'
-  import type { Draft } from '../bindings/hermes/models'
   import {
     NEW_DOCUMENT_TEMPLATE,
     BIBLIOGRAPHY_SEED,
@@ -71,8 +70,10 @@
 
   let autoSave = $state(true)
   // A draft found on open (or the untitled one at launch), awaiting the
-  // user's Restore / Discard Draft. Null when no dialog is up.
-  let recovery = $state<{ content: string } | null>(null)
+  // user's Restore / Discard Draft. Null when no dialog is up. `key` is the
+  // docPath it was offered for, captured up front so Discard Draft still
+  // targets the right draft after dismissRecovery has cleared `recovery`.
+  let recovery = $state<{ key: string; content: string } | null>(null)
   // One toast per document for a failing draft write: a toast every two
   // seconds while typing would be worse than no insurance.
   let draftWriteWarned = false
@@ -500,7 +501,7 @@
       if (!draft.found) return
       // The document may have been swapped again while we waited.
       if ((path ?? '') !== docPath) return
-      recovery = { content: draft.content }
+      recovery = { key: docPath, content: draft.content }
     } catch (err) {
       console.warn('RecoverDraft:', err)
     }
@@ -521,13 +522,25 @@
     renderInto(draft.content)
   }
 
-  function discardRecoveredDraft() {
+  // Closes the dialog without touching the draft file: Esc (or any other
+  // native dismissal) must not be destructive. The draft stays on disk and
+  // is offered again the next time this document is opened, the same as a
+  // document swap.
+  function dismissRecovery() {
     recovery = null
-    void DocumentService.DiscardDraft(path ?? '').catch((err) => console.warn('DiscardDraft:', err))
     // A first launch with no recents goes to the template, as it would have
     // without a draft to ask about. Only the untitled path can be here with
     // an empty buffer.
     if (path === null && content === '' && recents.length === 0) doNew()
+  }
+
+  function discardRecoveredDraft() {
+    // Captured before dismissRecovery clears `recovery`: the key the draft
+    // was offered under, not the live path, which the first-launch
+    // fallthrough below may already have moved on from.
+    const key = recovery?.key ?? path ?? ''
+    dismissRecovery()
+    void DocumentService.DiscardDraft(key).catch((err) => console.warn('DiscardDraft:', err))
   }
 
   async function refreshRecents() {
@@ -704,6 +717,9 @@
         const newPath = await DocumentService.SaveAs(snapshot)
         if (!newPath) return false // cancelled
         path = newPath
+        // A rename starts a new document's one-toast-per-document guard;
+        // the old path's failure (if any) says nothing about this one.
+        draftWriteWarned = false
         void refreshRecents()
       }
       savedContent = snapshot
@@ -721,6 +737,9 @@
       if (!newPath) return
       path = newPath
       savedContent = snapshot
+      // Same reasoning as the Save-As branch of save(): a new document
+      // should not inherit a warning already shown for the old one.
+      draftWriteWarned = false
       void refreshRecents()
     } catch (err) {
       toast(`Could not save: ${err}`)
@@ -728,6 +747,8 @@
   }
 
   async function confirmSave() {
+    // By the time save() resolves, the dirty effect has queued the draft's
+    // discard, and finishPending's quit branch settles it.
     if (await save()) finishPending()
     else pendingAction = null
   }
@@ -971,7 +992,7 @@
     open={recovery !== null}
     label="Recover draft"
     role="alertdialog"
-    onclose={discardRecoveredDraft}
+    onclose={dismissRecovery}
   >
     {#if path === null}
       <p>An unsaved untitled document was recovered from the last session. Restore it?</p>
