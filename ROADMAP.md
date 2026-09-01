@@ -728,6 +728,32 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       app, where `CFBundleShortVersionString` is readable, so the version line
       shows the real number rather than "unknown".
 
+- [ ] **An update check that sends nothing.** Decided 2026-09-01 as the
+      middle ground between the passive channels (the releases Atom feed,
+      Watch → Releases) that reach only people who go looking, and the
+      Sparkle-style auto-update deferred to v1.0.0. Hermes fetches a small
+      static JSON file over HTTPS — on the documentation site once it exists,
+      the Releases API until then — compares the version locally against
+      `CFBundleShortVersionString` (already read by `version_darwin.go`), and
+      says "Hermes 0.11.0 is available" with a button that opens the release
+      page through `Browser.OpenURL`. The user downloads by hand, so
+      notarization and Gatekeeper still cover the binary; Hermes never
+      downloads or runs anything itself. *Privacy rules, which are the point:*
+      nothing identifying is sent — no UUID, no installed version, no query
+      string at all; the same file is fetched every time and compared on the
+      client, so the far end sees an IP and a user agent and nothing else.
+      Checked at most once a day, and only while a `CheckForUpdates` field in
+      `Settings` is on; asked once at first launch with a sentence saying
+      exactly what is fetched, rather than defaulting on silently. *Security
+      rules:* HTTPS only, strict JSON parsing, a real semver comparison, and
+      the link opened only if its host is on an allowlist, so a tampered file
+      cannot send users to a phishing page. Prefer the static file over
+      `api.github.com`: no rate limit and less logging. Also a Help → Check
+      for Updates… item as the manual route, and two README sentences on
+      what is fetched and how to turn it off. A Homebrew cask alongside the
+      first tagged release carries updates for people who prefer `brew
+      upgrade`, with no code in Hermes.
+
 ## v0.11.0 — Rendering performance
 
 From a measurement pass on 2026-08-28: `renderDocument()` timed in vitest on
