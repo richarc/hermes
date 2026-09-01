@@ -1381,4 +1381,21 @@ describe('recovery drafts', () => {
     const quitOrder = DocumentService.Quit.mock.invocationCallOrder[0]
     expect(discardOrder).toBeLessThan(quitOrder)
   })
+
+  it('drops a pending draft offer when another document is opened over it', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '' ? { found: true, content: '# Scratch\n\nnever saved\n' } : { found: false, content: '' },
+    )
+    recents.current = ['/tmp/paper.md']
+    DocumentService.OpenPath.mockResolvedValueOnce({ path: '/tmp/paper.md', content: '# Results\n\nOn disk.\n' })
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+
+    listeners['menu:open-recent']({ data: '/tmp/paper.md' })
+    await vi.waitFor(() => expect(target.textContent).toContain('On disk.'))
+
+    expect(recoverDialog(target).open).toBe(false)
+    expect(target.textContent).not.toContain('never saved')
+    expect(target.querySelector('.status-bar')!.textContent).not.toContain('•')
+  })
 })

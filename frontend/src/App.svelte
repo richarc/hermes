@@ -474,6 +474,9 @@
     // dirty old document to a clean new one as a save of the old one.
     drafts.reset()
     draftWriteWarned = false
+    // A swap makes any pending offer moot; the draft file stays on disk and
+    // is offered again when that document is next opened.
+    recovery = null
     path = docPath
     content = docContent
     welcomeDismissed = true
@@ -621,6 +624,9 @@
   function doNew() {
     drafts.reset()
     draftWriteWarned = false
+    // A swap makes any pending offer moot; the draft file stays on disk and
+    // is offered again when that document is next opened.
+    recovery = null
     path = null
     // 'end' lands the cursor (and focus) below the frontmatter so the user
     // can start typing immediately; loadDocument() below relies on the
