@@ -13,6 +13,7 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
     theme: 'system',
     figureAlignment: 'centre',
     chartWidth: 'medium',
+    autoSave: true,
   }
   const settings = { current: { ...DEFAULT_SETTINGS } }
   return {
@@ -38,6 +39,9 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
       ChooseNewDocumentPath: vi.fn(async () => ''),
       ChooseBibliography: vi.fn(async () => ''),
       CreateDocument: vi.fn(async (path: string, content: string, _bibName: string, _bibContent: string) => ({ path, content })),
+      WriteDraft: vi.fn(async (_docPath: string, _content: string) => {}),
+      DiscardDraft: vi.fn(async (_docPath: string) => {}),
+      RecoverDraft: vi.fn(async (_docPath: string) => ({ found: false, content: '' })),
     },
   }
 })
@@ -51,6 +55,14 @@ vi.mock('@wailsio/runtime', () => ({
   Browser: { OpenURL: vi.fn() },
 }))
 vi.mock('../bindings/hermes', () => ({ DocumentService }))
+
+// The real debounce is two seconds; every test here would wait it out.
+// App.svelte passes DRAFT_DEBOUNCE_MS to the keeper explicitly so this
+// mock is what it sees.
+vi.mock('./lib/recoveryDraft', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./lib/recoveryDraft')>()),
+  DRAFT_DEBOUNCE_MS: 20,
+}))
 
 import App from './App.svelte'
 
@@ -107,6 +119,7 @@ function stubMatchMedia(prefersDark: boolean) {
 
 beforeEach(() => {
   recents.current = []
+  settings.current = { ...DEFAULT_SETTINGS }
   vi.clearAllMocks()
   stubMatchMedia(false)
   // applyTheme writes to <html>'s dataset, which outlives unmount (afterEach
@@ -1230,5 +1243,142 @@ describe('figure settings', () => {
         '"width":560',
       ),
     )
+  })
+})
+
+describe('recovery drafts', () => {
+  // vi.clearAllMocks in the top-level beforeEach clears calls, not
+  // implementations, so a mockImplementation set by one test here would
+  // leak into the next. Put the default back before each.
+  beforeEach(() => {
+    DocumentService.RecoverDraft.mockImplementation(async () => ({ found: false, content: '' }))
+  })
+
+  function recoverDialog(target: HTMLElement) {
+    return target.querySelector<HTMLDialogElement>('dialog[aria-label="Recover draft"]')!
+  }
+
+  it('writes a draft shortly after typing into a dirty document', async () => {
+    const target = await openDoc('# Results\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } })
+    flushSync()
+
+    await vi.waitFor(() =>
+      expect(DocumentService.WriteDraft).toHaveBeenCalledWith('/tmp/paper.md', 'x# Results\n'),
+    )
+  })
+
+  it('discards the draft when the document is saved', async () => {
+    const target = await openDoc('# Results\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } })
+    flushSync()
+    await vi.waitFor(() => expect(DocumentService.WriteDraft).toHaveBeenCalled())
+
+    listeners['menu:save']({ data: null })
+    await vi.waitFor(() => expect(DocumentService.DiscardDraft).toHaveBeenCalledWith('/tmp/paper.md'))
+  })
+
+  it('writes nothing while Autosave is off', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, autoSave: false }
+    const target = await openDoc('# Results\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } })
+    flushSync()
+
+    await new Promise((r) => setTimeout(r, 80)) // four debounce windows
+    expect(DocumentService.WriteDraft).not.toHaveBeenCalled()
+  })
+
+  it('offers a newer draft on open, and Restore puts it in the editor as unsaved', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '/tmp/paper.md'
+        ? { found: true, content: '# Results\n\nrecovered text\n' }
+        : { found: false, content: '' },
+    )
+    const target = await openDoc('# Results\n')
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+    expect(recoverDialog(target).getAttribute('role')).toBe('alertdialog')
+    expect(target.textContent).toContain('A draft of "paper.md" newer than the file on disk was found')
+
+    buttonByText(recoverDialog(target), 'Restore')!.click()
+    flushSync()
+
+    expect(recoverDialog(target).open).toBe(false)
+    expect(target.textContent).toContain('recovered text')
+    // The file on disk still holds the old text, so the document is dirty.
+    expect(target.querySelector('.status-bar')!.textContent).toContain('•')
+    expect(DocumentService.DiscardDraft).not.toHaveBeenCalled()
+  })
+
+  it('Discard Draft removes the draft and keeps the file as opened', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '/tmp/paper.md'
+        ? { found: true, content: '# Results\n\nrecovered text\n' }
+        : { found: false, content: '' },
+    )
+    const target = await openDoc('# Results\n\nOn disk.\n')
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+
+    buttonByText(recoverDialog(target), 'Discard Draft')!.click()
+    flushSync()
+
+    expect(recoverDialog(target).open).toBe(false)
+    await vi.waitFor(() => expect(DocumentService.DiscardDraft).toHaveBeenCalledWith('/tmp/paper.md'))
+    expect(target.textContent).toContain('On disk.')
+    expect(target.textContent).not.toContain('recovered text')
+    expect(target.querySelector('.status-bar')!.textContent).not.toContain('•')
+  })
+
+  it('offers an untitled draft at launch and restores it into an unsaved buffer', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '' ? { found: true, content: '# Scratch\n\nnever saved\n' } : { found: false, content: '' },
+    )
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+    expect(target.textContent).toContain('An unsaved untitled document was recovered from the last session')
+
+    buttonByText(recoverDialog(target), 'Restore')!.click()
+    flushSync()
+
+    expect(target.textContent).toContain('never saved')
+    expect(target.querySelector('.status-bar')!.textContent).toContain('Untitled •')
+    expect(target.querySelector('.welcome')).toBeNull()
+  })
+
+  it('discarding the untitled draft on a first launch still opens the template', async () => {
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '' ? { found: true, content: '# Scratch\n' } : { found: false, content: '' },
+    )
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(recoverDialog(target).open).toBe(true))
+
+    buttonByText(recoverDialog(target), 'Discard Draft')!.click()
+    flushSync()
+
+    await vi.waitFor(() => expect(DocumentService.DiscardDraft).toHaveBeenCalledWith(''))
+    // No recents, so the first-launch template takes over as it always has.
+    await vi.waitFor(() => expect(target.querySelector('.status-bar')!.textContent).toContain('Untitled'))
+    expect(target.textContent).not.toContain('# Scratch')
+  })
+
+  it('waits for the draft queue before quitting after Save', async () => {
+    const target = await openDoc('# Results\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } })
+    flushSync()
+
+    listeners['close:confirm']({ data: null })
+    flushSync()
+    // Scoped to the dialog: the toolbar's own Save button comes first in
+    // DOM order and would only save, never quit.
+    const confirm = target.querySelector<HTMLElement>('dialog[aria-label="Unsaved changes"]')!
+    buttonByText(confirm, 'Save')!.click()
+
+    await vi.waitFor(() => expect(DocumentService.Quit).toHaveBeenCalled())
+    const discardOrder = DocumentService.DiscardDraft.mock.invocationCallOrder[0]
+    const quitOrder = DocumentService.Quit.mock.invocationCallOrder[0]
+    expect(discardOrder).toBeLessThan(quitOrder)
   })
 })

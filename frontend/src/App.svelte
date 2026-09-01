@@ -9,6 +9,8 @@
   import { type OutlineEntry } from './lib/outline'
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
+  import { createDraftKeeper, DRAFT_DEBOUNCE_MS } from './lib/recoveryDraft'
+  import type { Draft } from '../bindings/hermes/models'
   import {
     NEW_DOCUMENT_TEMPLATE,
     BIBLIOGRAPHY_SEED,
@@ -66,6 +68,31 @@
   let syncScrolling = $state(false)
   let showOutline = $state(false)
   let outline = $state<OutlineEntry[]>([])
+
+  let autoSave = $state(true)
+  // A draft found on open (or the untitled one at launch), awaiting the
+  // user's Restore / Discard Draft. Null when no dialog is up.
+  let recovery = $state<{ content: string } | null>(null)
+  // One toast per document for a failing draft write: a toast every two
+  // seconds while typing would be worse than no insurance.
+  let draftWriteWarned = false
+
+  // The keeper decides when a draft is written and discarded; recovery.go
+  // decides whether one is worth offering back. Go's own errors are
+  // reported here, once, because the keeper swallows them by design.
+  const drafts = createDraftKeeper(
+    {
+      write: (docPath, text) =>
+        DocumentService.WriteDraft(docPath, text).catch((err) => {
+          if (draftWriteWarned) return
+          draftWriteWarned = true
+          toast(`Could not write a recovery draft: ${err}`)
+        }),
+      discard: (docPath) =>
+        DocumentService.DiscardDraft(docPath).catch((err) => console.warn('DiscardDraft:', err)),
+    },
+    DRAFT_DEBOUNCE_MS,
+  )
 
   // Every render feeds both the preview and the outline; one function so a
   // call site cannot update one and leave the other a document behind.
@@ -133,6 +160,12 @@
   // Keep the Go side (window-close hook) in sync with the derived flag.
   $effect(() => {
     void DocumentService.SetDirty(dirty)
+  })
+
+  // Every input the keeper cares about, in one place. `path ?? ''` is the
+  // untitled key on the Go side.
+  $effect(() => {
+    drafts.update(path ?? '', content, dirty, autoSave)
   })
   const showWelcome = $derived(
     !welcomeDismissed && path === null && content === '' && recents.length > 0,
@@ -437,6 +470,10 @@
   // below its frontmatter; the 'start' default is for opening a file, which
   // must not relocate where ⌘⇧C and the Format-menu commands act.
   function loadDocument(docPath: string, docContent: string, cursor: 'start' | 'end' = 'start') {
+    // Before anything changes: the keeper must not read the swap from a
+    // dirty old document to a clean new one as a save of the old one.
+    drafts.reset()
+    draftWriteWarned = false
     path = docPath
     content = docContent
     welcomeDismissed = true
@@ -447,6 +484,47 @@
     updatePreview.cancel()
     renderInto(docContent)
     void refreshRecents()
+    void offerDraft(docPath)
+  }
+
+  // Asks Go whether a draft is worth offering for docPath ('' for untitled)
+  // and raises the dialog if so. Go has already dropped a draft the file has
+  // caught up with, so found means newer and different. A failure to ask is
+  // logged, not shown: the cost is one missed offer.
+  async function offerDraft(docPath: string) {
+    try {
+      const draft: Draft = await DocumentService.RecoverDraft(docPath)
+      if (!draft.found) return
+      // The document may have been swapped again while we waited.
+      if ((path ?? '') !== docPath) return
+      recovery = { content: draft.content }
+    } catch (err) {
+      console.warn('RecoverDraft:', err)
+    }
+  }
+
+  function restoreDraft() {
+    const draft = recovery
+    recovery = null
+    if (!draft) return
+    // savedContent is left as the file's text (or '' for untitled), so the
+    // restored document is dirty: nothing on disk holds this text yet. The
+    // draft file itself stays until the next clean transition — it is still
+    // the only copy.
+    editor.setContent(draft.content, 'start') // fires onEditorChange, queueing a render
+    content = draft.content
+    welcomeDismissed = true
+    updatePreview.cancel()
+    renderInto(draft.content)
+  }
+
+  function discardRecoveredDraft() {
+    recovery = null
+    void DocumentService.DiscardDraft(path ?? '').catch((err) => console.warn('DiscardDraft:', err))
+    // A first launch with no recents goes to the template, as it would have
+    // without a draft to ask about. Only the untitled path can be here with
+    // an empty buffer.
+    if (path === null && content === '' && recents.length === 0) doNew()
   }
 
   async function refreshRecents() {
@@ -457,6 +535,7 @@
     const s: Settings = await DocumentService.Settings()
     syncScrolling = s.syncScrolling
     showOutline = s.showOutline
+    autoSave = s.autoSave
     themeSetting = s.theme as ThemeSetting
     // Go normalises both on the way out, so the cast is a spelling of what
     // the binding cannot express rather than an unchecked assumption.
@@ -540,6 +619,8 @@
   // to show, where a dialog before the window has even settled would be
   // hostile.
   function doNew() {
+    drafts.reset()
+    draftWriteWarned = false
     path = null
     // 'end' lands the cursor (and focus) below the frontmatter so the user
     // can start typing immediately; loadDocument() below relies on the
@@ -648,6 +729,9 @@
   async function confirmDiscard() {
     savedContent = content // treat current text as accepted; clears dirty
     await DocumentService.SetDirty(false)
+    // The dirty effect above has queued the draft's discard by now; a quit
+    // that follows must not outrun it.
+    await drafts.settle()
     finishPending()
   }
 
@@ -656,7 +740,7 @@
     const recentPath = pendingRecentPath
     pendingAction = null
     pendingRecentPath = null
-    if (action === 'quit') void DocumentService.Quit()
+    if (action === 'quit') void drafts.settle().then(() => DocumentService.Quit())
     else if (action === 'new') newOpen = true
     else if (action === 'open') {
       if (recentPath) void openRecent(recentPath)
@@ -748,6 +832,12 @@
       // both — turning a settings-load failure into a blank, template-less
       // editor on top of the settings failure itself.
       await Promise.allSettled([refreshRecents(), refreshSettings()])
+      // A crash with an untitled document leaves a draft under the
+      // 'untitled' key; this is the one moment it can be offered. The
+      // dialog's Discard Draft falls through to the template below when
+      // there are no recents; Restore replaces it.
+      await offerDraft('')
+      if (recovery !== null) return
       // A first launch has nothing to put in the welcome pane, so go straight
       // into a templated document rather than an empty one — the user who has
       // never seen Hermes is exactly the one the template is for.
@@ -868,6 +958,23 @@
         }}>Cancel</button
       >
       <button class="primary" onclick={() => void confirmSave()}>Save</button>
+    {/snippet}
+  </Dialog>
+
+  <Dialog
+    open={recovery !== null}
+    label="Recover draft"
+    role="alertdialog"
+    onclose={discardRecoveredDraft}
+  >
+    {#if path === null}
+      <p>An unsaved untitled document was recovered from the last session. Restore it?</p>
+    {:else}
+      <p>A draft of "{filename}" newer than the file on disk was found. Restore it?</p>
+    {/if}
+    {#snippet footer()}
+      <button onclick={discardRecoveredDraft}>Discard Draft</button>
+      <button class="primary" onclick={restoreDraft}>Restore</button>
     {/snippet}
   </Dialog>
 
