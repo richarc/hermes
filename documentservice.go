@@ -29,6 +29,7 @@ type Document struct {
 type DocumentService struct {
 	recentsPath string
 	settings    *settingsStore
+	drafts      *draftStore
 	dirty       atomic.Bool
 	window      *application.WebviewWindow
 	// Notified whenever the recents list changes (add or clear), so the
@@ -47,12 +48,16 @@ type DocumentService struct {
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
-	return &DocumentService{
+	dataDir := filepath.Dir(recentsPath)
+	s := &DocumentService{
 		recentsPath: recentsPath,
-		settings:    newSettingsStore(filepath.Join(filepath.Dir(recentsPath), "settings.json")),
+		settings:    newSettingsStore(filepath.Join(dataDir, "settings.json")),
+		drafts:      newDraftStore(filepath.Join(dataDir, "drafts")),
 		watchTick:   2 * time.Second,
 		caywBase:    "http://127.0.0.1:23119",
 	}
+	s.drafts.prune(time.Now())
+	return s
 }
 
 func (s *DocumentService) OpenPath(path string) (Document, error) {
@@ -99,6 +104,22 @@ func (s *DocumentService) SetDirty(dirty bool) {
 
 func (s *DocumentService) IsDirty() bool {
 	return s.dirty.Load()
+}
+
+// WriteDraft, DiscardDraft and RecoverDraft are the recovery-draft bindings.
+// The frontend decides *when* (lib/recoveryDraft.ts: debounced while dirty,
+// discarded on the dirty-to-clean transition); the store decides whether a
+// draft is still worth offering. See recovery.go.
+func (s *DocumentService) WriteDraft(docPath, content string) error {
+	return s.drafts.write(docPath, content)
+}
+
+func (s *DocumentService) DiscardDraft(docPath string) error {
+	return s.drafts.discard(docPath)
+}
+
+func (s *DocumentService) RecoverDraft(docPath string) (Draft, error) {
+	return s.drafts.find(docPath)
 }
 
 func (s *DocumentService) Open() (Document, error) {
