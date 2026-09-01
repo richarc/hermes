@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Recovery drafts. While a document has unsaved changes, Hermes writes a
+  draft of it two seconds after you stop typing — beside its own settings,
+  never over the document, so ⌘S is still the only thing that changes the
+  file a co-author or a Pandoc run will see. If Hermes is quit without
+  saving (a crash, a force-quit), the next time that document is opened it
+  asks whether to restore the draft; an unsaved untitled document is
+  offered back at the next launch. The draft is removed when the document
+  is saved or its changes are discarded. View → Autosave turns it off.
 - A table of contents: `toc: true` in the frontmatter renders a contents
   page whose entries are clickable in the preview and in the exported PDF —
   WebKit writes them as real PDF link annotations. A `[[toc]]` paragraph

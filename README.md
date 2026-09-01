@@ -138,6 +138,12 @@ ordering is load-bearing and the task documents itself.
 3. Save with ⌘S. Saving matters more than usual here — a bibliography is
    resolved relative to the document, so an unsaved document cannot load one.
 
+   Hermes keeps a recovery draft while you have unsaved changes, written
+   two seconds after you stop typing, so a crash loses at most that. The
+   draft lives beside Hermes' settings, not over your file; the next time
+   you open the document you are asked whether to restore it. **View →
+   Autosave** turns this off.
+
 ### Maths
 
 Inline maths goes between single dollars, display maths between double:

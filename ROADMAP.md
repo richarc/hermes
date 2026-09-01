@@ -682,7 +682,13 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       `menu.go` since the role does not provide one, and whether the choice
       persists in `Settings` like sync scrolling does.
 
-- [ ] Autosave. Nothing exists today: a document is written only on ⌘S,
+- [x] Autosave. Done 2026-09-01 as recovery drafts, unreleased: the
+      design in `docs/superpowers/specs/2026-09-01-recovery-drafts-design.md`,
+      the code in `recovery.go` and `lib/recoveryDraft.ts`. As proposed
+      below, with one addition: drafts older than 30 days are pruned at
+      launch, since a renamed or deleted document otherwise leaves one
+      behind forever. Original notes follow. Nothing existed before: a
+      document was written only on ⌘S,
       Save As…, or the Save button of the unsaved-changes dialog, so a crash
       or force-quit loses everything since the last explicit save (noted
       2026-08-30). The write side is already safe — `atomicwrite.go` writes
