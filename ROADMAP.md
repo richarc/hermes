@@ -651,36 +651,48 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       frontmatter key — which would be the third key Hermes reads, after
       `bibliography` and `csl`) or a document-wide setting like figure
       alignment.
-- [ ] Spell checking. Nothing exists today and there is nothing to switch on,
-      for two independent reasons. `@codemirror/view` hardcodes the content
-      element's attributes as `spellcheck: "false"` (alongside `autocorrect`
-      and `autocapitalize` off) and `Editor.svelte` never overrides them, so
-      the editor's contenteditable tells WebKit not to check; and Wails'
-      `EditMenu` role builds Undo/Redo, Cut/Copy/Paste, Paste and Match Style,
-      Delete, Select All and Speech, with no Spelling and Grammar submenu — so
-      even with squiggles there would be no way to toggle continuous checking
-      or reach the spelling panel. The preview pane cannot help: WebKit only
-      checks editable regions and it is not one.
-      There is a genuine quick win to try first —
-      `EditorView.contentAttributes.of({ spellcheck: 'true' })` gives native
-      macOS squiggles and right-click corrections immediately — but it is
-      probably worse than nothing on its own, because CodeMirror does not know
-      what the text means: it would flag every citation key (`@alqedra2026`),
-      every LaTeX command inside `$…$`, every Vega-Lite field name, every
-      Mermaid node id, and the whole contents of every code fence. A paper is
-      heavy on all four. So try it, look at a real document, and expect to
-      need the prose-only version.
-      Doing it properly means checking prose and nothing else, which Hermes is
-      better placed for than most: `lib/markdownCommands.ts` already has
-      `isProtected` for the same "never touch fenced code or frontmatter"
-      question, and the syntax tree behind it knows where the code, maths and
-      citations are. The open questions are whether the native checker can be
-      scoped to regions at all (it works on the contenteditable as a whole, so
-      the answer may be no, and a JS dictionary becomes the alternative —
-      which is a much larger feature and a bundled dictionary per language),
-      whether a Spelling and Grammar submenu has to be built by hand in
-      `menu.go` since the role does not provide one, and whether the choice
-      persists in `Settings` like sync scrolling does.
+- [ ] Spell checking. Investigated 2026-09-02 against WebKit's source; the
+      findings below settle the open questions, and the smallest honest
+      version is being built. *Scoping to regions: yes.* WebKit decides per
+      text node, not per editable — `Editor::isSpellCheckingEnabledFor` takes
+      the node's parent element and `Element::isSpellCheckingEnabled` walks
+      the ancestors, returning at the nearest one carrying a `spellcheck`
+      attribute — so a `<span spellcheck="false">` inside a `contenteditable
+      spellcheck="true"` excludes exactly that span. CodeMirror has both
+      halves: `EditorView.contentAttributes.of({ spellcheck: 'true' })`
+      overrides the hardcoded false (the facet merge overwrites plain keys),
+      and `Decoration.mark({ attributes: { spellcheck: 'false' } })` wraps a
+      range in a span with the attribute, which is the maintainer's
+      recommended route. The syntax tree gives fences, inline code, URLs and
+      HTML; frontmatter is found by line as `isProtected` already does; maths
+      and citation keys are not nodes in the editor's grammar and are matched
+      by pattern. `autocorrect` stays off. *The real limitation is coverage,
+      not scoping.* WebKit is lazy about when it checks (`Editor.cpp`): it
+      marks the word just typed when it ends, and on a selection change the
+      word the caret left — never a loaded document, never a paragraph you
+      have not touched. So an opened paper shows no squiggles until you type
+      or move through it, and Check Document Now / the spelling panel walk
+      the DOM, which CodeMirror only renders for the visible lines. Native
+      checking is an as-you-type tool; a whole-document pass is the JS
+      dictionary the paragraph above already names, still deferred. *The
+      Spelling and Grammar submenu needs cgo.* Wails has no spelling roles and
+      a `MenuItem` from Go carries either a Go callback or a role from a fixed
+      table, so `toggleContinuousSpellChecking:`, `checkSpelling:`,
+      `showGuessPanel:` and the grammar toggles — all of which `WKWebView`
+      implements, with `validateUserInterfaceItem:` setting the tick itself —
+      can only be sent from Objective-C. Not built: the on/off toggle is a
+      Hermes setting applied through the attribute, which needs no selector,
+      and the panel is weak here for the coverage reason. The submenu is a
+      follow-up if the panel or grammar items are wanted, or a Wails
+      upstream change adding the roles. *Persistence is WebKit's.* The
+      continuous-checking flag lives in the app's own `NSUserDefaults` as
+      `WebContinuousSpellCheckingEnabled`, written back on every toggle — but
+      read raw, with no registered default, so in a `WKWebView` app it is off
+      until set once. Hermes registers it as true before the window exists
+      (one cgo call, the `print_darwin.go` pattern) and keeps its own
+      `SpellCheck` setting for View → Check Spelling; the right-click
+      suggestions need nothing, since the Wails runtime leaves the default
+      context menu alone on contenteditable targets.
 
 - [x] Autosave. Done 2026-09-01 as recovery drafts, unreleased: the
       design in `docs/superpowers/specs/2026-09-01-recovery-drafts-design.md`,
