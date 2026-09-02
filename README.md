@@ -57,6 +57,17 @@ Requires macOS 12 or later. Zotero with [Better
 BibTeX](https://retorque.re/zotero-better-bibtex/) is optional, and only needed
 for picking citations from your library.
 
+### Updates
+
+Hermes can check for a newer version. It fetches one small file from GitHub
+(`updates/latest.json` in this repository) at most once a day and compares the
+version inside it with its own; nothing about you, your machine or your
+documents is sent, and nothing is downloaded or installed — if there is a
+newer version you get a button that opens the release page. Hermes asks
+whether to do this the first time it starts. **Help → Check for Updates
+Automatically** turns it on or off later, and **Help → Check for Updates…**
+checks right now.
+
 ---
 
 ## Building from source
@@ -114,6 +125,12 @@ Wails v3 uses [Task](https://taskfile.dev) for orchestration, so `wails3 task
 wails3 task release          # test, build universal, sign, notarize, staple, zip
 wails3 task release:verify   # check a built or downloaded .app the way Gatekeeper will
 ```
+
+The order matters for the update check. Bump `version` in `build/config.yml`
+and `updates/latest.json` together in one commit (`release` refuses to run if
+they differ), cut the release, publish it on GitHub with the zip attached,
+and only then push `main` and the tag. Installed copies read the feed from
+`main`, so pushing first would announce a version nobody can download yet.
 
 `release` needs a **Developer ID Application** certificate in the keychain
 (not "Apple Development", and not "3rd Party Mac Developer Application" — those

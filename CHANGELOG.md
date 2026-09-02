@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An update check that sends nothing. Hermes fetches a one-line version
+  file from this repository at most once a day, compares it with its own
+  version, and if there is a newer release shows a dialog with a button
+  that opens the release page; the download is still by hand. No
+  identifier, no installed version and no query string travel with the
+  request. Asked once at first launch; Help → Check for Updates
+  Automatically switches it later, and Help → Check for Updates… checks
+  now.
 - Recovery drafts. While a document has unsaved changes, Hermes writes a
   draft of it two seconds after you stop typing — beside its own settings,
   never over the document, so ⌘S is still the only thing that changes the

@@ -728,7 +728,12 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       app, where `CFBundleShortVersionString` is readable, so the version line
       shows the real number rather than "unknown".
 
-- [ ] **An update check that sends nothing.** Decided 2026-09-01 as the
+- [x] **An update check that sends nothing.** Done 2026-09-02, unreleased:
+      the design in `docs/superpowers/specs/2026-09-02-update-check-design.md`,
+      the code in `update.go` and `App.svelte`. One change from the note
+      below: the feed is `updates/latest.json` in this repository rather
+      than the Releases API, static and available today, with a release
+      precondition that it matches `config.yml`. Decided 2026-09-01 as the
       middle ground between the passive channels (the releases Atom feed,
       Watch → Releases) that reach only people who go looking, and the
       Sparkle-style auto-update deferred to v1.0.0. Hermes fetches a small
