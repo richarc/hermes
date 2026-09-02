@@ -42,6 +42,13 @@ export interface Settings {
      * launch has put the question, then "on" or "off". See update.go.
      */
     "updateCheck": string;
+
+    /**
+     * Native spell checking on the document's prose. Applied by the
+     * frontend as the editor's spellcheck attribute; WebKit's own
+     * continuous-checking flag is registered on in spellcheck_darwin.go.
+     */
+    "spellCheck": boolean;
 }
 
 /**

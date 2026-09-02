@@ -50,6 +50,9 @@ func windowBackground(theme string) application.RGBA {
 }
 
 func main() {
+	// Before anything WebKit: the text checker reads its defaults on first
+	// use. See spellcheck_darwin.go.
+	registerSpellCheckingDefaults()
 
 	recentsPath, err := xdg.DataFile("hermes/recents.json")
 	if err != nil {

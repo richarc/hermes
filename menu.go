@@ -266,6 +266,16 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		}
 	})
 
+	// Below Autosave: a persisted on/off applied by the editor as its
+	// spellcheck attribute (lib/spellcheck.ts). No accelerator.
+	view.AddCheckbox("Check Spelling", viewCurrent.SpellCheck).OnClick(func(*application.Context) {
+		next := docs.Settings()
+		next.SpellCheck = !next.SpellCheck
+		if err := docs.UpdateSettings(next); err != nil {
+			log.Printf("could not save spell checking: %v", err)
+		}
+	})
+
 	view.AddSeparator()
 	appearance := view.AddSubmenu("Appearance")
 	themes := []struct {

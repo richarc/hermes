@@ -470,3 +470,35 @@ func TestSettingsFileWithoutUpdateCheckKeyReadsAsUnasked(t *testing.T) {
 		t.Errorf("want unasked with autoSave still false, got %+v", got)
 	}
 }
+
+func TestSpellCheckDefaultsToOn(t *testing.T) {
+	if !newTestService(t).Settings().SpellCheck {
+		t.Error("spell checking must default to on")
+	}
+}
+
+func TestSpellCheckPersists(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+	next := s.Settings()
+	next.SpellCheck = false
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	if NewDocumentService(recentsPath).Settings().SpellCheck {
+		t.Error("want off after update, in a fresh service")
+	}
+}
+
+// A settings file from before the field existed reads as on: the loader
+// unmarshals over the defaults.
+func TestSettingsFileWithoutSpellCheckKeyReadsAsOn(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"autoSave":false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := NewDocumentService(filepath.Join(dir, "recents.json")).Settings()
+	if !got.SpellCheck || got.AutoSave {
+		t.Errorf("want spellCheck on with autoSave still off, got %+v", got)
+	}
+}

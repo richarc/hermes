@@ -25,6 +25,10 @@ type Settings struct {
 	// Whether Hermes may fetch the version feed: "unasked" until the first
 	// launch has put the question, then "on" or "off". See update.go.
 	UpdateCheck string `json:"updateCheck"`
+	// Native spell checking on the document's prose. Applied by the
+	// frontend as the editor's spellcheck attribute; WebKit's own
+	// continuous-checking flag is registered on in spellcheck_darwin.go.
+	SpellCheck bool `json:"spellCheck"`
 }
 
 func defaultSettings() Settings {
@@ -38,6 +42,7 @@ func defaultSettings() Settings {
 		ShowOutline:      false,
 		AutoSave:         true,
 		UpdateCheck:      "unasked",
+		SpellCheck:       true,
 	}
 }
 
@@ -46,8 +51,8 @@ func defaultSettings() Settings {
 // so neither a hand-edited settings file nor a bad binding call can leave the
 // app holding a preference it cannot act on.
 func (s Settings) normalise() Settings {
-	// SyncScrolling, ShowOutline and AutoSave need no clause: every value a
-	// bool can hold is valid.
+	// SyncScrolling, ShowOutline, AutoSave and SpellCheck need no clause:
+	// every value a bool can hold is valid.
 	// Only fields with a restricted set of legal values are clamped here.
 	if s.PrintOrientation != "portrait" && s.PrintOrientation != "landscape" {
 		s.PrintOrientation = defaultSettings().PrintOrientation
