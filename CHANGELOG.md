@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Spell checking, on by default and switched by View → Check Spelling.
+  macOS's own checker underlines misspelled prose as you type and offers
+  corrections on right-click; code, maths, citation keys, link addresses,
+  HTML and the frontmatter are excluded, so a paper's `[@key]` and `$x^2$`
+  do not light up. As-you-type only: an opened document is not scanned
+  until you edit it.
 - An update check that sends nothing. Hermes fetches a one-line version
   file from this repository at most once a day, compares it with its own
   version, and if there is a newer release shows a dialog with a button

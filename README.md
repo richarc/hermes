@@ -153,7 +153,11 @@ ordering is load-bearing and the task documents itself.
 
 1. Launch Hermes. The startup pane lists recent files and offers **New
    document**. To open a file that is not listed, use **File → Open…** (⌘O).
-2. Type markdown on the left. The preview updates as you type.
+2. Type markdown on the left. The preview updates as you type. Misspelled
+   words are underlined as you type them, using macOS's own checker, and a
+   right-click offers corrections; code, maths, citation keys, link
+   addresses and the frontmatter are left alone. **View → Check Spelling**
+   turns it off.
 3. Save with ⌘S. Saving matters more than usual here — a bibliography is
    resolved relative to the document, so an unsaved document cannot load one.
 
@@ -436,6 +440,10 @@ deliberate error cases — and section 11 is meant to look broken.
   not offered, so a hand-written chart using it will not reopen in the builder.
 - Windows and Linux are on the backlog, as is a file-tree sidebar for
   multi-part documents.
+- Spell checking is as-you-type only. macOS checks the word you just typed
+  and the word you leave, never a document you open, so an existing paper
+  shows no underlines until you edit or move through it. A whole-document
+  pass is on the roadmap.
 
 ## Licence and credits
 

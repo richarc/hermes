@@ -651,9 +651,11 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       frontmatter key — which would be the third key Hermes reads, after
       `bibliography` and `csl`) or a document-wide setting like figure
       alignment.
-- [ ] Spell checking. Investigated 2026-09-02 against WebKit's source; the
-      findings below settle the open questions, and the smallest honest
-      version is being built. *Scoping to regions: yes.* WebKit decides per
+- [x] Spell checking. Done 2026-09-02, unreleased, as the smallest honest
+      version: the attribute, the protected-range marks, a `SpellCheck`
+      setting and the registered WebKit default (`docs/superpowers/specs/2026-09-02-spell-checking-design.md`).
+      Investigated the same day against WebKit's source; the findings below
+      settled the open questions. *Scoping to regions: yes.* WebKit decides per
       text node, not per editable — `Editor::isSpellCheckingEnabledFor` takes
       the node's parent element and `Element::isSpellCheckingEnabled` walks
       the ancestors, returning at the nearest one carrying a `spellcheck`
