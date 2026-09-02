@@ -14,6 +14,8 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
     figureAlignment: 'centre',
     chartWidth: 'medium',
     autoSave: true,
+    // 'off', not the production default 'unasked': the first-launch question
+    // would otherwise open in every test that mounts App.
     updateCheck: 'off',
   }
   const settings = { current: { ...DEFAULT_SETTINGS } }
@@ -1562,6 +1564,7 @@ describe('update check', () => {
 
   it('does not check at launch when the setting is off', async () => {
     mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
     await new Promise((r) => setTimeout(r, 20))
     expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
   })

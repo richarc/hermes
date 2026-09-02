@@ -128,9 +128,11 @@ wails3 task release:verify   # check a built or downloaded .app the way Gatekeep
 
 The order matters for the update check. Bump `version` in `build/config.yml`
 and `updates/latest.json` together in one commit (`release` refuses to run if
-they differ), cut the release, publish it on GitHub with the zip attached,
-and only then push `main` and the tag. Installed copies read the feed from
-`main`, so pushing first would announce a version nobody can download yet.
+they differ), cut the release, tag it `v<version>` (the app derives the
+release page from that exact tag name), publish it on GitHub with the zip
+attached, and only then push `main` and the tag. Installed copies read the
+feed from `main`, so pushing first would announce a version nobody can
+download yet.
 
 `release` needs a **Developer ID Application** certificate in the keychain
 (not "Apple Development", and not "3rd Party Mac Developer Application" — those

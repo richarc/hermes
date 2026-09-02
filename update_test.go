@@ -3,8 +3,10 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -310,5 +312,127 @@ func TestCheckForUpdatesWithoutAVersion(t *testing.T) {
 	}
 	if *hits != 0 {
 		t.Error("nothing should be fetched without a version to compare")
+	}
+}
+
+// A manual check has no once-a-day promise to record, so a state file that
+// cannot be written must not stop it. The automatic path has no such
+// exemption: without the record the throttle cannot be kept, so it still
+// refuses.
+func TestForcedCheckSurvivesAnUnwritableStateFile(t *testing.T) {
+	s, hits, _ := newUpdateTestService(t, `{"version": "0.10.0"}`, http.StatusOK)
+	// The parent directory does not exist, so writeFileAtomic's CreateTemp
+	// fails.
+	s.updateStatePath = filepath.Join(t.TempDir(), "missing-dir", "update-check.json")
+
+	got, err := s.CheckForUpdates(true)
+	if err != nil {
+		t.Fatalf("a forced check must survive an unwritable state file, got %v", err)
+	}
+	if !got.Available {
+		t.Errorf("want Available=true, got %+v", got)
+	}
+
+	if _, err := s.CheckForUpdates(false); err == nil {
+		t.Error("an automatic check must still fail closed on an unwritable state file")
+	}
+	if *hits != 1 {
+		t.Errorf("the automatic check must not fetch, hits=%d", *hits)
+	}
+}
+
+// refuseDowngrade is the CheckRedirect policy on its own, without a TLS
+// server: it must not let a redirect move an https request to plain http,
+// must leave same-scheme redirects alone, and must reinstate net/http's
+// default cap on how many redirects a chain may have (a custom
+// CheckRedirect otherwise drops that cap).
+func TestRefuseDowngrade(t *testing.T) {
+	req := func(scheme string) *http.Request {
+		return &http.Request{URL: &url.URL{Scheme: scheme}}
+	}
+	for _, tc := range []struct {
+		name           string
+		originalScheme string
+		targetScheme   string
+		viaLen         int
+		wantErr        bool
+	}{
+		{"https redirected to http errors", "https", "http", 1, true},
+		{"https redirected to https is fine", "https", "https", 1, false},
+		{"http redirected to http is fine", "http", "http", 1, false},
+		{"ten redirects is too many", "https", "https", 10, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			via := make([]*http.Request, tc.viaLen)
+			for i := range via {
+				via[i] = req(tc.originalScheme)
+			}
+			err := refuseDowngrade(req(tc.targetScheme), via)
+			if tc.wantErr && err == nil {
+				t.Error("want an error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("want no error, got %v", err)
+			}
+		})
+	}
+}
+
+// The https guard must not break an ordinary redirect: a plain-http chain
+// (no TLS server needed) still resolves and the check still runs.
+func TestCheckForUpdatesFollowsAPlainHTTPRedirect(t *testing.T) {
+	b := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version": "0.10.0"}`))
+	}))
+	t.Cleanup(b.Close)
+	a := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, b.URL, http.StatusFound)
+	}))
+	t.Cleanup(a.Close)
+
+	s := newTestService(t)
+	s.updateFeed = a.URL
+	s.version = func() string { return "0.9.0" }
+	s.now = func() time.Time { return time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC) }
+	next := s.Settings()
+	next.UpdateCheck = "on"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.CheckForUpdates(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.Available {
+		t.Errorf("want Available=true after following the redirect, got %+v", got)
+	}
+}
+
+// The release task's version-equality grep (build/Taskfile.yml) runs only
+// when a release is cut. This runs on every `go test`, so it fails the
+// moment either file is bumped alone, or the feed stops being valid JSON.
+func TestShippedFeedIsValidAndMatchesConfig(t *testing.T) {
+	feedBody, err := os.ReadFile("updates/latest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	feedVersion, err := parseUpdateFeed(feedBody)
+	if err != nil {
+		t.Fatalf("updates/latest.json does not parse: %v", err)
+	}
+
+	configBody, err := os.ReadFile("build/config.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`(?m)^  version: "([^"]+)"`).FindSubmatch(configBody)
+	if m == nil {
+		t.Fatal("build/config.yml has no line matching `  version: \"...\"`")
+	}
+	configVersion := string(m[1])
+
+	if feedVersion != configVersion {
+		t.Errorf("updates/latest.json version %q does not match build/config.yml version %q", feedVersion, configVersion)
 	}
 }

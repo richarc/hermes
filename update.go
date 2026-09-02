@@ -147,8 +147,12 @@ func (s *DocumentService) CheckForUpdates(force bool) (UpdateResult, error) {
 		}
 	}
 	// Recorded before the fetch, so a machine that cannot reach the feed is
-	// not asked again on every launch that day.
-	if err := s.writeUpdateState(updateState{CheckedAt: now}); err != nil {
+	// not asked again on every launch that day. A manual check has no
+	// once-a-day promise to record, so a failed write here is not a reason
+	// to refuse it — the state simply is not recorded and the fetch goes
+	// ahead. The automatic path stays fail-closed: without the record the
+	// throttle cannot be kept, so it returns the error instead.
+	if err := s.writeUpdateState(updateState{CheckedAt: now}); err != nil && !force {
 		return result, err
 	}
 
@@ -167,17 +171,27 @@ func (s *DocumentService) CheckForUpdates(force bool) (UpdateResult, error) {
 	return result, nil
 }
 
+// refuseDowngrade is the client's CheckRedirect policy: a redirect may move
+// the request, but never off https once it started there, and not forever.
+// net/http's default CheckRedirect caps a chain at 10 redirects; supplying a
+// custom one (as the https guard requires) drops that cap, so it is
+// reinstated here.
+func refuseDowngrade(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("the version feed redirected too many times")
+	}
+	if via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+		return errors.New("the version feed redirected off https")
+	}
+	return nil
+}
+
 func (s *DocumentService) fetchLatestVersion() (string, error) {
 	client := &http.Client{
 		Timeout: updateFetchTimeout,
 		// The URL is a constant, so only a redirect could move the request,
 		// and it must not move it to plain http.
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
-				return errors.New("the version feed redirected off https")
-			}
-			return nil
-		},
+		CheckRedirect: refuseDowngrade,
 	}
 	resp, err := client.Get(s.updateFeed)
 	if err != nil {

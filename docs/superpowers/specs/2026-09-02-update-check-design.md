@@ -54,7 +54,9 @@ number, not a destination.
 - At most one fetch per 24 hours, tracked by a timestamp in
   `<xdg data>/hermes/update-check.json`, written on every attempt whether or
   not it succeeded. A manual check ignores the throttle.
-- Nothing is fetched while the setting is off or unanswered.
+- Nothing is fetched automatically while the setting is off or unanswered.
+  Help → Check for Updates… is the user's own act and ignores both the
+  setting and the throttle.
 - Asked once, at first launch, in a dialog that says exactly what is fetched.
   Not defaulted on silently.
 
