@@ -593,4 +593,17 @@ describe('spell checking', () => {
     cleanup()
   })
 
+  it('rebuilds spellcheck state from the live prop on setContent', () => {
+    // setContent replaces the editor state via editorExtensions(), which
+    // must read the current spellcheck prop rather than a stale closure —
+    // otherwise a rebuilt document would silently regain checking.
+    const { editor, target, cleanup } = mountEditor({ spellcheck: false })
+    editor.setContent('Prose `code`.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    forceParsing(view)
+    const content = target.querySelector('.cm-content')!
+    expect(content.getAttribute('spellcheck')).toBe('false')
+    expect(content.querySelectorAll('[spellcheck="false"]')).toHaveLength(0)
+    cleanup()
+  })
 })

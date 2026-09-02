@@ -29,8 +29,14 @@ nearest ancestor with the attribute):
   the same rule `isProtected` uses.
 - Link destinations (`URL` nodes) and autolinks; link *text* stays checked.
 - HTML blocks and inline HTML tags (`HTMLBlock`, `HTMLTag`).
-- Maths, by pattern, since the editor's grammar has no maths node:
-  `$$…$$` display blocks (which may span lines) and `$…$` inline spans.
+- Maths, by pattern, since the editor's grammar has no maths node: a
+  display block opens with `$$` at the start of a line and closes at the
+  next `$$` (the preview's blockMath closes on a line ending with or
+  containing `$$`, and treats `$$x$$` on one line as a block); inline
+  `$…$` spans whose delimiters are not adjacent to a word character or
+  digit and whose opener is not backslash-escaped; and bare
+  `\begin{name}…\end{name}` environments, which the preview also renders
+  as maths.
 - Citations, by pattern: `[@key]`, `[@key, p. 3; @other]` bracket groups
   and bare `@key` tokens.
 

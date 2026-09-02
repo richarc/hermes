@@ -65,6 +65,28 @@ describe('protectedRanges', () => {
     expect(protectedText(doc)).toEqual(['$x^2 + y^2$', '$$\n\\int_0^1 f(x)\\,dx\n$$'])
   })
 
+  it('closes a single-line display block on the same $$ pair', () => {
+    // blockMath's single-line branch renders "$$ x $$" as a block, so the
+    // close doesn't have to be a separate line.
+    const doc = 'Prose.\n\n$$ E = mc^2 $$\n\nMore prose with a misspeling.\n'
+    expect(protectedText(doc)).toEqual(['$$ E = mc^2 $$'])
+  })
+
+  it('closes display maths on a $$ that has trailing text on its line', () => {
+    // blockMath closes on the first line that ends with or contains "$$",
+    // so trailing text on the closing line is still outside the block in
+    // the preview. This pattern stops at the "$$" too, which leaves the
+    // trailing word spell-checked — a known, accepted difference from the
+    // preview, where the whole line is inside the maths block.
+    const doc = '$$\nF = ma\n$$ trailing\n\nProse.\n'
+    expect(protectedText(doc)).toEqual(['$$\nF = ma\n$$'])
+  })
+
+  it('does not let one display block swallow the prose between two blocks', () => {
+    const doc = '$$ a $$\n\nprose here\n\n$$ b $$\n'
+    expect(protectedText(doc)).toEqual(['$$ a $$', '$$ b $$'])
+  })
+
   it('does not pair a $$ inside inline code with a real display block', () => {
     // The preview's blockMath rule only opens on a $$ at the start of a
     // line, so the $$ inside the inline-code span must not pair with the
@@ -84,6 +106,23 @@ describe('protectedRanges', () => {
   it('still protects genuine inline maths and a stray dollar sign', () => {
     expect(protectedText('Mid-sentence $x^2 + y^2$ maths.\n')).toEqual(['$x^2 + y^2$'])
     expect(protectedText('a stray $ sign here and another $ sign\n')).toEqual(['$ sign here and another $'])
+  })
+
+  it('does not treat a backslash-escaped dollar as an inline opener', () => {
+    // The preview's isValidInlineDelim rejects an opener preceded by a
+    // backslash, so "\$5" is a literal dollar sign, not maths.
+    expect(protectedText('Costs \\$5 and \\$10 with a misspeling.\n')).toEqual([])
+  })
+
+  it('protects a bare LaTeX environment', () => {
+    // The preview's blockBareMath renders \begin{name}…\end{name} as maths
+    // with no dollars at all, which papers use for align blocks.
+    const doc = 'Prose.\n\n\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}\n\nMore.\n'
+    expect(protectedText(doc)).toEqual(['\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}'])
+  })
+
+  it('does not protect an unterminated bare environment', () => {
+    expect(protectedText('Prose.\n\n\\begin{align}\na &= b\n\nMore.\n')).toEqual([])
   })
 
   it('protects citations, bracketed and bare', () => {

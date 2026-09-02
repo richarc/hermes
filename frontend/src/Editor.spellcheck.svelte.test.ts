@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+// The .svelte. infix in this file's name is what makes the Svelte Vite
+// plugin compile the $state rune below; renaming the file breaks the test.
 import { describe, it, expect, vi } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import Editor from './Editor.svelte'
