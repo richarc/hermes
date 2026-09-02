@@ -426,3 +426,47 @@ func TestSettingsFileWithoutAutoSaveKeyReadsAsOn(t *testing.T) {
 		t.Errorf("present keys must still be read: %+v", got)
 	}
 }
+
+func TestUpdateCheckDefaultsToUnasked(t *testing.T) {
+	if got := newTestService(t).Settings().UpdateCheck; got != "unasked" {
+		t.Errorf("want unasked, got %q", got)
+	}
+}
+
+func TestUpdateCheckPersistsAndClamps(t *testing.T) {
+	recentsPath := filepath.Join(t.TempDir(), "recents.json")
+	s := NewDocumentService(recentsPath)
+	for _, v := range []string{"on", "off"} {
+		next := s.Settings()
+		next.UpdateCheck = v
+		if err := s.UpdateSettings(next); err != nil {
+			t.Fatalf("UpdateSettings(%q): %v", v, err)
+		}
+		if got := NewDocumentService(recentsPath).Settings().UpdateCheck; got != v {
+			t.Errorf("want %q persisted, got %q", v, got)
+		}
+	}
+	// Anything else is not a state the app can act on.
+	next := s.Settings()
+	next.UpdateCheck = "sometimes"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Settings().UpdateCheck; got != "unasked" {
+		t.Errorf("an unknown value must clamp to unasked, got %q", got)
+	}
+}
+
+// A settings file from before the field existed has no updateCheck key; the
+// loader unmarshals over the defaults, so it reads as unasked and the user
+// is asked once, as a fresh install would be.
+func TestSettingsFileWithoutUpdateCheckKeyReadsAsUnasked(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"autoSave":false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := NewDocumentService(filepath.Join(dir, "recents.json")).Settings()
+	if got.UpdateCheck != "unasked" || got.AutoSave {
+		t.Errorf("want unasked with autoSave still false, got %+v", got)
+	}
+}

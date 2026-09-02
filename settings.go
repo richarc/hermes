@@ -22,6 +22,9 @@ type Settings struct {
 	ShowOutline      bool   `json:"showOutline"`
 	// Writes a recovery draft while the document is dirty. See recovery.go.
 	AutoSave bool `json:"autoSave"`
+	// Whether Hermes may fetch the version feed: "unasked" until the first
+	// launch has put the question, then "on" or "off". See update.go.
+	UpdateCheck string `json:"updateCheck"`
 }
 
 func defaultSettings() Settings {
@@ -34,6 +37,7 @@ func defaultSettings() Settings {
 		PaperSize:        "a4",
 		ShowOutline:      false,
 		AutoSave:         true,
+		UpdateCheck:      "unasked",
 	}
 }
 
@@ -61,6 +65,9 @@ func (s Settings) normalise() Settings {
 	}
 	if s.PaperSize != "a4" && s.PaperSize != "letter" {
 		s.PaperSize = defaultSettings().PaperSize
+	}
+	if s.UpdateCheck != "unasked" && s.UpdateCheck != "on" && s.UpdateCheck != "off" {
+		s.UpdateCheck = defaultSettings().UpdateCheck
 	}
 	return s
 }
