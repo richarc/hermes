@@ -1,7 +1,6 @@
 import { syntaxTree } from '@codemirror/language'
-import type { EditorState, Extension } from '@codemirror/state'
+import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view'
-import { RangeSetBuilder } from '@codemirror/state'
 import { frontmatterEndLine } from './markdownCommands'
 
 export interface Range {
@@ -16,23 +15,60 @@ const PROTECTED_NODES = new Set(['FencedCode', 'CodeBlock', 'InlineCode', 'URL',
 
 // Maths and citations are not nodes in the editor's grammar (the preview
 // parses them with markdown-it plugins), so they are matched by pattern.
-// Display maths first so a $$ pair is never read as two empty inline spans;
-// inline maths refuses newlines, matching KaTeX's inline rule; a citation
-// key is @ followed by the characters Pandoc allows, and the @ must start a
-// token so an address like a@b.org is not one.
-const DISPLAY_MATH = /\$\$[\s\S]+?\$\$/g
-const INLINE_MATH = /\$(?!\$)[^$\n]+?\$/g
-const CITATION_GROUP = /\[@[^\]]+\]/g
-const BARE_CITATION = /(?<![\w@])@[\w][\w:.#$%&\-+?<>~/]*/g
+// Pattern order below is irrelevant — every match becomes a range and all
+// ranges are merged by position in mergeAndClip, regardless of which
+// pattern produced them. What stops a "$$" pair from being read as two
+// empty inline-maths spans is INLINE_MATH's own (?!\$): an opening $
+// immediately followed by another $ is never a valid inline opener, so it
+// is left for DISPLAY_MATH instead. Display maths mirrors the preview's
+// @vscode/markdown-it-katex blockMath rule: a $$ at the start of a line
+// (KaTeX ignores indentation) through the next line that is (or starts)
+// $$ — a $$ elsewhere on a line, e.g. inside inline code, never opens a
+// block. Inline maths refuses newlines, matching KaTeX's inline rule, and
+// requires a non-word/non-digit boundary on both sides so currency like
+// "$5" is prose, matching the preview's isValidInlineDelim. A citation
+// group can't contain an unescaped nested "[" — that belongs to something
+// else, e.g. a markdown link starting inside it — and can't cross a line.
+// A bare citation key is @ followed by the characters Pandoc allows; the @
+// must start a token, so an address like a@b.org is not one, and it must
+// not follow an unclosed "[" either, so a broken "[@key" group-attempt
+// isn't separately re-protected as a bare citation. A trailing "." is
+// never part of the key, so a sentence-ending citation does not swallow
+// the full stop.
+const DISPLAY_MATH = /^[ \t]*\$\$[\s\S]*?^[ \t]*\$\$/gm
+const INLINE_MATH = /(?<![\w\d])\$(?!\$)[^$\n]+?\$(?![\w\d])/g
+const CITATION_GROUP = /\[@[^[\]\n]+\]/g
+const BARE_CITATION = /(?<![\w@[])@[\w][\w:#$%&\-+?<>~/]*(?:\.[\w][\w:#$%&\-+?<>~/]*)*/g
 
 /**
- * The parts of [from, to) that must not be spell-checked: code, frontmatter,
- * link destinations, HTML, maths and citations. Sorted, non-overlapping,
- * clipped to the window. Pure: reads only the state.
+ * The frontmatter block and every maths/citation pattern match, over the
+ * whole document. These don't depend on the requested window — a display
+ * block that starts above the viewport must still be caught — so they are
+ * split out from the tree walk and computed once per document rather than
+ * once per visible range: buildDecorations calls this a single time per
+ * rebuild and reuses it across every range in view.visibleRanges, instead
+ * of re-running doc.toString() and four regex scans per range.
  */
-export function protectedRanges(state: EditorState, from: number, to: number): Range[] {
+function documentWideRanges(state: EditorState): Range[] {
   const found: Range[] = []
 
+  const fmEnd = frontmatterEndLine(state)
+  if (fmEnd > 0) found.push({ from: 0, to: state.doc.line(fmEnd).to })
+
+  const text = state.doc.toString()
+  for (const re of [DISPLAY_MATH, INLINE_MATH, CITATION_GROUP, BARE_CITATION]) {
+    re.lastIndex = 0
+    for (let m = re.exec(text); m; m = re.exec(text)) {
+      found.push({ from: m.index, to: m.index + m[0].length })
+    }
+  }
+
+  return found
+}
+
+/** Protected nodes from the syntax tree, restricted to [from, to). */
+function treeRanges(state: EditorState, from: number, to: number): Range[] {
+  const found: Range[] = []
   syntaxTree(state).iterate({
     from,
     to,
@@ -42,22 +78,21 @@ export function protectedRanges(state: EditorState, from: number, to: number): R
       return false // nothing inside a protected node needs a second range
     },
   })
+  return found
+}
 
-  const fmEnd = frontmatterEndLine(state)
-  if (fmEnd > 0) found.push({ from: 0, to: state.doc.line(fmEnd).to })
+/** treeRanges for [from, to) plus the (already-computed) document-wide ones, merged and clipped. */
+function rangesWithin(state: EditorState, wide: Range[], from: number, to: number): Range[] {
+  return mergeAndClip([...treeRanges(state, from, to), ...wide], from, to)
+}
 
-  // Patterns run over the whole document rather than the window so a
-  // display block that starts above the viewport is still caught; documents
-  // are small and this runs once per update.
-  const text = state.doc.toString()
-  for (const re of [DISPLAY_MATH, INLINE_MATH, CITATION_GROUP, BARE_CITATION]) {
-    re.lastIndex = 0
-    for (let m = re.exec(text); m; m = re.exec(text)) {
-      found.push({ from: m.index, to: m.index + m[0].length })
-    }
-  }
-
-  return mergeAndClip(found, from, to)
+/**
+ * The parts of [from, to) that must not be spell-checked: code, frontmatter,
+ * link destinations, HTML, maths and citations. Sorted, non-overlapping,
+ * clipped to the window. Pure: reads only the state.
+ */
+export function protectedRanges(state: EditorState, from: number, to: number): Range[] {
+  return rangesWithin(state, documentWideRanges(state), from, to)
 }
 
 function mergeAndClip(ranges: Range[], from: number, to: number): Range[] {
@@ -80,8 +115,9 @@ const noSpellcheck = Decoration.mark({ attributes: { spellcheck: 'false' } })
 
 function buildDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
+  const wide = documentWideRanges(view.state)
   for (const { from, to } of view.visibleRanges) {
-    for (const r of protectedRanges(view.state, from, to)) builder.add(r.from, r.to, noSpellcheck)
+    for (const r of rangesWithin(view.state, wide, from, to)) builder.add(r.from, r.to, noSpellcheck)
   }
   return builder.finish()
 }

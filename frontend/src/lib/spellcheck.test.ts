@@ -65,6 +65,27 @@ describe('protectedRanges', () => {
     expect(protectedText(doc)).toEqual(['$x^2 + y^2$', '$$\n\\int_0^1 f(x)\\,dx\n$$'])
   })
 
+  it('does not pair a $$ inside inline code with a real display block', () => {
+    // The preview's blockMath rule only opens on a $$ at the start of a
+    // line, so the $$ inside the inline-code span must not pair with the
+    // real block below it and silence the prose paragraph in between.
+    const doc = 'Use `$$` in bash.\n\nSome prose with a misspeling here.\n\n$$\nE = mc^2\n$$\n\nMore prose.\n'
+    expect(protectedText(doc)).toEqual(['`$$`', '$$\nE = mc^2\n$$'])
+  })
+
+  it('does not treat currency as inline maths', () => {
+    // The preview's isValidInlineDelim rejects an opening $ preceded by a
+    // word/digit character and a closing $ followed by one, so these are
+    // rendered as prose, not maths.
+    expect(protectedText('The widget costs $5 and the gadgit costs $10 later.\n')).toEqual([])
+    expect(protectedText('Prices are $5, $10 and $20 in the tabel.\n')).toEqual([])
+  })
+
+  it('still protects genuine inline maths and a stray dollar sign', () => {
+    expect(protectedText('Mid-sentence $x^2 + y^2$ maths.\n')).toEqual(['$x^2 + y^2$'])
+    expect(protectedText('a stray $ sign here and another $ sign\n')).toEqual(['$ sign here and another $'])
+  })
+
   it('protects citations, bracketed and bare', () => {
     const doc = 'As shown [@smith2020, p. 3; @doe2021] and by @lee2019 too.\n'
     expect(protectedText(doc)).toEqual(['[@smith2020, p. 3; @doe2021]', '@lee2019'])
@@ -73,6 +94,15 @@ describe('protectedRanges', () => {
   it('does not protect an email-like address as a citation', () => {
     // A bare @ must start a token: "a@b" is not a citation key.
     expect(protectedText('Write to me a@b.org please.\n')).toEqual([])
+  })
+
+  it('does not let a bracketed citation group cross lines', () => {
+    const doc = 'I typed [@smith2020 and then a [link](http://x.org) plus a misspeling.\n'
+    expect(protectedText(doc)).toEqual(['http://x.org'])
+  })
+
+  it('does not swallow the full stop after a bare citation', () => {
+    expect(protectedText('See @smith2020. Then more.\n')).toEqual(['@smith2020'])
   })
 
   it('merges overlapping regions and clips to the window', () => {
@@ -114,6 +144,20 @@ describe('spellcheckExtension', () => {
     expect(view.contentDOM.getAttribute('spellcheck')).toBe('true')
     const off = [...view.contentDOM.querySelectorAll('[spellcheck="false"]')].map((el) => el.textContent)
     expect(off).toEqual(['`code`', '$x$'])
+    cleanup()
+  })
+
+  it('splits a multi-line protected range into one span per line', () => {
+    // CodeMirror renders a Decoration.mark that crosses a line break as a
+    // separate span per line, so a three-line display-maths block becomes
+    // three [spellcheck="false"] spans, not one spanning the newlines.
+    const { view, cleanup } = mountView('$$\nE = mc^2\n$$\n', [
+      markdown({ extensions: [Table] }),
+      spellcheckExtension(),
+    ])
+    forceParsing(view)
+    const off = [...view.contentDOM.querySelectorAll('[spellcheck="false"]')].map((el) => el.textContent)
+    expect(off).toEqual(['$$', 'E = mc^2', '$$'])
     cleanup()
   })
 
