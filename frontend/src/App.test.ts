@@ -17,6 +17,7 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
     // 'off', not the production default 'unasked': the first-launch question
     // would otherwise open in every test that mounts App.
     updateCheck: 'off',
+    spellCheck: true,
   }
   const settings = { current: { ...DEFAULT_SETTINGS } }
   return {
@@ -1614,5 +1615,24 @@ describe('update check', () => {
 
     expect(target.textContent).toContain('Finish or cancel the chart or table before checking for updates.')
     expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
+  })
+})
+
+describe('spell checking setting', () => {
+  it('reaches the editor: off in settings means spellcheck="false" on the content element', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, spellCheck: false }
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+    await vi.waitFor(() =>
+      expect(target.querySelector('.cm-content')!.getAttribute('spellcheck')).toBe('false'),
+    )
+  })
+
+  it('defaults on', async () => {
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+    await vi.waitFor(() =>
+      expect(target.querySelector('.cm-content')!.getAttribute('spellcheck')).toBe('true'),
+    )
   })
 })

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount, unmount, flushSync } from 'svelte'
 import { EditorView, type Command } from '@codemirror/view'
-import { foldCode } from '@codemirror/language'
+import { foldCode, forceParsing } from '@codemirror/language'
 import { undo } from '@codemirror/commands'
 import Editor from './Editor.svelte'
 import { toggleBold } from './lib/markdownCommands'
@@ -30,13 +30,13 @@ interface EditorApi {
  * Mounts the editor and reports the document text back through onchange,
  * which is more precise than reading CodeMirror's rendered DOM.
  */
-function mountEditor() {
+function mountEditor(extra: Record<string, unknown> = {}) {
   const target = document.createElement('div')
   document.body.appendChild(target)
   let latest = ''
   const cmp = mount(Editor, {
     target,
-    props: { onchange: (text: string) => (latest = text) },
+    props: { onchange: (text: string) => (latest = text), ...extra },
   }) as unknown as EditorApi
   flushSync() // Svelte 5 runs onMount in a microtask; without this the editor does not exist yet
   return {
@@ -574,4 +574,23 @@ describe('Editor.enclosingTable', () => {
     expect(editor.enclosingTable()).toBeNull()
     cleanup()
   })
+})
+
+describe('spell checking', () => {
+  it('is on by default: the content element says spellcheck="true"', () => {
+    const { target, cleanup } = mountEditor()
+    expect(target.querySelector('.cm-content')!.getAttribute('spellcheck')).toBe('true')
+    cleanup()
+  })
+
+  it('protects code and maths inside the editor', () => {
+    const { editor, target, cleanup } = mountEditor()
+    editor.setContent('Prose `code` and $x$.\n')
+    const view = EditorView.findFromDOM(target.querySelector('.cm-editor')!)!
+    forceParsing(view)
+    const off = [...target.querySelectorAll('.cm-content [spellcheck="false"]')].map((el) => el.textContent)
+    expect(off).toEqual(['`code`', '$x$'])
+    cleanup()
+  })
+
 })

@@ -84,6 +84,7 @@
   let askUpdates = $state(false)
   // A newer version, awaiting Later / View Release. Null when no dialog is up.
   let updateNotice = $state<UpdateResult | null>(null)
+  let spellCheck = $state(true)
 
   // The keeper decides when a draft is written and discarded; recovery.go
   // decides whether one is worth offering back. Go's own errors are
@@ -603,6 +604,7 @@
     // Go clamps to the three values, so the cast is a spelling of what the
     // binding cannot express.
     updateCheck = s.updateCheck as UpdateCheckSetting
+    spellCheck = s.spellCheck
     themeSetting = s.theme as ThemeSetting
     // Go normalises both on the way out, so the cast is a spelling of what
     // the binding cannot express rather than an unchecked assumption.
@@ -960,7 +962,7 @@
       >
     {/if}
     <section class="editor-pane" style="width: {editorWidth}%">
-      <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} onscroll={onEditorScroll} />
+      <Editor bind:this={editor} onchange={onEditorChange} onformat={applyFormat} onscroll={onEditorScroll} spellcheck={spellCheck} />
     </section>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- WAI-ARIA "window splitter" pattern: a focusable separator with arrow-key resizing is the recommended markup -->
     <div

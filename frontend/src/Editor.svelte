@@ -5,20 +5,23 @@
   import { Table } from '@lezer/markdown'
   import { languages } from '@codemirror/language-data'
   import { keymap, type Command } from '@codemirror/view'
-  import { EditorState, Prec } from '@codemirror/state'
+  import { EditorState, Prec, Compartment } from '@codemirror/state'
   import { HighlightStyle, syntaxHighlighting, syntaxTree, forceParsing } from '@codemirror/language'
   import { tags } from '@lezer/highlight'
   import type { SyntaxNode } from '@lezer/common'
   import { codeHighlightStyleSpecs } from './lib/syntaxTags'
+  import { spellcheckExtension } from './lib/spellcheck'
 
   let {
     onchange,
     onformat,
     onscroll,
+    spellcheck = true,
   }: {
     onchange: (text: string) => void
     onformat?: (name: string) => void
     onscroll?: () => void
+    spellcheck?: boolean
   } = $props()
 
   // Menu accelerators normally win, because AppKit dispatches them before the
@@ -130,6 +133,12 @@
     // it too, carrying the --syn-meta colour above.
     ...codeHighlightStyleSpecs(),
   ])
+
+  // The one Compartment in this editor. The theme needs none (see above);
+  // spell checking does, because it is a facet value and a decoration set,
+  // not a stylesheet, and View → Check Spelling flips it at runtime.
+  const spellcheckCompartment = new Compartment()
+  const spellcheckFor = (on: boolean) => (on ? spellcheckExtension() : [])
 
   let host: HTMLElement
   let view: EditorView
@@ -429,6 +438,7 @@
       syntaxHighlighting(hermesHighlight),
       markdown({ codeLanguages: languages, extensions: [Table] }),
       EditorView.lineWrapping,
+      spellcheckCompartment.of(spellcheckFor(spellcheck)),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onchange(u.state.doc.toString())
       }),
@@ -446,6 +456,12 @@
       view.scrollDOM.removeEventListener('scroll', onScrollDOM)
       view.destroy()
     }
+  })
+
+  $effect(() => {
+    const on = spellcheck
+    if (!view) return
+    view.dispatch({ effects: spellcheckCompartment.reconfigure(spellcheckFor(on)) })
   })
 </script>
 
