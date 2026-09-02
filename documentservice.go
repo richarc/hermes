@@ -45,16 +45,26 @@ type DocumentService struct {
 	watchMu        sync.Mutex
 	watchCancel    context.CancelFunc
 	caywBase       string
+	// The update check's inputs, injectable so the tests can point it at an
+	// httptest server with a fixed clock and version. See update.go.
+	updateFeed      string
+	updateStatePath string
+	now             func() time.Time
+	version         func() string
 }
 
 func NewDocumentService(recentsPath string) *DocumentService {
 	dataDir := filepath.Dir(recentsPath)
 	s := &DocumentService{
-		recentsPath: recentsPath,
-		settings:    newSettingsStore(filepath.Join(dataDir, "settings.json")),
-		drafts:      newDraftStore(filepath.Join(dataDir, "drafts")),
-		watchTick:   2 * time.Second,
-		caywBase:    "http://127.0.0.1:23119",
+		recentsPath:     recentsPath,
+		settings:        newSettingsStore(filepath.Join(dataDir, "settings.json")),
+		drafts:          newDraftStore(filepath.Join(dataDir, "drafts")),
+		watchTick:       2 * time.Second,
+		caywBase:        "http://127.0.0.1:23119",
+		updateFeed:      updateFeedURL,
+		updateStatePath: filepath.Join(dataDir, "update-check.json"),
+		now:             time.Now,
+		version:         appVersion,
 	}
 	s.drafts.prune(time.Now())
 	return s
