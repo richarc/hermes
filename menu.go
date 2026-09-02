@@ -403,6 +403,26 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 		}
 	})
 	help.AddSeparator()
+	// The manual route. The frontend runs the check and reports the result,
+	// because the result is a dialog or a toast, which live there.
+	help.Add("Check for Updates…").OnClick(func(*application.Context) {
+		app.Event.Emit("menu:check-updates")
+	})
+	// Ticked only for "on": "unasked" reads as off here, and clicking it
+	// answers the first-launch question the same way the dialog would.
+	helpCurrent := docs.Settings()
+	help.AddCheckbox("Check for Updates Automatically", helpCurrent.UpdateCheck == "on").OnClick(func(*application.Context) {
+		next := docs.Settings()
+		if next.UpdateCheck == "on" {
+			next.UpdateCheck = "off"
+		} else {
+			next.UpdateCheck = "on"
+		}
+		if err := docs.UpdateSettings(next); err != nil {
+			log.Printf("could not save the update-check setting: %v", err)
+		}
+	})
+	help.AddSeparator()
 	// No accelerator: an invented chord cannot be checked against every macOS
 	// binding — the same reasoning as Blockquote and Insert → Chart….
 	help.Add("Report an Issue…").OnClick(func(*application.Context) {

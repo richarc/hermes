@@ -10,6 +10,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * CheckForUpdates compares the running version with the feed's. force skips
+ * the once-a-day throttle and the setting gate; the Help menu's manual item
+ * passes true, the automatic check at launch passes false.
+ * 
+ * The privacy rules are all here: the request is the same bare URL every
+ * time with no query string and no custom header, and it happens at most
+ * once per interval. Nothing about the installation travels.
+ */
+export function CheckForUpdates(force: boolean): $CancellablePromise<$models.UpdateResult> {
+    return $Call.ByID(713991859, force);
+}
+
+/**
  * ChooseBibliography is the open panel behind "an existing file" in the New
  * Document flow. It returns "" when the author cancels, so the caller can
  * tell a cancel from an error, as ChooseNewDocumentPath does.

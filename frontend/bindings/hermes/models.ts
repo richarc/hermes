@@ -36,4 +36,23 @@ export interface Settings {
      * Writes a recovery draft while the document is dirty. See recovery.go.
      */
     "autoSave": boolean;
+
+    /**
+     * Whether Hermes may fetch the version feed: "unasked" until the first
+     * launch has put the question, then "on" or "off". See update.go.
+     */
+    "updateCheck": string;
+}
+
+/**
+ * UpdateResult is what CheckForUpdates hands the frontend. Checked false
+ * means the throttle applied and nothing was fetched; Current is filled
+ * either way so a manual "up to date" message can name the version.
+ */
+export interface UpdateResult {
+    "checked": boolean;
+    "available": boolean;
+    "current": string;
+    "latest": string;
+    "url": string;
 }

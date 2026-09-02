@@ -137,6 +137,16 @@ tasks:
           CSSMERR_TP_NOT_TRUSTED and this check finds nothing.
 
           Xcode -> Settings -> Accounts -> Manage Certificates -> + does both.
+      # The feed the app checks against must name the version being cut, or
+      # the release ships and nobody is told. Bumped in the same commit as
+      # config.yml; README's release steps push main only after the GitHub
+      # release is published, so the feed never announces a version that
+      # cannot be downloaded yet.
+      - sh: 'grep -q "\"version\": \"{{.VERSION}}\"" updates/latest.json'
+        msg: |
+          updates/latest.json does not name {{.VERSION}}. Bump it alongside
+          build/config.yml before cutting a release — see README, Cutting a
+          release.
     cmds:
       # A release must not ship what the tests reject. CI gates main, but a
       # tag is cut from a working tree, and the working tree is what is about

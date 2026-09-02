@@ -9,5 +9,6 @@ export {
 export type {
     Document,
     Draft,
-    Settings
+    Settings,
+    UpdateResult
 } from "./models.js";
