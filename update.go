@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -96,10 +97,13 @@ func parseUpdateFeed(body []byte) (string, error) {
 	var feed struct {
 		Version string `json:"version"`
 	}
-	dec := json.NewDecoder(strings.NewReader(string(body)))
+	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&feed); err != nil {
 		return "", fmt.Errorf("the version feed could not be read: %w", err)
+	}
+	if dec.More() {
+		return "", errors.New("the version feed carries more than one value")
 	}
 	if !versionPattern.MatchString(feed.Version) || strings.HasPrefix(feed.Version, "v") {
 		return "", fmt.Errorf("the version feed carries an unusable version %q", feed.Version)
@@ -114,8 +118,8 @@ func releaseURL(version string) string {
 }
 
 // CheckForUpdates compares the running version with the feed's. force skips
-// the once-a-day throttle; the Help menu's manual item passes true, the
-// automatic check at launch passes false.
+// the once-a-day throttle and the setting gate; the Help menu's manual item
+// passes true, the automatic check at launch passes false.
 //
 // The privacy rules are all here: the request is the same bare URL every
 // time with no query string and no custom header, and it happens at most
@@ -129,8 +133,17 @@ func (s *DocumentService) CheckForUpdates(force bool) (UpdateResult, error) {
 
 	now := s.now()
 	if !force {
-		if state, err := s.readUpdateState(); err == nil && now.Sub(state.CheckedAt) < updateCheckInterval {
+		// The frontend decides whether to ask, but the promise "nothing is
+		// fetched while the setting is off" is kept here, at the layer that
+		// opens the socket.
+		if s.settings.get().UpdateCheck != "on" {
 			return result, nil
+		}
+		if state, err := s.readUpdateState(); err == nil {
+			since := now.Sub(state.CheckedAt)
+			if since >= 0 && since < updateCheckInterval {
+				return result, nil
+			}
 		}
 	}
 	// Recorded before the fetch, so a machine that cannot reach the feed is
@@ -155,7 +168,17 @@ func (s *DocumentService) CheckForUpdates(force bool) (UpdateResult, error) {
 }
 
 func (s *DocumentService) fetchLatestVersion() (string, error) {
-	client := &http.Client{Timeout: updateFetchTimeout}
+	client := &http.Client{
+		Timeout: updateFetchTimeout,
+		// The URL is a constant, so only a redirect could move the request,
+		// and it must not move it to plain http.
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if via[0].URL.Scheme == "https" && req.URL.Scheme != "https" {
+				return errors.New("the version feed redirected off https")
+			}
+			return nil
+		},
+	}
 	resp, err := client.Get(s.updateFeed)
 	if err != nil {
 		return "", fmt.Errorf("the version feed could not be reached: %w", err)
@@ -191,5 +214,9 @@ func (s *DocumentService) writeUpdateState(state updateState) error {
 	if err != nil {
 		return err
 	}
+	// No MkdirAll needed: xdg.DataFile("hermes/recents.json") in main.go
+	// creates <data>/hermes before the service exists (adrg/xdg's
+	// pathutil.Create does os.MkdirAll on the parent); the tests' temp
+	// dir exists too.
 	return writeFileAtomic(s.updateStatePath, data, 0o644)
 }

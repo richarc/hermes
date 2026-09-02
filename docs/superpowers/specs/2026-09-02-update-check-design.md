@@ -98,14 +98,15 @@ Rules, in order:
 
 1. `current := s.version()`; empty (an unbundled binary) is an error:
    `this build has no version to compare`.
-2. Unless `force`, if the state file's `checkedAt` is less than 24 h before
+2. Unless `force`, if the setting is not `"on"`, return `{Checked: false, Current: current}` with no fetch and no state write. The frontend decides whether to ask; this is where the promise is kept.
+3. Unless `force`, if the state file's `checkedAt` is less than 24 h before
    `s.now()`, return `{Checked: false, Current: current}` with no fetch.
-3. Record `checkedAt = now` in the state file (before the fetch, so a
+4. Record `checkedAt = now` in the state file (before the fetch, so a
    failing network is not retried on every launch).
-4. GET the feed with a 10 s timeout; anything but 200 is an error; the body
+5. GET the feed with a 10 s timeout; anything but 200 is an error; the body
    is read through a 4 KB limit; JSON is parsed strictly into
    `struct{ Version string }`; the version must match `^\d+\.\d+\.\d+$`.
-5. `Available = compareVersions(current, latest) < 0`. `URL` is derived as
+6. `Available = compareVersions(current, latest) < 0`. `URL` is derived as
    above. `Latest` is always filled when the fetch succeeds.
 
 `compareVersions(a, b string) (int, error)` accepts an optional leading `v`

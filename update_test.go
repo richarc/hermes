@@ -46,7 +46,17 @@ func TestParseUpdateFeed(t *testing.T) {
 	if err != nil || got != "0.10.0" {
 		t.Errorf("got %q, %v", got, err)
 	}
-	for _, bad := range []string{`{}`, `{"version": ""}`, `{"version": "0.10"}`, `{"version": "../x"}`, `not json`, `{"version": "0.10.0", "url": "https://evil"}`} {
+	for _, bad := range []string{
+		`{}`,
+		`{"version": ""}`,
+		`{"version": "0.10"}`,
+		`{"version": "../x"}`,
+		`not json`,
+		`{"version": "0.10.0", "url": "https://evil"}`,
+		`{"version": "0.10.0"} trailing`,
+		`{"version": "0.10.0"}{"version": "9.9.9"}`,
+		`{"version": "v0.10.0"}`,
+	} {
 		if _, err := parseUpdateFeed([]byte(bad)); err == nil {
 			t.Errorf("want an error for %s", bad)
 		}
@@ -77,6 +87,12 @@ func newUpdateTestService(t *testing.T, feedBody string, status int) (*DocumentS
 	s.updateFeed = srv.URL
 	s.version = func() string { return "0.9.0" }
 	s.now = func() time.Time { return time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC) }
+	// Enable the setting so existing tests keep fetching.
+	next := s.Settings()
+	next.UpdateCheck = "on"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
 	return s, &hits, &last
 }
 
@@ -104,6 +120,49 @@ func TestCheckForUpdatesUpToDate(t *testing.T) {
 	}
 }
 
+func TestCheckForUpdatesFetchesNothingUnlessOn(t *testing.T) {
+	for _, setting := range []string{"unasked", "off"} {
+		t.Run(setting, func(t *testing.T) {
+			s, hits, _ := newUpdateTestService(t, `{"version": "0.10.0"}`, http.StatusOK)
+			next := s.Settings()
+			next.UpdateCheck = setting
+			if err := s.UpdateSettings(next); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.CheckForUpdates(false)
+			if err != nil {
+				t.Fatalf("want nil error, got %v", err)
+			}
+			if got.Checked {
+				t.Errorf("want Checked=false, got %+v", got)
+			}
+			if got.Current != "0.9.0" {
+				t.Errorf("want Current=0.9.0, got %+v", got)
+			}
+			if *hits != 0 {
+				t.Errorf("want no fetch, got %d hits", *hits)
+			}
+			wantState := s.updateStatePath
+			if _, err := os.Stat(wantState); err == nil {
+				t.Errorf("want no state file written")
+			}
+		})
+	}
+	// A forced check ignores the setting.
+	s, hits, _ := newUpdateTestService(t, `{"version": "0.10.0"}`, http.StatusOK)
+	next := s.Settings()
+	next.UpdateCheck = "off"
+	if err := s.UpdateSettings(next); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CheckForUpdates(true); err != nil {
+		t.Fatal(err)
+	}
+	if *hits != 1 {
+		t.Errorf("force must fetch even with setting off, got %d hits", *hits)
+	}
+}
+
 // The privacy promise, asserted: the same bare URL every time, no query
 // string, and nothing in the request that says which version is asking.
 func TestCheckForUpdatesSendsNothingIdentifying(t *testing.T) {
@@ -111,17 +170,20 @@ func TestCheckForUpdatesSendsNothingIdentifying(t *testing.T) {
 	if _, err := s.CheckForUpdates(false); err != nil {
 		t.Fatal(err)
 	}
+	if last.Method != http.MethodGet {
+		t.Errorf("want GET, got %s", last.Method)
+	}
 	if last.URL.RawQuery != "" {
 		t.Errorf("query string must be empty, got %q", last.URL.RawQuery)
 	}
 	if last.URL.Path != "/" && !strings.HasSuffix(last.URL.Path, "latest.json") {
 		t.Errorf("unexpected path %q", last.URL.Path)
 	}
-	for name, values := range last.Header {
-		for _, v := range values {
-			if strings.Contains(v, "0.9.0") {
-				t.Errorf("header %s carries the installed version: %q", name, v)
-			}
+	// Allow-list: only User-Agent and Accept-Encoding are added by net/http.
+	allowed := map[string]bool{"User-Agent": true, "Accept-Encoding": true}
+	for name := range last.Header {
+		if !allowed[name] {
+			t.Errorf("unexpected header %s in request", name)
 		}
 	}
 }
@@ -181,6 +243,19 @@ func TestCheckForUpdatesThrottlePersists(t *testing.T) {
 	}
 }
 
+// Guard against a future timestamp: if the recorded check time is in the
+// future, the throttle does not apply and we fetch.
+func TestCheckForUpdatesGuardsAgainstFutureTimestamp(t *testing.T) {
+	s, hits, _ := newUpdateTestService(t, `{"version": "0.9.0"}`, http.StatusOK)
+	s.writeUpdateState(updateState{CheckedAt: s.now().Add(time.Hour)})
+	if _, err := s.CheckForUpdates(false); err != nil {
+		t.Fatal(err)
+	}
+	if *hits != 1 {
+		t.Errorf("want a fetch with future timestamp, got %d hits", *hits)
+	}
+}
+
 // A failed attempt is still an attempt: an offline machine is not asked
 // again on every launch that day.
 func TestCheckForUpdatesRecordsAFailedAttempt(t *testing.T) {
@@ -205,7 +280,7 @@ func TestCheckForUpdatesErrors(t *testing.T) {
 		{"not found", "", http.StatusNotFound},
 		{"malformed json", "{", http.StatusOK},
 		{"bad version", `{"version": "soon"}`, http.StatusOK},
-		{"oversized", strings.Repeat("x", 5<<10), http.StatusOK},
+		{"oversized", `{"version": "0.10.0"}` + strings.Repeat(" ", 5<<10), http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, _, _ := newUpdateTestService(t, tc.body, tc.status)
