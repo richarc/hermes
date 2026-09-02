@@ -19,7 +19,7 @@ const FENCE_RE = /^---[ \t]*\r?$/
 // The markdown grammar has no frontmatter concept — it reads the block as a
 // setext heading — so the fence is located by line instead. Mirrors the rule
 // in lib/frontmatter.ts: a leading --- line closed by a later --- line.
-function frontmatterEndLine(state: EditorState): number {
+export function frontmatterEndLine(state: EditorState): number {
   if (!FENCE_RE.test(state.doc.line(1).text)) return 0
   for (let n = 2; n <= state.doc.lines; n++) {
     if (FENCE_RE.test(state.doc.line(n).text)) return n
