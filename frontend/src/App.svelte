@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
-  import { Events } from '@wailsio/runtime'
+  import { Events, Browser } from '@wailsio/runtime'
   import { DocumentService } from '../bindings/hermes'
-  import type { Settings, Draft } from '../bindings/hermes/models'
+  import type { Settings, Draft, UpdateResult } from '../bindings/hermes/models'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
   import { renderDocument, type RenderOptions } from './lib/renderer'
@@ -77,6 +77,13 @@
   // One toast per document for a failing draft write: a toast every two
   // seconds while typing would be worse than no insurance.
   let draftWriteWarned = false
+
+  type UpdateCheckSetting = 'unasked' | 'on' | 'off'
+  let updateCheck = $state<UpdateCheckSetting>('unasked')
+  // The first-launch question; true only until it has been answered once.
+  let askUpdates = $state(false)
+  // A newer version, awaiting Later / View Release. Null when no dialog is up.
+  let updateNotice = $state<UpdateResult | null>(null)
 
   // The keeper decides when a draft is written and discarded; recovery.go
   // decides whether one is worth offering back. Go's own errors are
@@ -543,6 +550,47 @@
     void DocumentService.DiscardDraft(key).catch((err) => console.warn('DiscardDraft:', err))
   }
 
+  // The first-launch question, answered once. Both answers are stored, so
+  // the dialog never comes back; Esc is "Don't Check" for the same reason.
+  async function answerUpdateQuestion(answer: 'on' | 'off') {
+    askUpdates = false
+    try {
+      const current: Settings = await DocumentService.Settings()
+      await DocumentService.UpdateSettings({ ...current, updateCheck: answer })
+    } catch (err) {
+      toast(`Could not save the update-check setting: ${err}`)
+      return
+    }
+    if (answer === 'on') void checkForUpdates(false)
+  }
+
+  // manual: Help → Check for Updates…, which ignores the daily throttle and
+  // always reports. Automatic: at launch, which only speaks up when there is
+  // something to say — an offline launch must not nag.
+  async function checkForUpdates(manual: boolean) {
+    if (manual && (chartOpen || tableOpen)) {
+      toast('Finish or cancel the chart or table before checking for updates.')
+      return
+    }
+    try {
+      const result: UpdateResult = await DocumentService.CheckForUpdates(manual)
+      if (result.available) {
+        updateNotice = result
+        return
+      }
+      if (manual) toast(`Hermes ${result.current} is up to date.`)
+    } catch (err) {
+      if (manual) toast(`Could not check for updates: ${err}`)
+      else console.warn('CheckForUpdates:', err)
+    }
+  }
+
+  function viewRelease() {
+    const notice = updateNotice
+    updateNotice = null
+    if (notice) void Browser.OpenURL(notice.url)
+  }
+
   async function refreshRecents() {
     recents = (await DocumentService.RecentFiles()) ?? []
   }
@@ -552,6 +600,9 @@
     syncScrolling = s.syncScrolling
     showOutline = s.showOutline
     autoSave = s.autoSave
+    // Go clamps to the three values, so the cast is a spelling of what the
+    // binding cannot express.
+    updateCheck = s.updateCheck as UpdateCheckSetting
     themeSetting = s.theme as ThemeSetting
     // Go normalises both on the way out, so the cast is a spelling of what
     // the binding cannot express rather than an unchecked assumption.
@@ -843,6 +894,7 @@
       if (typeof ev.data === 'string') applyFold(ev.data)
     })
     Events.On('settings:changed', () => void refreshSettings())
+    Events.On('menu:check-updates', () => void checkForUpdates(true))
 
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     systemPrefersDark = media.matches
@@ -864,11 +916,15 @@
       // dialog's Discard Draft falls through to the template below when
       // there are no recents; Restore replaces it.
       await offerDraft('')
+      // A recovery offer is the more urgent dialog; the update question and
+      // the automatic check wait for a launch with nothing else on screen.
       if (recovery !== null) return
       // A first launch has nothing to put in the welcome pane, so go straight
       // into a templated document rather than an empty one — the user who has
       // never seen Hermes is exactly the one the template is for.
       if (recents.length === 0) doNew()
+      if (updateCheck === 'unasked') askUpdates = true
+      else if (updateCheck === 'on') void checkForUpdates(false)
     })()
 
     return () => {
@@ -1002,6 +1058,27 @@
     {#snippet footer()}
       <button onclick={discardRecoveredDraft}>Discard Draft</button>
       <button class="primary" onclick={restoreDraft}>Restore</button>
+    {/snippet}
+  </Dialog>
+
+  <Dialog open={askUpdates} label="Check for updates" onclose={() => void answerUpdateQuestion('off')}>
+    <p>
+      Hermes can fetch a small file from GitHub once a day to see whether a newer version exists.
+      Nothing about you or your documents is sent. You can change this later in the Help menu.
+    </p>
+    {#snippet footer()}
+      <button onclick={() => void answerUpdateQuestion('off')}>Don't Check</button>
+      <button class="primary" onclick={() => void answerUpdateQuestion('on')}>Check Automatically</button>
+    {/snippet}
+  </Dialog>
+
+  <Dialog open={updateNotice !== null} label="Update available" onclose={() => (updateNotice = null)}>
+    {#if updateNotice}
+      <p>Hermes {updateNotice.latest} is available. You have {updateNotice.current}.</p>
+    {/if}
+    {#snippet footer()}
+      <button onclick={() => (updateNotice = null)}>Later</button>
+      <button class="primary" onclick={viewRelease}>View Release</button>
     {/snippet}
   </Dialog>
 

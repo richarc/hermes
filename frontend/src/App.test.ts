@@ -14,6 +14,7 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
     figureAlignment: 'centre',
     chartWidth: 'medium',
     autoSave: true,
+    updateCheck: 'off',
   }
   const settings = { current: { ...DEFAULT_SETTINGS } }
   return {
@@ -42,6 +43,10 @@ const { DocumentService, listeners, recents, settings, DEFAULT_SETTINGS } = vi.h
       WriteDraft: vi.fn(async (_docPath: string, _content: string) => {}),
       DiscardDraft: vi.fn(async (_docPath: string) => {}),
       RecoverDraft: vi.fn(async (_docPath: string) => ({ found: false, content: '' })),
+      CheckForUpdates: vi.fn(async (_force: boolean) => ({
+        checked: true, available: false, current: '0.9.0', latest: '0.9.0',
+        url: 'https://github.com/richarc/hermes/releases/tag/v0.9.0',
+      })),
     },
   }
 })
@@ -55,6 +60,8 @@ vi.mock('@wailsio/runtime', () => ({
   Browser: { OpenURL: vi.fn() },
 }))
 vi.mock('../bindings/hermes', () => ({ DocumentService }))
+
+import { Browser } from '@wailsio/runtime'
 
 // The real debounce is two seconds; every test here would wait it out.
 // App.svelte passes DRAFT_DEBOUNCE_MS to the keeper explicitly so this
@@ -1437,5 +1444,172 @@ describe('recovery drafts', () => {
     expect(recoverDialog(target).open).toBe(false)
     expect(target.textContent).not.toContain('never saved')
     expect(target.querySelector('.status-bar')!.textContent).not.toContain('•')
+  })
+})
+
+describe('update check', () => {
+  const AVAILABLE = {
+    checked: true, available: true, current: '0.9.0', latest: '0.10.0',
+    url: 'https://github.com/richarc/hermes/releases/tag/v0.10.0',
+  }
+  function askDialog(target: HTMLElement) {
+    return target.querySelector<HTMLDialogElement>('dialog[aria-label="Check for updates"]')!
+  }
+  function noticeDialog(target: HTMLElement) {
+    return target.querySelector<HTMLDialogElement>('dialog[aria-label="Update available"]')!
+  }
+
+  // vi.clearAllMocks clears calls, not implementations, so anything a test
+  // here sets with mockImplementation would leak into the next. Restore
+  // both defaults before each.
+  beforeEach(() => {
+    DocumentService.CheckForUpdates.mockImplementation(async () => ({
+      checked: true, available: false, current: '0.9.0', latest: '0.9.0',
+      url: 'https://github.com/richarc/hermes/releases/tag/v0.9.0',
+    }))
+    DocumentService.RecoverDraft.mockImplementation(async () => ({ found: false, content: '' }))
+  })
+
+  it('asks once at first launch, and Check Automatically saves on and checks', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'unasked' }
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(askDialog(target).open).toBe(true))
+    expect(target.textContent).toContain('Nothing about you or your documents is sent.')
+    expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
+
+    buttonByText(askDialog(target), 'Check Automatically')!.click()
+    flushSync()
+
+    expect(askDialog(target).open).toBe(false)
+    await vi.waitFor(() => expect(DocumentService.UpdateSettings).toHaveBeenCalled())
+    expect(DocumentService.UpdateSettings.mock.calls[0][0].updateCheck).toBe('on')
+    await vi.waitFor(() => expect(DocumentService.CheckForUpdates).toHaveBeenCalledWith(false))
+  })
+
+  it("Don't Check saves off and fetches nothing", async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'unasked' }
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(askDialog(target).open).toBe(true))
+
+    buttonByText(askDialog(target), "Don't Check")!.click()
+    flushSync()
+
+    await vi.waitFor(() => expect(DocumentService.UpdateSettings).toHaveBeenCalled())
+    expect(DocumentService.UpdateSettings.mock.calls[0][0].updateCheck).toBe('off')
+    expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
+  })
+
+  it('Esc on the question counts as Don\'t Check, so it is asked once', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'unasked' }
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(askDialog(target).open).toBe(true))
+
+    askDialog(target).dispatchEvent(new Event('cancel'))
+    flushSync()
+
+    expect(askDialog(target).open).toBe(false)
+    await vi.waitFor(() => expect(DocumentService.UpdateSettings).toHaveBeenCalled())
+    expect(DocumentService.UpdateSettings.mock.calls[0][0].updateCheck).toBe('off')
+  })
+
+  it('does not ask while a recovery draft is being offered', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'unasked' }
+    DocumentService.RecoverDraft.mockImplementation(async (docPath: string) =>
+      docPath === '' ? { found: true, content: '# Scratch\n' } : { found: false, content: '' },
+    )
+    const { target } = mountApp()
+    await vi.waitFor(() =>
+      expect(target.querySelector<HTMLDialogElement>('dialog[aria-label="Recover draft"]')!.open).toBe(true),
+    )
+    expect(askDialog(target).open).toBe(false)
+  })
+
+  it('checks automatically at launch when the setting is on, and shows nothing when up to date', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'on' }
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.CheckForUpdates).toHaveBeenCalledWith(false))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(noticeDialog(target).open).toBe(false)
+    expect(target.querySelector('.toast')).toBeNull()
+  })
+
+  it('shows the update dialog when a newer version is available, and View Release opens it', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'on' }
+    DocumentService.CheckForUpdates.mockResolvedValueOnce(AVAILABLE)
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(noticeDialog(target).open).toBe(true))
+    expect(target.textContent).toContain('Hermes 0.10.0 is available. You have 0.9.0.')
+
+    buttonByText(noticeDialog(target), 'View Release')!.click()
+    flushSync()
+
+    expect(Browser.OpenURL).toHaveBeenCalledWith(AVAILABLE.url)
+    expect(noticeDialog(target).open).toBe(false)
+  })
+
+  it('Later closes the dialog without opening anything', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'on' }
+    DocumentService.CheckForUpdates.mockResolvedValueOnce(AVAILABLE)
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(noticeDialog(target).open).toBe(true))
+
+    buttonByText(noticeDialog(target), 'Later')!.click()
+    flushSync()
+
+    expect(noticeDialog(target).open).toBe(false)
+    expect(Browser.OpenURL).not.toHaveBeenCalled()
+  })
+
+  it('does not check at launch when the setting is off', async () => {
+    mountApp()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
+  })
+
+  it('Help → Check for Updates… forces a check and says when it is up to date', async () => {
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+
+    listeners['menu:check-updates']({ data: null })
+
+    await vi.waitFor(() => expect(DocumentService.CheckForUpdates).toHaveBeenCalledWith(true))
+    await vi.waitFor(() => expect(target.textContent).toContain('Hermes 0.9.0 is up to date.'))
+  })
+
+  it('a manual check reports a failure', async () => {
+    DocumentService.CheckForUpdates.mockRejectedValueOnce(new Error('the version feed returned 404 Not Found'))
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.Settings).toHaveBeenCalled())
+
+    listeners['menu:check-updates']({ data: null })
+
+    await vi.waitFor(() =>
+      expect(target.textContent).toContain('Could not check for updates: Error: the version feed returned 404 Not Found'),
+    )
+  })
+
+  it('an automatic check that fails stays quiet', async () => {
+    settings.current = { ...DEFAULT_SETTINGS, updateCheck: 'on' }
+    DocumentService.CheckForUpdates.mockRejectedValueOnce(new Error('offline'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(DocumentService.CheckForUpdates).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 20))
+    expect(target.querySelector('.toast')).toBeNull()
+    expect(noticeDialog(target).open).toBe(false)
+    warn.mockRestore()
+  })
+
+  it('refuses a manual check while the chart builder is open', async () => {
+    const target = await openDoc('# Results\n')
+    listeners['menu:insert-chart']({ data: null })
+    flushSync()
+    expect(target.querySelector('.chart-builder')).not.toBeNull()
+
+    listeners['menu:check-updates']({ data: null })
+    flushSync()
+
+    expect(target.textContent).toContain('Finish or cancel the chart or table before checking for updates.')
+    expect(DocumentService.CheckForUpdates).not.toHaveBeenCalled()
   })
 })
