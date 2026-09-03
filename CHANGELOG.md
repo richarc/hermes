@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-03
+
+The authoring release. Everything that was finished after v0.9.0 and marked
+"unreleased" in the roadmap ships here: the outline panel, the table builder,
+the New Document flow with its bibliography choice, a clickable table of
+contents, recovery drafts, spell checking scoped to prose, an update check
+that sends nothing, and a getting-started guide. Same signed, notarized,
+universal build as v0.9.0.
+
 ### Added
 
 - The welcome pane says where the guides are (hermeseditor.com/guides, opened

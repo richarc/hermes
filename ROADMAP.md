@@ -515,7 +515,7 @@ like one program.
       name. Regeneration adds the key when the catalogue is present but never
       removes it, so dropping the catalogue means deleting the key by hand.
 
-## v0.10.0 — Authoring and output
+## v0.10.0 — Authoring and output ✅ (released 2026-09-03)
 
 Three features drawn from a survey of similar products (2026-08-08), kept
 because they serve paper-writing specifically rather than because other
@@ -527,7 +527,7 @@ Vega-Lite spec and a citation key have no meaningful inline visual form; and
 a file-tree sidebar, which is the multi-part document idea dropped on
 2026-08-06.
 
-- [x] **An outline panel.** Done 2026-08-28, unreleased. The document's
+- [x] **An outline panel.** Done 2026-08-28, shipped in v0.10.0. The document's
       headings, indented by level, in a 220 px column left of the editor,
       with click-to-jump. It was as cheap as predicted, because the data did
       already exist: `lib/outline.ts` is a markdown-it core rule beside
@@ -551,7 +551,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       both panes, regardless of Sync Scrolling — `Editor.goToLine` places the
       cursor and scrolls, `preview.syncToLine` follows — because an explicit
       jump is not the same act as following. Hidden by the print stylesheet.
-- [x] **A table builder.** Done 2026-08-28, unreleased. Built as the roadmap
+- [x] **A table builder.** Done 2026-08-28, shipped in v0.10.0. Built as the roadmap
       predicted, with one deliberate departure: alignment and cell text got
       their own `lib/pipeTable.ts` (parse and padded serialise, cells as raw
       markdown source) rather than stretching `DataTable`, whose columns carry
@@ -563,7 +563,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       the range by comparing it against the text captured when the builder
       opened, rather than by re-parsing it — the same guard `commitChart`
       applies.
-- [x] **A real New Document flow.** Done 2026-08-28, unreleased. Reported
+- [x] **A real New Document flow.** Done 2026-08-28, shipped in v0.10.0. Reported
       from real use on 2026-08-19: File → New seeded a template with the
       `bibliography` and `csl` keys commented out into an untitled buffer, so
       a citation could not resolve until the author had saved, named a
@@ -592,7 +592,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       `unsavedBibliographyMessage` still exists, but the path that showed it
       routinely is gone.
 - [x] **Choose the bibliography in the New Document flow.** Done 2026-08-30,
-      unreleased, as designed below; `NewDocument.svelte` holds both steps
+      shipped in v0.10.0, as designed below; `NewDocument.svelte` holds both steps
       behind one `open` flag, so App's guards did not change, and the
       relative-or-absolute decision (`bibliographyReference`) runs after the
       save panel, since the document's folder is not known before it. From
@@ -619,7 +619,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       inside the first dialog under the checkbox, one step fewer; the
       intermediate dialog was preferred.
 - [x] **A clickable table of contents in the exported PDF.** Done
-      2026-08-31, unreleased. The spike the item below asked for was run
+      2026-08-31, shipped in v0.10.0. The spike the item below asked for was run
       first and answered yes: the exact export path (`printOperationWith-
       PrintInfo:`, zero margins, `@page` CSS) turns `#fragment` links onto
       `id`'d elements into real GoTo annotations with correct page
@@ -651,7 +651,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       frontmatter key — which would be the third key Hermes reads, after
       `bibliography` and `csl`) or a document-wide setting like figure
       alignment.
-- [x] Spell checking. Done 2026-09-02, unreleased, as the smallest honest
+- [x] Spell checking. Done 2026-09-02, shipped in v0.10.0, as the smallest honest
       version: the attribute, the protected-range marks, a `SpellCheck`
       setting and the registered WebKit default (`docs/superpowers/specs/2026-09-02-spell-checking-design.md`).
       Investigated the same day against WebKit's source; the findings below
@@ -696,7 +696,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       suggestions need nothing, since the Wails runtime leaves the default
       context menu alone on contenteditable targets.
 
-- [x] Autosave. Done 2026-09-01 as recovery drafts, unreleased: the
+- [x] Autosave. Done 2026-09-01 as recovery drafts, shipped in v0.10.0: the
       design in `docs/superpowers/specs/2026-09-01-recovery-drafts-design.md`,
       the code in `recovery.go` and `lib/recoveryDraft.ts`. As proposed
       below, with one addition: drafts older than 30 days are pruned at
@@ -729,7 +729,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       like Sync Scrolling.
 
 - [x] **Report an Issue… goes to GitHub Issues, for real.** Done 2026-08-27,
-      unreleased. The hosted form carried out of v0.9.0 is dropped: a GitHub
+      shipped in v0.10.0. The hosted form carried out of v0.9.0 is dropped: a GitHub
       issue is public, threaded and lands where the work is tracked, which the
       cost of an account buys. The change is more than the decision, though.
       `feedbackURL` used to send `version=` and `os=` as query parameters, and
@@ -742,7 +742,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       app, where `CFBundleShortVersionString` is readable, so the version line
       shows the real number rather than "unknown".
 
-- [x] **An update check that sends nothing.** Done 2026-09-02, unreleased:
+- [x] **An update check that sends nothing.** Done 2026-09-02, shipped in v0.10.0:
       the design in `docs/superpowers/specs/2026-09-02-update-check-design.md`,
       the code in `update.go` and `App.svelte`. One change from the note
       below: the feed is `updates/latest.json` in this repository rather
