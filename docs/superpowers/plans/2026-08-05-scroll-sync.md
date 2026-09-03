@@ -121,7 +121,7 @@ describe('previewOffsetForLine', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/scrollSync.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/scrollSync.test.ts`
 Expected: FAIL — cannot resolve `./scrollSync`.
 
 - [ ] **Step 3: Write the implementation**
@@ -191,13 +191,13 @@ export function previewOffsetForLine(
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/scrollSync.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/scrollSync.test.ts`
 Expected: PASS, 8 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/lib/scrollSync.ts src/lib/scrollSync.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add the source-line to preview-offset mapper
@@ -255,7 +255,7 @@ describe('bodyStartLine', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/frontmatter.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/frontmatter.test.ts`
 Expected: FAIL — `bodyStartLine` is `undefined`.
 
 - [ ] **Step 3: Implement `bodyStartLine`**
@@ -295,7 +295,7 @@ and the result initialiser becomes:
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/frontmatter.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/frontmatter.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the failing renderer test**
@@ -333,7 +333,7 @@ describe('render: source-line anchors', () => {
 
 - [ ] **Step 6: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/renderer.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/renderer.test.ts`
 Expected: FAIL — no `data-source-line` attributes are emitted.
 
 - [ ] **Step 7: Implement the core rule and the chart anchor**
@@ -398,13 +398,13 @@ export function render(markdown: string, opts?: RenderOptions): string {
 
 - [ ] **Step 8: Run the tests to verify they pass**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run`
+Run: `cd <repo>/frontend && npx vitest run`
 Expected: PASS, 160 tests across 12 files.
 
 - [ ] **Step 9: Typecheck and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npm run check
+cd <repo>/frontend && npm run check
 git add src/lib/frontmatter.ts src/lib/frontmatter.test.ts src/lib/renderer.ts src/lib/renderer.test.ts
 git commit -m "$(cat <<'EOF'
 feat: stamp rendered blocks with their source line
@@ -470,7 +470,7 @@ Note: `containerWith`, `SPEC`, and the fake embed already exist at the top of `c
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/charts.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/charts.test.ts`
 Expected: FAIL — `dataset.sourceLine` is `'5'`, the line the cached node was born with.
 
 - [ ] **Step 3: Implement**
@@ -494,13 +494,13 @@ In `frontend/src/lib/charts.ts`, in `hydrate`'s cached-reuse branch:
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/charts.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/charts.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/lib/charts.ts src/lib/charts.test.ts
 git commit -m "$(cat <<'EOF'
 fix: refresh a reused cached chart's source line
@@ -601,7 +601,7 @@ describe('createScrollSync', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/scrollSync.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/scrollSync.test.ts`
 Expected: FAIL — `createScrollSync` is not exported.
 
 - [ ] **Step 3: Implement**
@@ -664,13 +664,13 @@ export function createScrollSync(target: ScrollSyncTarget) {
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/scrollSync.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/scrollSync.test.ts`
 Expected: PASS, 13 tests in this file.
 
 - [ ] **Step 5: Full suite, typecheck, commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
+cd <repo>/frontend && npx vitest run && npm run check
 git add src/lib/scrollSync.ts src/lib/scrollSync.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add the anchor reader and the sync controller
@@ -771,7 +771,7 @@ describe('Preview.syncToLine', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Preview.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Preview.test.ts`
 Expected: FAIL — `syncToLine` is not a function.
 
 - [ ] **Step 3: Implement `Preview.svelte`**
@@ -839,7 +839,7 @@ Leave the markup below the script block unchanged.
 
 - [ ] **Step 4: Run the Preview test to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Preview.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Preview.test.ts`
 Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Write the failing Editor test**
@@ -882,7 +882,7 @@ typechecks.
 
 - [ ] **Step 6: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Editor.test.ts`
 Expected: FAIL — `lineCount` is not a function.
 
 - [ ] **Step 7: Implement `Editor.svelte`**
@@ -944,7 +944,7 @@ the editor element would never see the scroller's.
 - [ ] **Step 8: Run everything and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
+cd <repo>/frontend && npx vitest run && npm run check
 git add src/Editor.svelte src/Editor.test.ts src/Preview.svelte src/Preview.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add scroll reporting to the editor and sync to the preview
@@ -1029,7 +1029,7 @@ func TestSyncScrollingIsIndependentOfOrientation(t *testing.T) {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes && go test ./. -run TestSyncScrolling`
+Run: `cd <repo> && go test ./. -run TestSyncScrolling`
 Expected: FAIL to compile — `SyncScrolling` is not a field of `Settings`.
 
 - [ ] **Step 3: Add the field**
@@ -1063,7 +1063,7 @@ func (s Settings) normalise() Settings {
 
 - [ ] **Step 4: Run the Go tests**
 
-Run: `cd /Users/richarc/Development/hermes && go test ./.`
+Run: `cd <repo> && go test ./.`
 Expected: PASS.
 
 - [ ] **Step 5: Add the View menu**
@@ -1092,7 +1092,7 @@ correct without extra wiring.
 
 Run:
 ```bash
-cd /Users/richarc/Development/hermes && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
+cd <repo> && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
 ```
 Expected: no gofmt output, vet clean, tests pass, build succeeds.
 
@@ -1101,13 +1101,13 @@ Expected: no gofmt output, vet clean, tests pass, build succeeds.
 The `Settings` model gained a field, so the generated TypeScript must be updated:
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task common:generate:bindings
+cd <repo> && wails3 task common:generate:bindings
 cd frontend && npm run check
 ```
 Expected: `frontend/bindings/hermes/models.ts` gains `syncScrolling: boolean`; `0 ERRORS`.
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add settings.go settings_test.go menu.go frontend/bindings
 git commit -m "$(cat <<'EOF'
 feat: add the SyncScrolling preference and a View menu
@@ -1205,7 +1205,7 @@ call `cleanup()` by hand.
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/App.test.ts`
 Expected: FAIL — `DocumentService.Settings` is never called; the app reads no settings today.
 
 - [ ] **Step 3: Implement**
@@ -1272,21 +1272,21 @@ Update the two component usages in the markup:
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/App.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Full verification**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build
-cd /Users/richarc/Development/hermes && go test ./. && go build -o /dev/null .
+cd <repo>/frontend && npx vitest run && npm run check && npm run build
+cd <repo> && go test ./. && go build -o /dev/null .
 ```
 Expected: 174 tests across 13 files; `0 ERRORS`; both builds succeed.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/App.svelte frontend/src/App.test.ts
 git commit -m "$(cat <<'EOF'
 feat: wire scroll sync between the panes
@@ -1328,8 +1328,8 @@ between the editor and preview panes" from `- [ ]` to `- [x]`.
 - [ ] **Step 3: Verify and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
-cd /Users/richarc/Development/hermes && go test ./.
+cd <repo>/frontend && npx vitest run && npm run check
+cd <repo> && go test ./.
 git add CHANGELOG.md ROADMAP.md
 git commit -m "$(cat <<'EOF'
 docs: record scroll sync in the changelog and roadmap
@@ -1364,7 +1364,7 @@ confirm by eye that the preview tracks the editor, and specifically that it
 stays aligned across a Vega chart — the case the whole design exists for.
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task run
+cd <repo> && wails3 task run
 ```
 
 Open `docs/sample-paper.md`, enable View → Sync Scrolling, and scroll through

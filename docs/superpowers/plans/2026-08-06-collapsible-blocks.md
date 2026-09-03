@@ -143,7 +143,7 @@ describe('foldAllCodeBlocks', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/foldCommands.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/foldCommands.test.ts`
 Expected: FAIL — cannot resolve `./foldCommands`.
 
 - [ ] **Step 3: Implement**
@@ -193,16 +193,16 @@ export const foldAllCodeBlocks: StateCommand = ({ state, dispatch }) => {
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/foldCommands.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/foldCommands.test.ts`
 Expected: PASS, 5 tests.
 
 - [ ] **Step 5: Typecheck and commit**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check`
+Run: `cd <repo>/frontend && npx vitest run && npm run check`
 Expected: 204 tests across 17 files; `0 ERRORS`.
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/lib/foldCommands.ts src/lib/foldCommands.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add a fold-all limited to fenced code blocks
@@ -257,7 +257,7 @@ describe('Editor folding', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Editor.test.ts`
 Expected: FAIL — no `.cm-foldPlaceholder` rule in the generated stylesheet.
 
 - [ ] **Step 3: Theme the placeholder**
@@ -303,7 +303,7 @@ The existing `StateCommand` callers in `App.svelte` need no change.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check`
+Run: `cd <repo>/frontend && npx vitest run && npm run check`
 Expected: 205 tests across 17 files; `0 ERRORS`. The existing formatting-command
 tests must still pass — they are the proof that widening the signature did not
 break the `StateCommand` path.
@@ -311,7 +311,7 @@ break the `StateCommand` path.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/Editor.svelte src/Editor.test.ts
 git commit -m "$(cat <<'EOF'
 fix: theme the folded placeholder, and widen runCommand to Command
@@ -395,7 +395,7 @@ describe('fold menu', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/App.test.ts`
 Expected: FAIL — `listeners['menu:fold']` is `undefined`; nothing subscribes yet.
 
 - [ ] **Step 3: Add the command map and handler**
@@ -492,8 +492,8 @@ Check `defaultKeymap` *and* `foldKeymap` before adding an accelerator — `foldK
 - [ ] **Step 6: Run everything**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build
-cd /Users/richarc/Development/hermes && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
+cd <repo>/frontend && npx vitest run && npm run check && npm run build
+cd <repo> && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
 ```
 Expected: 207 tests across 17 files; `0 ERRORS`; both builds succeed; no gofmt
 output; Go tests pass.
@@ -501,7 +501,7 @@ output; Go tests pass.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/App.svelte frontend/src/App.test.ts menu.go CLAUDE.md
 git commit -m "$(cat <<'EOF'
 feat: surface block folding in the View menu
@@ -554,8 +554,8 @@ one above `## [0.5.0]`, with an `### Added` and a `### Fixed`:
 - [ ] **Step 2: Verify and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
-cd /Users/richarc/Development/hermes && go test ./.
+cd <repo>/frontend && npx vitest run && npm run check
+cd <repo> && go test ./.
 git add CHANGELOG.md
 git commit -m "$(cat <<'EOF'
 docs: record block folding in the changelog
@@ -586,7 +586,7 @@ jsdom has no cascade, so no test here proves the menu or the placeholder
 *looks* right.
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task run
+cd <repo> && wails3 task run
 ```
 
 1. Open `docs/sample-paper.md`. The View menu should show all four items, with

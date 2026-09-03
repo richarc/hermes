@@ -158,7 +158,7 @@ describe('parseDelimited', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/dataTable.test.ts
+cd <repo>/frontend && npx vitest run src/lib/dataTable.test.ts
 ```
 Expected: FAIL — cannot resolve `./dataTable`.
 
@@ -299,21 +299,21 @@ export function parseDelimited(text: string): ParseResult {
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/dataTable.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/lib/dataTable.test.ts && npm run check
 ```
 Expected: 13 passing, `0 ERRORS`.
 
 - [ ] **Step 5: Run the whole suite**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run
+cd <repo>/frontend && npx vitest run
 ```
 Expected: about 224 tests across 18 files.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/lib/dataTable.ts frontend/src/lib/dataTable.test.ts
 git commit -m "$(cat <<'EOF'
 feat: parse pasted or imported delimited data into typed columns
@@ -430,7 +430,7 @@ describe('buildSpec', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/chartSpec.test.ts
+cd <repo>/frontend && npx vitest run src/lib/chartSpec.test.ts
 ```
 Expected: FAIL — cannot resolve `./chartSpec`.
 
@@ -501,14 +501,14 @@ export function buildSpec(state: BuilderState): string {
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/chartSpec.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/lib/chartSpec.test.ts && npm run check
 ```
 Expected: 11 passing, `0 ERRORS`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/lib/chartSpec.ts frontend/src/lib/chartSpec.test.ts
 git commit -m "$(cat <<'EOF'
 feat: render builder state as a Vega-Lite spec
@@ -671,7 +671,7 @@ describe('readSpec', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/chartSpec.test.ts
+cd <repo>/frontend && npx vitest run src/lib/chartSpec.test.ts
 ```
 Expected: FAIL — `readSpec` is not exported.
 
@@ -791,7 +791,7 @@ export function readSpec(json: string): ReadResult {
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/chartSpec.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/lib/chartSpec.test.ts && npm run check
 ```
 Expected: 21 passing in that file (11 from Task 2 plus 10), `0 ERRORS`.
 
@@ -800,14 +800,14 @@ Expected: 21 passing in that file (11 from Task 2 plus 10), `0 ERRORS`.
 Temporarily break the symmetry — in `buildSpec`, change `if (state.x.title !== '') x.title = state.x.title` to always assign `x.title`. Re-run:
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/chartSpec.test.ts
+cd <repo>/frontend && npx vitest run src/lib/chartSpec.test.ts
 ```
 Expected: the round-trip test FAILS. Restore with `git checkout -- src/lib/chartSpec.ts`, confirm `git status` is clean, and re-run to confirm green. Report what you saw.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/lib/chartSpec.ts frontend/src/lib/chartSpec.test.ts
 git commit -m "$(cat <<'EOF'
 feat: read a Vega-Lite spec back into builder state, or refuse
@@ -961,7 +961,7 @@ describe('chart block lookup', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts
+cd <repo>/frontend && npx vitest run src/Editor.test.ts
 ```
 Expected: FAIL — `editor.enclosingChartBlock is not a function`.
 
@@ -1043,7 +1043,7 @@ Add beside the other exported functions:
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/Editor.test.ts && npm run check
 ```
 Expected: 7 new tests passing, `0 ERRORS`.
 
@@ -1054,7 +1054,7 @@ Temporarily change `for (const side of [1, -1] as const)` to `for (const side of
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/Editor.svelte frontend/src/Editor.test.ts
 git commit -m "$(cat <<'EOF'
 feat: locate and replace the vega-lite block under the cursor
@@ -1122,7 +1122,7 @@ func TestReadDataFile(t *testing.T) {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes && go test ./. -run TestReadDataFile
+cd <repo> && go test ./. -run TestReadDataFile
 ```
 Expected: FAIL — `undefined: readDataFile`.
 
@@ -1169,22 +1169,22 @@ func readDataFile(path string) (string, error) {
 - [ ] **Step 4: Run the Go checks and regenerate bindings**
 
 ```bash
-cd /Users/richarc/Development/hermes && gofmt -l . | grep -v '^build/' ; cd /Users/richarc/Development/hermes && go vet ./. && go test ./. && go build -o /dev/null .
-cd /Users/richarc/Development/hermes && wails3 task common:generate:bindings
+cd <repo> && gofmt -l . | grep -v '^build/' ; cd <repo> && go vet ./. && go test ./. && go build -o /dev/null .
+cd <repo> && wails3 task common:generate:bindings
 ```
 Expected: gofmt prints nothing, Go tests pass, and `frontend/bindings/hermes/` gains `ImportData`. **Never hand-edit the bindings.**
 
 - [ ] **Step 5: Confirm the frontend still builds against the new bindings**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
+cd <repo>/frontend && npx vitest run && npm run check
 ```
 Expected: unchanged test count, `0 ERRORS`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add documentservice.go documentservice_test.go frontend/bindings
 git commit -m "$(cat <<'EOF'
 feat: import a delimited data file through a native picker
@@ -1339,7 +1339,7 @@ describe('ChartBuilder data step', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/ChartBuilder.test.ts
+cd <repo>/frontend && npx vitest run src/ChartBuilder.test.ts
 ```
 Expected: FAIL — cannot resolve `./ChartBuilder.svelte`.
 
@@ -1481,21 +1481,21 @@ Add to `frontend/public/style.css`, using existing palette variables only — `s
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/ChartBuilder.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/ChartBuilder.test.ts && npm run check
 ```
 Expected: 7 passing, `0 ERRORS`.
 
 - [ ] **Step 5: Run the whole suite**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run build
+cd <repo>/frontend && npx vitest run && npm run build
 ```
 Expected: about 251 tests across 20 files; the build succeeds.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/ChartBuilder.svelte frontend/src/ChartBuilder.test.ts frontend/public/style.css
 git commit -m "$(cat <<'EOF'
 feat: add the chart builder modal and its data step
@@ -1661,7 +1661,7 @@ describe('ChartBuilder encoding step', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/ChartBuilder.test.ts
+cd <repo>/frontend && npx vitest run src/ChartBuilder.test.ts
 ```
 Expected: FAIL — no `select[data-field="x"]` exists.
 
@@ -1826,7 +1826,7 @@ Replace the `modal-buttons` block and add the controls between the data step and
 - [ ] **Step 4: Run the tests**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/ChartBuilder.test.ts && npm run check
+cd <repo>/frontend && npx vitest run src/ChartBuilder.test.ts && npm run check
 ```
 Expected: 14 passing in that file (7 from Task 6 plus 7), `0 ERRORS`.
 
@@ -1835,7 +1835,7 @@ Note the live preview cannot be asserted — vega-embed needs real layout, and e
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/ChartBuilder.svelte frontend/src/ChartBuilder.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add encoding controls, live preview, and commit to the builder
@@ -1976,7 +1976,7 @@ Two harness changes are needed at the top of `App.test.ts`:
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts
+cd <repo>/frontend && npx vitest run src/App.test.ts
 ```
 Expected: FAIL — `listeners['menu:insert-chart']` is undefined.
 
@@ -2095,15 +2095,15 @@ Section 4 lists every event `menu.go` emits. Add `menu:insert-chart` to that lis
 - [ ] **Step 7: Run everything**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build
-cd /Users/richarc/Development/hermes && gofmt -l . | grep -v '^build/' ; cd /Users/richarc/Development/hermes && go vet ./. && go test ./. && go build -o /dev/null .
+cd <repo>/frontend && npx vitest run && npm run check && npm run build
+cd <repo> && gofmt -l . | grep -v '^build/' ; cd <repo> && go vet ./. && go test ./. && go build -o /dev/null .
 ```
 Expected: about 262 tests across 20 files, `0 ERRORS`, both builds succeed, gofmt silent, Go tests pass.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/App.svelte frontend/src/App.test.ts menu.go CLAUDE.md
 git commit -m "$(cat <<'EOF'
 feat: open the chart builder from a new Insert menu
@@ -2153,8 +2153,8 @@ In `ROADMAP.md`, under `## v0.6.0 — Vega-Lite`, change the unchecked box to `-
 - [ ] **Step 3: Verify and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
-cd /Users/richarc/Development/hermes && go test ./.
+cd <repo>/frontend && npx vitest run && npm run check
+cd <repo> && go test ./.
 git add CHANGELOG.md ROADMAP.md
 git commit -m "$(cat <<'EOF'
 docs: record the chart builder in the changelog and roadmap
@@ -2197,7 +2197,7 @@ the model to accommodate the sample; if it should be editable, change the sample
 jsdom has no layout, so no test here proves a chart actually draws.
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task run
+cd <repo> && wails3 task run
 ```
 
 1. Insert → Chart… with the cursor in prose. Paste `dose,response` with a few

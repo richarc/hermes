@@ -20,7 +20,7 @@
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
 - **Component tests: call `flushSync()` after `mount()` before asserting.** Svelte 5 runs `onMount` in a microtask.
 - **jsdom has no layout engine and no CSS cascade resolution.** Never assert a computed colour or a rendered pixel. Colour correctness is a manual check; the automated tests here assert *structure* (which variables exist, that no literal colours leak) rather than appearance.
-- After changing the `Settings` struct, regenerate bindings: `cd /Users/richarc/Development/hermes && wails3 task common:generate:bindings`.
+- After changing the `Settings` struct, regenerate bindings: `cd <repo> && wails3 task common:generate:bindings`.
 
 ---
 
@@ -87,7 +87,7 @@ describe('applyTheme', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/theme.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/theme.test.ts`
 Expected: FAIL — cannot resolve `./theme`.
 
 - [ ] **Step 3: Implement**
@@ -122,13 +122,13 @@ export function applyTheme(resolved: ResolvedTheme): void {
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/theme.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/theme.test.ts`
 Expected: PASS, 3 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/lib/theme.ts src/lib/theme.test.ts
 git commit -m "$(cat <<'EOF'
 feat: add theme resolution
@@ -211,7 +211,7 @@ describe('style.css palette contract', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/styleContract.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/styleContract.test.ts`
 Expected: FAIL on the first test — the current stylesheet is full of literals (`#ffffff`, `#ddd`, `rgba(0, 0, 0, 0.4)` and so on).
 
 - [ ] **Step 3: Add the palette and swap every reference**
@@ -312,16 +312,16 @@ substitution list, in file order:
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/styleContract.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/styleContract.test.ts`
 Expected: PASS, 2 tests.
 
 - [ ] **Step 5: Confirm nothing else broke, and commit**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build`
+Run: `cd <repo>/frontend && npx vitest run && npm run check && npm run build`
 Expected: 186 tests across 15 files; `0 ERRORS`; build succeeds.
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add public/style.css src/lib/styleContract.test.ts
 git commit -m "$(cat <<'EOF'
 refactor: move every colour into a palette of custom properties
@@ -447,7 +447,7 @@ describe('palette contrast', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/contrast.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/contrast.test.ts`
 Expected: FAIL — there is no dark block yet, so `palette(':root[data-theme="dark"]')` throws.
 
 - [ ] **Step 3: Replace the light values with the designed palette**
@@ -668,7 +668,7 @@ describe('dark palette', () => {
 
 - [ ] **Step 8: Run the tests to verify they pass**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/lib/contrast.test.ts src/lib/styleContract.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/lib/contrast.test.ts src/lib/styleContract.test.ts`
 Expected: PASS — 2 contrast tests, 4 styleContract tests.
 
 If a contrast test fails, the palette above was mistyped: every pair was
@@ -676,11 +676,11 @@ computed before this plan was written and all thirty meet their targets.
 
 - [ ] **Step 9: Full run and commit**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build`
+Run: `cd <repo>/frontend && npx vitest run && npm run check && npm run build`
 Expected: 190 tests across 16 files; `0 ERRORS`; build succeeds.
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add public/style.css src/lib/styleContract.test.ts src/lib/contrast.test.ts
 git commit -m "$(cat <<'EOF'
 feat: design both screen palettes, add figure cards and light print output
@@ -771,7 +771,7 @@ describe('Editor theme', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Editor.test.ts`
 Expected: FAIL — no `var(--editor-bg)` appears; the editor has no theme yet.
 
 - [ ] **Step 3: Implement**
@@ -834,16 +834,16 @@ override its defaults:
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/Editor.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/Editor.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Full run and commit**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build`
+Run: `cd <repo>/frontend && npx vitest run && npm run check && npm run build`
 Expected: 192 tests across 16 files; `0 ERRORS`; build succeeds.
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend
+cd <repo>/frontend
 git add src/Editor.svelte src/Editor.test.ts
 git commit -m "$(cat <<'EOF'
 feat: theme the editor from the app's CSS variables
@@ -951,7 +951,7 @@ func TestThemeIsIndependentOfTheOtherSettings(t *testing.T) {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes && go test ./. -run TestTheme`
+Run: `cd <repo> && go test ./. -run TestTheme`
 Expected: FAIL to compile — `Theme` is not a field of `Settings`.
 
 - [ ] **Step 3: Add the field and the clamp**
@@ -981,7 +981,7 @@ In `normalise`, add the clamp beside the orientation one. Unlike
 
 - [ ] **Step 4: Run the Go tests**
 
-Run: `cd /Users/richarc/Development/hermes && go test ./.`
+Run: `cd <repo> && go test ./.`
 Expected: PASS.
 
 - [ ] **Step 5: Add the Appearance submenu**
@@ -1039,20 +1039,20 @@ and use `BackgroundColour: windowBg` in the window options.
 
 Run:
 ```bash
-cd /Users/richarc/Development/hermes && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
+cd <repo> && gofmt -l . | grep -v '^build/' ; go vet ./. && go test ./. && go build -o /dev/null .
 ```
 Expected: no gofmt output, vet clean, tests pass, build succeeds.
 
 - [ ] **Step 8: Regenerate bindings and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task common:generate:bindings
+cd <repo> && wails3 task common:generate:bindings
 cd frontend && npm run check
 ```
 Expected: `frontend/bindings/hermes/models.ts` gains `theme: string`; `0 ERRORS`.
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add settings.go settings_test.go menu.go main.go frontend/bindings
 git commit -m "$(cat <<'EOF'
 feat: add the Theme preference, Appearance menu, and window background
@@ -1149,7 +1149,7 @@ describe('theme', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/App.test.ts`
 Expected: FAIL — `data-theme` is never set; the app applies no theme.
 
 - [ ] **Step 3: Implement**
@@ -1204,21 +1204,21 @@ cleanup, call both.
 
 - [ ] **Step 4: Run it to verify it passes**
 
-Run: `cd /Users/richarc/Development/hermes/frontend && npx vitest run src/App.test.ts`
+Run: `cd <repo>/frontend && npx vitest run src/App.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Full verification**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check && npm run build
-cd /Users/richarc/Development/hermes && go test ./. && go build -o /dev/null .
+cd <repo>/frontend && npx vitest run && npm run check && npm run build
+cd <repo> && go test ./. && go build -o /dev/null .
 ```
 Expected: 195 tests across 16 files; `0 ERRORS`; both builds succeed.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/richarc/Development/hermes
+cd <repo>
 git add frontend/src/App.svelte frontend/src/App.test.ts
 git commit -m "$(cat <<'EOF'
 feat: apply the theme from the persisted setting and the OS preference
@@ -1269,8 +1269,8 @@ In the "Other things to know" list, add:
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-cd /Users/richarc/Development/hermes/frontend && npx vitest run && npm run check
-cd /Users/richarc/Development/hermes && go test ./.
+cd <repo>/frontend && npx vitest run && npm run check
+cd <repo> && go test ./.
 git add CHANGELOG.md ROADMAP.md CLAUDE.md
 git commit -m "$(cat <<'EOF'
 docs: record the dark theme
@@ -1304,7 +1304,7 @@ jsdom has no cascade and no layout, so no automated test here can tell you the
 theme *looks* right. After Task 6, run the app and confirm by eye:
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task run
+cd <repo> && wails3 task run
 ```
 
 1. **Both themes** — switch View → Appearance between Light and Dark. Chrome,

@@ -754,7 +754,7 @@ In `ROADMAP.md`, change the two v0.4 items from `- [ ]` to `- [x]`: the one begi
 Run from the repo root:
 
 ```bash
-cd /Users/richarc/Development/hermes && go test ./. && go build -o /dev/null .
+cd <repo> && go test ./. && go build -o /dev/null .
 cd frontend && npx vitest run && npm run check && npm run build
 ```
 
@@ -792,5 +792,5 @@ Counts assume every test in this plan is written as specified. If a count comes 
 The component tests assert structure, not appearance. After Task 3, run the app and confirm the two welcome-pane buttons sit side by side and clear the traffic lights:
 
 ```bash
-cd /Users/richarc/Development/hermes && wails3 task run
+cd <repo> && wails3 task run
 ```
