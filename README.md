@@ -300,6 +300,10 @@ document.
 Optional. Citations work fine against a hand-written `.bib`; Zotero adds a
 picker so you can insert keys from your library without typing them.
 
+A longer walk-through — creating a document, what the frontmatter is for,
+the formatting commands, and every item under the View menu — is in
+**[docs/getting-started.md](docs/getting-started.md)**.
+
 The full setup — Better BibTeX, an export that stays current, and what to do
 when a key inserts but will not resolve — is in
 **[docs/zotero-setup.md](docs/zotero-setup.md)**.
