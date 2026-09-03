@@ -14,6 +14,20 @@ updates:
         dependency-type: development
       production-dependencies:
         dependency-type: production
+    # Majors held back on purpose. Vite 8 is blocked on an upstream Rolldown
+    # bug that breaks KaTeX's lexer on lone surrogates (ROADMAP.md, backlog);
+    # vite-plugin-svelte 7 is its companion. TypeScript 7 is outside
+    # svelte-check's peer range, so `npm ci` refuses the tree. Grouped
+    # updates mean one blocked bump holds every safe one hostage — PR #5 sat
+    # failing for eleven days for exactly that reason. Lift a rule here when
+    # the blocker clears; minors and patches still arrive.
+    ignore:
+      - dependency-name: vite
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: gomod
     directory: /
