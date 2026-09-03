@@ -6,6 +6,7 @@
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
   import { renderDocument, type RenderOptions } from './lib/renderer'
+  import { timed } from './lib/perf'
   import { type OutlineEntry } from './lib/outline'
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
@@ -107,7 +108,9 @@
   // call site cannot update one and leave the other a document behind.
   function renderInto(text: string) {
     const opts: RenderOptions = { formatter, chartWidth, docPath: path }
-    const result = renderDocument(text, opts)
+    // `hermes:render` in Web Inspector: markdown-it, KaTeX, citeproc — the
+    // JS half of a preview update. The DOM half is `hermes:preview-dom`.
+    const result = timed('render', () => renderDocument(text, opts))
     html = result.html
     outline = result.outline
   }

@@ -6,6 +6,7 @@
   import { createCodeHydrator } from './lib/codeHighlight'
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
+  import { timed, timedAsync } from './lib/perf'
   import {
     sheetStyle,
     DEFAULT_PAPER_SIZE,
@@ -55,20 +56,29 @@
   }
 
   $effect(() => {
-    sheet.innerHTML = html
+    // `hermes:preview-dom` covers only the replacement: parsing the HTML and
+    // building the new subtree. WebKit defers style and layout, so in Web
+    // Inspector the cost of laying it out is the Layout record that follows
+    // this measure, not part of it.
+    timed('preview-dom', () => {
+      sheet.innerHTML = html
+    })
     // Anchor positions are invalid the moment the content changes, and again
     // once charts finish rendering — they change their own height after the
     // pass that created them.
     sync.invalidate()
-    void hydrator.hydrate(sheet).then(() => sync.invalidate())
+    // The hydrators are measured to settlement, so `hermes:hydrate-*` spans
+    // the async work (dynamic imports, Vega embeds) and not just the pass
+    // that queued it.
+    void timedAsync('hydrate-charts', hydrator.hydrate(sheet)).then(() => sync.invalidate())
     // Same reason the chart hydrator invalidates: a diagram changes its own
     // height after the pass that placed it, so anchors measured before it
     // rendered are wrong.
-    void mermaidHydrator.hydrate(sheet).then(() => sync.invalidate())
+    void timedAsync('hydrate-mermaid', mermaidHydrator.hydrate(sheet)).then(() => sync.invalidate())
     // Every failure inside the hydrator already degrades to plain text; this
     // is a backstop against an unhandled rejection reaching the webview, not
     // the primary defence.
-    void codeHydrator.hydrate(sheet).catch(() => {})
+    void timedAsync('hydrate-code', codeHydrator.hydrate(sheet)).catch(() => {})
   })
 
   // Paper size and orientation change the sheet's width AND its padding, so
