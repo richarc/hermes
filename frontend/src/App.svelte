@@ -986,6 +986,15 @@
 
   {#if showWelcome}
     <div class="welcome">
+      <!-- A button, not an <a href>: a real link would navigate the webview
+           away and take the app state with it. Same route the preview's
+           links take. -->
+      <p class="welcome-intro">
+        The guides are at
+        <button class="link-button" onclick={() => void Browser.OpenURL('https://www.hermeseditor.com/guides')}
+          >hermeseditor.com/guides</button
+        >. Found a bug? Help → Report an Issue… opens a report with the version already filled in.
+      </p>
       <h2>Recent files</h2>
       <ul>
         {#each recents as r (r)}

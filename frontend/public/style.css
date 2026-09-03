@@ -500,6 +500,8 @@ textarea:focus-visible,
   position: absolute; inset: 0; background: var(--overlay-bg);
   padding: 48px; overflow: auto;
 }
+.welcome-intro { color: var(--muted); max-width: 60ch; line-height: 1.5; margin-bottom: 24px; }
+.welcome-intro .link-button { display: inline; padding: 0; font: inherit; }
 .welcome ul { list-style: none; margin-top: 12px; }
 .welcome-actions { display: flex; gap: 12px; margin-top: 24px; }
 

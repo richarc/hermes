@@ -443,7 +443,9 @@ deliberate error cases — and section 11 is meant to look broken.
 - Spell checking is as-you-type only. macOS checks the word you just typed
   and the word you leave, never a document you open, so an existing paper
   shows no underlines until you edit or move through it. A whole-document
-  pass is on the roadmap.
+  pass is on the roadmap. Turning **View → Check Spelling** off stops new
+  underlines but does not remove the ones already on screen; those stay
+  until you edit their line or reopen the document.
 
 ## Licence and credits
 

@@ -147,6 +147,28 @@ afterEach(() => {
 })
 
 describe('welcome pane', () => {
+  // The pane is the first thing a returning user sees, so it carries the
+  // two pointers a newcomer needs: where the guides are, and how to report a
+  // bug. The guides link must open in the system browser — a plain <a href>
+  // would navigate the webview away and destroy the app state.
+  it('points at the guides and at Help → Report an Issue, above the recent files', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+
+    const intro = target.querySelector<HTMLElement>('.welcome-intro')!
+    expect(intro).not.toBeNull()
+    expect(intro.textContent).toContain('hermeseditor.com/guides')
+    expect(intro.textContent).toContain('Help → Report an Issue')
+    // Above the list, not below it.
+    const list = target.querySelector('.welcome ul')!
+    expect(intro.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    buttonByText(intro, 'hermeseditor.com/guides')!.click()
+    expect(Browser.OpenURL).toHaveBeenCalledWith('https://www.hermeseditor.com/guides')
+    expect(intro.querySelector('a[href]')).toBeNull()
+  })
+
   it('offers both New document and Open… when recents exist', async () => {
     recents.current = ['/papers/thesis.md']
     const { target } = mountApp()

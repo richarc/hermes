@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The welcome pane says where the guides are (hermeseditor.com/guides, opened
+  in your browser) and how to report a bug (Help → Report an Issue…), above
+  the recent files. Help → Hermes Documentation now opens the same guides
+  page rather than the repository README.
 - Spell checking, on by default and switched by View → Check Spelling.
   macOS's own checker underlines misspelled prose as you type and offers
   corrections on right-click; code, maths, citation keys, link addresses,

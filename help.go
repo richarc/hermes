@@ -8,10 +8,9 @@ import (
 
 // Where the Help menu points.
 //
-// docsURL is a placeholder standing in for the documentation site, which does
-// not exist yet; it points at the repository meanwhile so the menu item is not
-// a dead link. Replacing it is a one-line change — nothing else assumes what
-// it is.
+// docsURL is the guides section of the documentation site. The welcome pane
+// in App.svelte names the same address in prose, so the two must move
+// together.
 //
 // feedbackBaseURL is not a placeholder. A hosted form (Tally, Formspree or
 // similar) was considered and rejected on 2026-08-27 in favour of GitHub
@@ -19,8 +18,7 @@ import (
 // tracked, and the URL can prefill the body — so the cost of an account is
 // paid for by a report that can be acted on and replied to.
 const (
-	// TODO: replace with the documentation site when it ships.
-	docsURL = "https://github.com/richarc/hermes#readme"
+	docsURL = "https://www.hermeseditor.com/guides"
 
 	feedbackBaseURL = "https://github.com/richarc/hermes/issues/new"
 )
