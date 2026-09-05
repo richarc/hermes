@@ -34,9 +34,14 @@ func localImages(next http.Handler) http.Handler {
 		}
 
 		// The URL does not change when the file is edited in another
-		// application, so a cached response would leave the preview showing a
-		// stale image with no way to refresh short of restarting.
-		w.Header().Set("Cache-Control", "no-store")
+		// application, so the webview must ask again every time it needs the
+		// image — but it need not be sent the bytes every time. no-cache
+		// makes it revalidate, and ServeFile answers a revalidation of an
+		// unchanged file (If-Modified-Since against the mtime it emits as
+		// Last-Modified) with a 304 and no body. no-store, which this was,
+		// forbade keeping a copy at all, so every render of a changed block
+		// re-read the file and re-transferred it.
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, path)
 	})
 }

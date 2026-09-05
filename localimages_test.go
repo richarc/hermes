@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLocalImagePath(t *testing.T) {
@@ -121,10 +122,57 @@ func TestLocalImagesServesAFileBesideTheDocument(t *testing.T) {
 		t.Errorf("body = %q, want the file's contents", body)
 	}
 	// The URL does not change when the file is edited in another application,
-	// so without this the webview would keep showing a stale image with no way
-	// to refresh short of restarting.
-	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-		t.Errorf("Cache-Control = %q, want no-store", got)
+	// so the webview must revalidate every time — but no-cache, not no-store:
+	// an unchanged file answers the revalidation with a 304 and no bytes.
+	if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Errorf("Cache-Control = %q, want no-cache", got)
+	}
+	if rec.Header().Get("Last-Modified") == "" {
+		t.Error("no Last-Modified header, so the webview has nothing to revalidate against")
+	}
+}
+
+func TestLocalImagesAnswersAnUnchangedFileWith304(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "main.md")
+	file := filepath.Join(dir, "fig1.png")
+	if err := os.WriteFile(file, []byte("PNGDATA"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	url := localImageRoute + "?doc=" + doc + "&src=fig1.png"
+
+	first := httptest.NewRecorder()
+	localImages(refuseHandler(t)).ServeHTTP(first, httptest.NewRequest(http.MethodGet, url, nil))
+	stamp := first.Header().Get("Last-Modified")
+	if stamp == "" {
+		t.Fatal("first response carried no Last-Modified")
+	}
+
+	// The webview's revalidation: same URL, the stamp it was given.
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("If-Modified-Since", stamp)
+	rec := httptest.NewRecorder()
+	localImages(refuseHandler(t)).ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotModified {
+		t.Fatalf("status = %d, want 304 for an unchanged file", rec.Code)
+	}
+	if rec.Body.Len() != 0 {
+		t.Errorf("a 304 carried %d bytes of body", rec.Body.Len())
+	}
+
+	// Edited in another application after the stamp: the bytes come back.
+	// Last-Modified has one-second resolution, so the mtime moves by a
+	// whole second rather than waiting one out.
+	later := time.Now().Add(2 * time.Second)
+	if err := os.Chtimes(file, later, later); err != nil {
+		t.Fatal(err)
+	}
+	req = httptest.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("If-Modified-Since", stamp)
+	rec = httptest.NewRecorder()
+	localImages(refuseHandler(t)).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 once the file changed", rec.Code)
 	}
 }
 

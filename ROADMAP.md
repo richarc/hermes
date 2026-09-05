@@ -844,7 +844,7 @@ are where the 38 ms goes.
       hand on 2026-09-05 along with scroll sync after a line is added above
       a chart, edits inside chart and diagram blocks, ToC links and a chart
       width change.
-- [ ] **Stop refetching local images on every render.** `localimages.go`
+- [x] **Stop refetching local images on every render.** `localimages.go`
       answers with `Cache-Control: no-store` so an edit made in another
       application shows up, and because the preview recreates every `<img>`
       per render that forces a fresh fetch and file read per image per
@@ -855,6 +855,12 @@ are where the 38 ms goes.
       alternative). Inferred from the code and browser cache semantics
       rather than a trace — confirm in Web Inspector's network tab first.
       Worth doing even after the item above, for the block that did change.
+      *Done 2026-09-05*: `no-cache`; `ServeFile` already answered a
+      conditional request for an unchanged file with a 304, which a test now
+      pins along with the header, and the reconciliation item means an
+      unchanged image block is not fetched at all. Confirmed in Web
+      Inspector's network tab on 2026-09-05: editing the image's own
+      paragraph produces a 304, typing elsewhere produces no request.
 - [x] **Memoise the citation formatter.** `citations.ts`'s `format()` calls
       `rebuildProcessorState` and `makeBibliography` on every render,
       whether or not the keystroke touched a citation — 15 ms for 30
