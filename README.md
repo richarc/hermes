@@ -35,7 +35,7 @@ on screen is rendered from it.
   PDFs stay light regardless.
 - **PDF export** — the preview, including charts, diagrams and references.
 
-Latest release: **v0.9.0**. See [CHANGELOG.md](CHANGELOG.md) for what shipped
+Latest release: **v0.11.0**. See [CHANGELOG.md](CHANGELOG.md) for what shipped
 and [ROADMAP.md](ROADMAP.md) for what is planned.
 
 ---

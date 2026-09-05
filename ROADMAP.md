@@ -773,7 +773,7 @@ a file-tree sidebar, which is the multi-part document idea dropped on
       first tagged release carries updates for people who prefer `brew
       upgrade`, with no code in Hermes.
 
-## v0.11.0 — Rendering performance
+## v0.11.0 — Rendering performance ✅ (released 2026-09-05)
 
 From a measurement pass on 2026-08-28: `renderDocument()` timed in vitest on
 the repository's own documents, and the preview's DOM replacement timed in

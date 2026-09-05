@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-05
+
+The rendering performance release. Nothing new to write with; the preview
+keeps up with typing instead of trailing it. Measured in the app itself, on
+a 20 KB test paper with 27 citations, 22 formulas, 18 charts and 6 diagrams:
+the work behind each keystroke pause went from about 42 ms to about 10 ms,
+and the wait before it from a fixed 250 ms to 60 ms. Same signed, notarized,
+universal build as v0.10.0.
+
+### Changed
+
+- The preview updates in place. Only the blocks whose markdown changed are
+  rebuilt; every other paragraph, formula, chart, diagram, code block and
+  image stays where it is. Charts no longer redraw while you type above
+  them, and a local image is not fetched again unless its own paragraph
+  changed — and then only if the file has changed on disk.
+- Citations and the bibliography are formatted once and reused until a
+  citation changes, and each formula is typeset once and reused until it
+  is edited. Before, both were redone in full on every keystroke pause.
+- The pause before the preview updates follows the document: about 60 ms
+  for a typical paper, rising to at most 300 ms for one whose update is
+  expensive, so a large document never queues renders behind each other.
+- Charts embed together rather than one after another when a document is
+  opened or the chart width changes: 18 charts in 63 ms rather than 110.
+- For development: a dev build (`wails3 task run DEV=true`) can now be
+  attached to from Safari's Web Inspector, and the render pipeline carries
+  `hermes:` timing marks readable from its Console.
+
 ## [0.10.0] - 2026-09-03
 
 The authoring release. Everything that was finished after v0.9.0 and marked
