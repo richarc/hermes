@@ -792,6 +792,23 @@ measurement (≤1.5 ms, cached, one forced layout), the per-keystroke
 `doc.toString()` and dirty compare, the hydrator caches, and the Go bridge,
 which carries nothing per keystroke but `SetDirty` on a real change.
 
+WebKit figures, from Safari's Web Inspector attached to a dev build on
+2026-09-05, typing in `docs/test-document.md` (19.8 KB: 27 citations with
+the APA formatter, 22 formulas, 18 charts, 6 diagrams), 38 preview updates:
+`hermes:render` is **38 ms median** (25–60) per keystroke pause against
+Chrome's 9.7 ms, and `hermes:preview-dom` — the `innerHTML` replacement
+alone — is 3 ms; the timeline then shows about 5 ms of style recalculation,
+7 ms of layout and 13 ms of compositing before the frame is on screen. So in
+the real webview the JS half is the larger cost, not the DOM half: roughly
+40 ms of render against 15 ms of DOM work the reconciliation item can remove
+(compositing stays). Five of the 38 renders produced identical HTML and
+Svelte skipped the DOM update, so those 38 ms bought nothing. First open of
+the document costs 233 ms of render, then 353 ms of Vega, 676 ms of Mermaid
+and 136 ms of code-highlighter import and first hydration; every later
+hydration is 0–2 ms from the caches. Read against these numbers the two
+memoisation items move ahead of reconciliation, since citeproc and KaTeX
+are where the 38 ms goes.
+
 - [ ] **Reconcile the preview instead of replacing it.**
       `Preview.svelte`'s effect does `sheet.innerHTML = html`, which is the
       dominant cost and the root of the next item too: every KaTeX span is
@@ -842,10 +859,18 @@ which carries nothing per keystroke but `SetDirty` on a real change.
       embeds one after another on first open and on a chart-width change.
       `Promise.all` over the uncached placeholders, keeping the generation
       guard, overlaps them.
-- [ ] **Profile in the real webview before starting.** The DOM numbers above
+- [x] **Profile in the real webview before starting.** The DOM numbers above
       are Chrome's. Add `performance.mark`s around `renderInto` and the
       Preview effect and take one profile in Safari's Web Inspector attached
       to the app, so each item above is judged against WebKit figures.
+      *Done 2026-09-05; the figures are in the paragraph above.* `lib/perf.ts`
+      records `hermes:render`, `hermes:preview-dom` and `hermes:hydrate-*` as
+      User Timing measures; read them back with
+      `performance.getEntriesByName('hermes:render')` in the Console, since a
+      Timeline export keeps the marks but drops the measures. Safari lists the
+      app only for a dev build (`wails3 task run DEV=true`): the `production`
+      tag compiles out both Wails' devtools and `inspector_darwin.go`, which
+      sets the `inspectable` property Wails itself never sets on macOS.
 
 ## v1.0.0 — Production
 
