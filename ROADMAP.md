@@ -876,13 +876,17 @@ are where the 38 ms goes.
       math all share one 2000-entry LRU without touching the renderers.
       Typing in prose in the test document, `hermes:render` went from about
       17 ms (after the citation memo) to 12 ms median (5–15) in WebKit.
-- [ ] **Make the debounce earn its 250 ms.** `App.svelte`'s `updatePreview`
+- [x] **Make the debounce earn its 250 ms.** `App.svelte`'s `updatePreview`
       waits a fixed 250 ms, which once renders are cheap is the whole
       perceived latency. Either drop it to about 100 ms or make it adaptive
       — clamp twice the last measured render time between ~60 and 300 ms —
       so a small document feels immediate and a huge one never queues.
       After the reconciliation item, so the shorter wait is not paid on an
-      expensive render.
+      expensive render. *Done 2026-09-05*: `lib/adaptiveWait.ts`, twice the
+      last update's cost clamped to 60–300 ms, 100 ms until first measured;
+      `debounce` takes a function-valued wait. The measurement includes the
+      preview's DOM work, via `flushSync` inside the debounced callback, not
+      just the render.
 - [ ] **Embed charts concurrently.** `charts.ts`'s hydrator awaits `embed`
       inside its `for` loop, so a paper with eight charts pays eight Vega
       embeds one after another on first open and on a chart-width change.

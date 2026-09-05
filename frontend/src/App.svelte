@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { onMount, untrack, flushSync } from 'svelte'
   import { Events, Browser } from '@wailsio/runtime'
   import { DocumentService } from '../bindings/hermes'
   import type { Settings, Draft, UpdateResult } from '../bindings/hermes/models'
@@ -10,6 +10,7 @@
   import { type OutlineEntry } from './lib/outline'
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
+  import { createAdaptiveWait } from './lib/adaptiveWait'
   import { createDraftKeeper, DRAFT_DEBOUNCE_MS } from './lib/recoveryDraft'
   import {
     NEW_DOCUMENT_TEMPLATE,
@@ -160,9 +161,19 @@
   const fmBibliography = $derived(fm.bibliography)
   const fmCsl = $derived(fm.csl)
 
+  // The wait follows the cost of the last update: twice the measured time,
+  // between 60 and 300 ms, starting at 100 until the first measurement. The
+  // measurement takes in the preview's DOM work as well as the render —
+  // flushSync runs the effect that reconciles the sheet here rather than in
+  // the microtask Svelte would otherwise use — so a chart-heavy document
+  // that is cheap to render but dear to lay out is still waited for.
+  const previewWait = createAdaptiveWait({ initial: 100, min: 60, max: 300, factor: 2 })
   const updatePreview = debounce((text: string) => {
+    const start = performance.now()
     renderInto(text)
-  }, 250)
+    flushSync()
+    previewWait.record(performance.now() - start)
+  }, previewWait.wait)
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
   // Dirty means "differs from what's on disk" — typing back to the saved
@@ -494,7 +505,7 @@
     welcomeDismissed = true
     editor.setContent(docContent, cursor) // fires onEditorChange, queueing a render
     savedContent = docContent
-    // Render now rather than 250 ms from now, and drop the queued pass: it
+    // Render now rather than after the debounce, and drop the queued pass: it
     // would only re-render this same text.
     updatePreview.cancel()
     renderInto(docContent)

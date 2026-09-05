@@ -35,6 +35,21 @@ describe('debounce', () => {
     expect(fn).not.toHaveBeenCalled()
   })
 
+  it('asks a function-valued wait each time a call is scheduled', () => {
+    const fn = vi.fn()
+    let wait = 100
+    const d = debounce(fn, () => wait)
+    d('a')
+    vi.advanceTimersByTime(99)
+    expect(fn).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(fn).toHaveBeenCalledExactlyOnceWith('a')
+    wait = 20
+    d('b')
+    vi.advanceTimersByTime(20)
+    expect(fn).toHaveBeenLastCalledWith('b')
+  })
+
   it('cancel on an idle debounce is harmless, and it still works afterwards', () => {
     const fn = vi.fn()
     const d = debounce(fn, 250)
