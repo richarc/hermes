@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createCitationFormatter, STYLE_IDS } from './citations'
 import type { CSLEntry } from './bibliography'
 import MarkdownIt from 'markdown-it'
@@ -117,6 +117,61 @@ describe('createCitationFormatter (apa)', () => {
     expect(collided).not.toBe(alone) // gains the 2020a suffix
     // ...and loses it again when the colliding entry is no longer cited.
     expect(f.format([{ items: [{ key: 'smith2020' }] }]).texts[0]).toBe(alone)
+  })
+})
+
+describe('createCitationFormatter memoisation', () => {
+  // The engine class is reached the same way citations.ts reaches it, so the
+  // spy lands on the prototype every formatter instance shares.
+  async function spyOnEngine() {
+    const namespace = (await import('citeproc')) as { default?: unknown }
+    const exports = namespace.default ?? namespace
+    const CSL = ((exports as { default?: unknown }).default ?? exports) as {
+      Engine: { prototype: { rebuildProcessorState: (...args: unknown[]) => unknown } }
+    }
+    return vi.spyOn(CSL.Engine.prototype, 'rebuildProcessorState')
+  }
+  afterEach(() => vi.restoreAllMocks())
+
+  it('does not re-run citeproc when the cluster list is unchanged', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
+    const spy = await spyOnEngine()
+    const clusters = (): CitationCluster[] => [
+      { items: [{ key: 'smith2020', prefix: 'see', locator: '3', label: 'page' }] },
+      { items: [] },
+      { items: [{ key: 'doe2021' }], mode: 'composite' },
+    ]
+    const first = f.format(clusters())
+    // A structurally equal list built from fresh objects, as every render
+    // hands over.
+    const second = f.format(clusters())
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(second).toEqual(first)
+  })
+
+  it('re-runs citeproc when any field of any cluster changes', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
+    const spy = await spyOnEngine()
+    f.format([{ items: [{ key: 'smith2020' }] }])
+    f.format([{ items: [{ key: 'smith2020', suppressAuthor: true }] }])
+    f.format([{ items: [{ key: 'smith2020', suppressAuthor: true }] }, { items: [] }])
+    f.format([
+      { items: [{ key: 'smith2020', suppressAuthor: true }], mode: 'composite' },
+      { items: [] },
+    ])
+    expect(spy).toHaveBeenCalledTimes(4)
+  })
+
+  it('remembers only the last list, so a change and its undo both format', async () => {
+    const f = await createCitationFormatter(ENTRIES, 'apa')
+    const spy = await spyOnEngine()
+    const a: CitationCluster[] = [{ items: [{ key: 'smith2020' }] }]
+    const b: CitationCluster[] = [{ items: [{ key: 'doe2021' }] }]
+    f.format(a)
+    f.format(b)
+    const again = f.format(a)
+    expect(spy).toHaveBeenCalledTimes(3)
+    expect(again.texts[0]).toContain('Smith')
   })
 })
 

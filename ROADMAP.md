@@ -837,11 +837,16 @@ are where the 38 ms goes.
       alternative). Inferred from the code and browser cache semantics
       rather than a trace — confirm in Web Inspector's network tab first.
       Worth doing even after the item above, for the block that did change.
-- [ ] **Memoise the citation formatter.** `citations.ts`'s `format()` calls
+- [x] **Memoise the citation formatter.** `citations.ts`'s `format()` calls
       `rebuildProcessorState` and `makeBibliography` on every render,
       whether or not the keystroke touched a citation — 15 ms for 30
       clusters. Keep the last cluster list (serialised) and its result, and
       return the result again when the list is the same. Self-contained.
+      *Done 2026-09-05*: one entry keyed on `JSON.stringify(clusters)`, the
+      result handed back unchanged since `renderer.ts` only reads it. Typing
+      in a prose paragraph of the test document, `hermes:render` went from
+      38 ms median to 13–23 ms (about 17) in WebKit; `hermes:preview-dom`
+      stayed at 4 ms.
 - [ ] **Memoise KaTeX.** `@vscode/markdown-it-katex` calls `renderToString`
       for every formula on every render, ~60 µs each. `renderer.ts` already
       wraps `math_block`; wrap `math_inline` the same way and put both

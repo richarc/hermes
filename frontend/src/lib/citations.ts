@@ -48,8 +48,13 @@ export interface CitationCluster {
   mode?: 'composite'
 }
 
+export interface FormatResult {
+  texts: string[]
+  bibliographyHtml: string
+}
+
 export interface CitationFormatter {
-  format(clusters: CitationCluster[]): { texts: string[]; bibliographyHtml: string }
+  format(clusters: CitationCluster[]): FormatResult
   has(key: string): boolean
 }
 
@@ -92,46 +97,68 @@ export async function createCitationFormatter(
   // from the cluster list it is handed, so a reused engine carries nothing over
   // from the previous render — see the reuse tests in citations.test.ts.
   let engine: CiteprocEngine | undefined
+  // The last cluster list, serialised, and what it formatted to. A render
+  // happens on every keystroke pause but the citations change on very few of
+  // them, and rebuildProcessorState plus makeBibliography cost ~15 ms for 30
+  // clusters — most of a render in WebKit. JSON.stringify covers every field
+  // that affects the output (keys, affixes, locators, modes, and the position
+  // of blanked clusters) and drops undefined fields, so a list built with
+  // `prefix: undefined` and one built without match, as they should. One
+  // entry, not an LRU: the common case is "same as last time", and a change
+  // followed by its undo is two renders either way.
+  let lastKey: string | undefined
+  let lastResult: FormatResult | undefined
+
+  function formatUncached(clusters: CitationCluster[]): FormatResult {
+    const texts: string[] = new Array(clusters.length).fill('')
+    // citeproc's result indices are positions among SUBMITTED clusters, not
+    // original cluster positions. Since empty clusters are never submitted,
+    // map submitted index -> original index to keep texts[] aligned with
+    // the caller's cluster array.
+    const submittedToOriginal: number[] = []
+    const citations = clusters.flatMap((cluster, i) => {
+      if (cluster.items.length === 0) return [] // caller-blanked: keep '' at index i
+      submittedToOriginal.push(i)
+      return [
+        {
+          citationID: `cite-${i}`,
+          citationItems: cluster.items.map((item) => ({
+            id: item.key,
+            prefix: item.prefix,
+            suffix: item.suffix,
+            locator: item.locator,
+            label: item.label,
+            'suppress-author': item.suppressAuthor || undefined,
+          })),
+          properties: { noteIndex: 0, ...(cluster.mode ? { mode: cluster.mode } : {}) },
+        },
+      ]
+    })
+    if (citations.length === 0) return { texts, bibliographyHtml: '' }
+
+    engine ??= new CSL.Engine(sys, style)
+    for (const [submitted, entry] of engine.rebuildProcessorState(citations, 'html').entries()) {
+      // A sparse slot would mean citeproc reported no text for a cluster it
+      // was given; leave the '' rather than throwing off the alignment.
+      if (entry) texts[submittedToOriginal[submitted]] = entry[2]
+    }
+    const bib = engine.makeBibliography()
+    const bibliographyHtml = bib
+      ? bib[0].bibstart + bib[1].join('') + bib[0].bibend
+      : ''
+    return { texts, bibliographyHtml }
+  }
+
   return {
     has: (key) => byId.has(key),
     format(clusters) {
-      const texts: string[] = new Array(clusters.length).fill('')
-      // citeproc's result indices are positions among SUBMITTED clusters, not
-      // original cluster positions. Since empty clusters are never submitted,
-      // map submitted index -> original index to keep texts[] aligned with
-      // the caller's cluster array.
-      const submittedToOriginal: number[] = []
-      const citations = clusters.flatMap((cluster, i) => {
-        if (cluster.items.length === 0) return [] // caller-blanked: keep '' at index i
-        submittedToOriginal.push(i)
-        return [
-          {
-            citationID: `cite-${i}`,
-            citationItems: cluster.items.map((item) => ({
-              id: item.key,
-              prefix: item.prefix,
-              suffix: item.suffix,
-              locator: item.locator,
-              label: item.label,
-              'suppress-author': item.suppressAuthor || undefined,
-            })),
-            properties: { noteIndex: 0, ...(cluster.mode ? { mode: cluster.mode } : {}) },
-          },
-        ]
-      })
-      if (citations.length === 0) return { texts, bibliographyHtml: '' }
-
-      engine ??= new CSL.Engine(sys, style)
-      for (const [submitted, entry] of engine.rebuildProcessorState(citations, 'html').entries()) {
-        // A sparse slot would mean citeproc reported no text for a cluster it
-        // was given; leave the '' rather than throwing off the alignment.
-        if (entry) texts[submittedToOriginal[submitted]] = entry[2]
-      }
-      const bib = engine.makeBibliography()
-      const bibliographyHtml = bib
-        ? bib[0].bibstart + bib[1].join('') + bib[0].bibend
-        : ''
-      return { texts, bibliographyHtml }
+      const key = JSON.stringify(clusters)
+      // Handed back as is: renderer.ts only reads the result, and copying the
+      // arrays would cost about what the lookup saves on a small document.
+      if (lastResult && key === lastKey) return lastResult
+      lastKey = key
+      lastResult = formatUncached(clusters)
+      return lastResult
     },
   }
 }
