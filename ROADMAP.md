@@ -847,11 +847,17 @@ are where the 38 ms goes.
       in a prose paragraph of the test document, `hermes:render` went from
       38 ms median to 13–23 ms (about 17) in WebKit; `hermes:preview-dom`
       stayed at 4 ms.
-- [ ] **Memoise KaTeX.** `@vscode/markdown-it-katex` calls `renderToString`
+- [x] **Memoise KaTeX.** `@vscode/markdown-it-katex` calls `renderToString`
       for every formula on every render, ~60 µs each. `renderer.ts` already
       wraps `math_block`; wrap `math_inline` the same way and put both
       through an LRU keyed on the TeX source and display mode. With the
       reconciliation item this makes a maths-heavy paper free to edit.
+      *Done 2026-09-05*, one level down from the plan: the plugin takes a
+      `katex` option for the renderer it calls, so `lib/katexCache.ts` is a
+      memoising front handed in there, and inline, inline-block and display
+      math all share one 2000-entry LRU without touching the renderers.
+      Typing in prose in the test document, `hermes:render` went from about
+      17 ms (after the citation memo) to 12 ms median (5–15) in WebKit.
 - [ ] **Make the debounce earn its 250 ms.** `App.svelte`'s `updatePreview`
       waits a fixed 250 ms, which once renders are cheap is the whole
       perceived latency. Either drop it to about 100 ms or make it adaptive

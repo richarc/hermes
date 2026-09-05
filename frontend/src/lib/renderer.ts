@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it'
 import katexPluginModule from '@vscode/markdown-it-katex'
+import katex from 'katex'
 import type Token from 'markdown-it/lib/token.mjs'
 import { outlinePlugin, type OutlineEntry } from './outline'
 import { tocPlugin, tocNavHtml, tocDepth, type TocEnv, DEFAULT_TOC_DEPTH } from './toc'
@@ -14,6 +15,7 @@ import {
   type FigureMeta,
 } from './figures'
 import { parseMermaidSource } from './mermaidSource'
+import { createKatexCache } from './katexCache'
 
 // The plugin ships CJS; Vite's browser interop and Vitest's node interop
 // disagree on whether the default import is the plugin function or the CJS
@@ -40,7 +42,16 @@ const md = new MarkdownIt({ html: false, linkify: true })
 // errorColor only decides the .katex-error class exists — KaTeX writes it as
 // an inline `color` style, which style.css's `.sheet .katex-error` rule
 // overrides with !important so the document palette still wins.
-md.use(katexPlugin, { throwOnError: false, errorColor: '#cc0000' })
+//
+// `katex` is the plugin's hook for the renderer it calls: a memoising front
+// (katexCache.ts) so a formula is typeset once and every later render of the
+// unchanged document reads it back. Module-level like `md` itself, so the
+// cache lives as long as the app.
+md.use(katexPlugin, {
+  throwOnError: false,
+  errorColor: '#cc0000',
+  katex: createKatexCache(katex),
+})
 
 // Stamp every top-level block with the document line it starts on, for scroll
 // sync to anchor against. Only level-0 tokens carry a `map`; inline tokens do
