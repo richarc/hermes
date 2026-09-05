@@ -162,6 +162,58 @@ describe('createChartHydrator: view lifecycle', () => {
   })
 })
 
+describe('createChartHydrator: concurrency', () => {
+  it('starts every uncached embed before waiting on any of them', async () => {
+    const finish: (() => void)[] = []
+    const embed = vi.fn(
+      (el: HTMLElement) =>
+        new Promise<ChartView>((resolve) => {
+          finish.push(() => {
+            el.textContent = 'R'
+            resolve({ finalize: vi.fn() })
+          })
+        }),
+    )
+    const h = createChartHydrator(embed as unknown as EmbedFn)
+    const c = containerWith(placeholder(SPEC) + placeholder(SPEC2) + placeholder('{"mark":"point"}'))
+
+    const pass = h.hydrate(c)
+    // Nothing has resolved yet, and all three embeds are already in flight.
+    expect(embed).toHaveBeenCalledTimes(3)
+    for (const f of finish) f()
+    await pass
+    expect(c.textContent).toBe('RRR')
+  })
+
+  it('caches the first copy of a duplicated spec however the embeds finish', async () => {
+    const finish: (() => void)[] = []
+    const embed = vi.fn(
+      (el: HTMLElement) =>
+        new Promise<ChartView>((resolve) => {
+          finish.push(() => {
+            el.textContent = 'R'
+            resolve({ finalize: vi.fn() })
+          })
+        }),
+    )
+    const h = createChartHydrator(embed as unknown as EmbedFn)
+    const pass = h.hydrate(containerWith(placeholder(SPEC) + placeholder(SPEC)))
+    finish[1]() // the second copy finishes first
+    finish[0]()
+    await pass
+    expect(embed).toHaveBeenCalledTimes(2)
+
+    // A later pass reuses exactly one cached node and embeds the other copy.
+    const second = containerWith(placeholder(SPEC) + placeholder(SPEC))
+    const next = h.hydrate(second)
+    expect(embed).toHaveBeenCalledTimes(3)
+    finish[2]()
+    await next
+    expect(second.children.length).toBe(2)
+    expect(second.textContent).toBe('RR')
+  })
+})
+
 describe('createChartHydrator: overlapping passes', () => {
   it('a stale pass abandons its work and finalizes its orphaned view', async () => {
     let release: (() => void) | undefined

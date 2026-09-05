@@ -49,6 +49,12 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
       // duplicated, so the extra occurrence embeds fresh instead of stealing.
       const placedThisPass = new Set<HTMLElement>()
 
+      // Two phases. The synchronous one settles everything that needs no
+      // embed — kept nodes and cache moves — and collects the rest; the
+      // second embeds those all at once. Awaiting each embed in turn made a
+      // paper with eight charts pay eight Vega embeds end to end on first
+      // open and on every chart-width change.
+      const toEmbed: { el: HTMLElement; specText: string }[] = []
       for (const el of placeholders) {
         const specText = el.dataset.spec ?? ''
         liveSpecs.add(specText)
@@ -86,18 +92,27 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
 
         // No cache entry, or the cached node is already placed this pass
         // (duplicated spec): embed fresh.
-        const view = await embed(el, specText)
-        if (gen !== generation) {
-          // A newer pass started while we awaited: this element belongs to a
-          // stale DOM. Release its view and abandon the pass.
-          view?.finalize()
-          return
-        }
-        if (view) views.set(el, view)
-        el.dataset.hydrated = ''
-        placedThisPass.add(el)
-        if (!cache.has(specText)) cache.set(specText, el)
+        toEmbed.push({ el, specText })
       }
+
+      await Promise.all(
+        toEmbed.map(async ({ el, specText }) => {
+          const view = await embed(el, specText)
+          if (gen !== generation) {
+            // A newer pass started while we awaited: this element belongs to
+            // a stale DOM. Release its view; the pass is abandoned below.
+            view?.finalize()
+            return
+          }
+          if (view) views.set(el, view)
+          el.dataset.hydrated = ''
+          placedThisPass.add(el)
+          // Whichever copy of a duplicated spec finishes first is the one
+          // later passes move; the other stays an extra, embedded fresh.
+          if (!cache.has(specText)) cache.set(specText, el)
+        }),
+      )
+      if (gen !== generation) return
 
       // Evict cache entries whose spec left the document.
       for (const [spec, el] of cache) {

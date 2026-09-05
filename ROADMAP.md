@@ -887,11 +887,19 @@ are where the 38 ms goes.
       `debounce` takes a function-valued wait. The measurement includes the
       preview's DOM work, via `flushSync` inside the debounced callback, not
       just the render.
-- [ ] **Embed charts concurrently.** `charts.ts`'s hydrator awaits `embed`
+- [x] **Embed charts concurrently.** `charts.ts`'s hydrator awaits `embed`
       inside its `for` loop, so a paper with eight charts pays eight Vega
       embeds one after another on first open and on a chart-width change.
       `Promise.all` over the uncached placeholders, keeping the generation
-      guard, overlaps them.
+      guard, overlaps them. *Done 2026-09-05*: a synchronous phase settles
+      kept nodes and cache moves and collects the rest, then one
+      `Promise.all` embeds those; whichever copy of a duplicated spec
+      finishes first becomes the cached node. A/B on the test document's 18
+      charts, same session, serial then concurrent: re-embedding with Vega
+      already loaded 110 ms → 63 ms; first open 800 ms → 890 ms, i.e.
+      unchanged within noise, since that step is the Vega import. (The
+      353 ms first-open figure in the paragraph above was taken under other
+      conditions and is not reproducible; both builds read ~800 ms today.)
 - [x] **Profile in the real webview before starting.** The DOM numbers above
       are Chrome's. Add `performance.mark`s around `renderInto` and the
       Preview effect and take one profile in Safari's Web Inspector attached
