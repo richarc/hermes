@@ -989,6 +989,14 @@ Ideas noted along the way, not yet committed to a release:
   path meanwhile).
 - Windows/Linux support (paths, menus, and print behavior are currently
   macOS-focused).
+- The chart hydrator runs twice on first open. The document renders once
+  immediately and again when the bibliography loads, so the first hydrate
+  pass is abandoned by the generation guard part-way through its embeds and
+  the second does them over — every first-open `hermes:hydrate-charts`
+  reading is one large entry followed by a 170–200 ms one (seen 2026-09-05
+  during the v0.11 A/B). Correct, but wasted work. Either delay the first
+  render until the formatter is known, or let the second pass adopt the
+  first's finished embeds instead of starting from the placeholders.
 - Security hardening for third-party documents. A `.md` file can cause the app
   to make a network request on open, with no click and no prompt: a
   `vega-lite` block whose spec carries `data.url` is fetched by `vega-loader`
