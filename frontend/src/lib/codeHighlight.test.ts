@@ -22,6 +22,20 @@ const block = (lang: string, code: string) =>
   `<pre><code data-source-line="1" class="language-${lang}">${code}</code></pre>`
 
 describe('createCodeHydrator', () => {
+  it('does not re-highlight a block it already finished when hydrated again in place', async () => {
+    const load: LoadGrammar = vi.fn(async () => markdownParser)
+    const h = createCodeHydrator(load)
+    const c = containerWith(block('markdown', '[text](url)'))
+    await h.hydrate(c)
+    const code = c.querySelector('code')!
+    const firstSpan = code.querySelector('span')
+    expect(firstSpan).not.toBeNull()
+    expect(code.dataset.hydrated).toBeDefined()
+
+    await h.hydrate(c)
+    expect(code.querySelector('span')).toBe(firstSpan)
+  })
+
   it('replaces a code block\'s text with tagged spans', async () => {
     const load: LoadGrammar = vi.fn(async () => markdownParser)
     // A heading alone tags nothing CODE_TOKENS claims — headings, emphasis,

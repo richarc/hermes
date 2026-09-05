@@ -33,6 +33,32 @@ function fakeEmbed() {
 }
 
 describe('createChartHydrator: caching', () => {
+  it('leaves a node it already embedded alone when the DOM was reconciled around it', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+    const c = containerWith(placeholder(SPEC))
+    await h.hydrate(c)
+    const live = c.firstElementChild as HTMLElement
+    expect(live.dataset.hydrated).toBeDefined()
+
+    // Same container, same node: the reconciler kept the block.
+    await h.hydrate(c)
+    expect(embed.calls).toHaveBeenCalledTimes(1)
+    expect(c.firstElementChild).toBe(live)
+    expect(embed.views[0].finalize).not.toHaveBeenCalled()
+  })
+
+  it('still finalizes a kept chart once its spec leaves the document', async () => {
+    const embed = fakeEmbed()
+    const h = createChartHydrator(embed.fn)
+    const c = containerWith(placeholder(SPEC))
+    await h.hydrate(c)
+    await h.hydrate(c) // kept
+    c.innerHTML = ''
+    await h.hydrate(c)
+    expect(embed.views[0].finalize).toHaveBeenCalledTimes(1)
+  })
+
   it('embeds every placeholder and reuses the cached node on an unchanged spec', async () => {
     const embed = fakeEmbed()
     const h = createChartHydrator(embed.fn)

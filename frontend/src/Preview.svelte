@@ -7,6 +7,7 @@
   import { collectAnchors, createScrollSync, type Anchor } from './lib/scrollSync'
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
   import { timed, timedAsync } from './lib/perf'
+  import { reconcileChildren } from './lib/reconcile'
   import {
     sheetStyle,
     DEFAULT_PAPER_SIZE,
@@ -56,13 +57,13 @@
   }
 
   $effect(() => {
-    // `hermes:preview-dom` covers only the replacement: parsing the HTML and
-    // building the new subtree. WebKit defers style and layout, so in Web
-    // Inspector the cost of laying it out is the Layout record that follows
-    // this measure, not part of it.
-    timed('preview-dom', () => {
-      sheet.innerHTML = html
-    })
+    // `hermes:preview-dom` covers parsing the new HTML and reconciling the
+    // sheet's blocks against it (lib/reconcile.ts): unchanged blocks — and
+    // the live charts, diagrams, highlighted code and formulas inside them —
+    // stay where they are, and only the changed ones are inserted. WebKit
+    // defers style and layout, so in Web Inspector the cost of laying out
+    // those is the Layout record that follows this measure, not part of it.
+    timed('preview-dom', () => reconcileChildren(sheet, html))
     // Anchor positions are invalid the moment the content changes, and again
     // once charts finish rendering — they change their own height after the
     // pass that created them.

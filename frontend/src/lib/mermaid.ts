@@ -41,9 +41,14 @@ export function createMermaidHydrator(render: RenderFn = renderMermaid): Mermaid
         const source = el.dataset.source ?? ''
         liveSources.add(source)
 
+        // Already rendered and kept in place by the preview's reconciliation:
+        // re-setting the same SVG would only re-parse it.
+        if (el.dataset.hydrated !== undefined) continue
+
         const cached = cache.get(source)
         if (cached !== undefined) {
           el.innerHTML = cached
+          el.dataset.hydrated = ''
           continue
         }
 
@@ -54,12 +59,16 @@ export function createMermaidHydrator(render: RenderFn = renderMermaid): Mermaid
           // A newer pass owns the DOM now; this element belongs to a stale one.
           if (gen !== generation) return
           renderDiagramError(el, (err as Error).message)
+          // The source is what failed, and it is unchanged for as long as
+          // the node is kept — no point retrying on every render.
+          el.dataset.hydrated = ''
           continue
         }
         if (gen !== generation) return
 
         cache.set(source, svg)
         el.innerHTML = svg
+        el.dataset.hydrated = ''
       }
 
       // Evict entries whose source left the document — the same eviction

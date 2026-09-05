@@ -41,8 +41,9 @@ const HIGHLIGHTER = codeTagHighlighter()
  */
 export function createCodeHydrator(load: LoadGrammar = loadGrammar): CodeHydrator {
   // Keyed on language and source text, which is all the output depends on.
-  // Preview.svelte reassigns innerHTML on every render, so without this a
-  // large document re-parses every block on every keystroke.
+  // The preview keeps an unchanged block's node, but a block that did change
+  // — or the same code moved into a new block — arrives as a fresh node, and
+  // without this a large document would re-parse every one of those.
   const cache = new Map<string, DocumentFragment>()
   let generation = 0
 
@@ -65,9 +66,15 @@ export function createCodeHydrator(load: LoadGrammar = loadGrammar): CodeHydrato
         const key = `${lang}\n${code}`
         liveKeys.add(key)
 
+        // Already highlighted and kept in place by the preview's
+        // reconciliation. The spans preserve textContent, so the key above
+        // still holds the cache entry live.
+        if (el.dataset.hydrated !== undefined) continue
+
         const cached = cache.get(key)
         if (cached) {
           el.replaceChildren(cached.cloneNode(true))
+          el.dataset.hydrated = ''
           continue
         }
 
@@ -109,6 +116,7 @@ export function createCodeHydrator(load: LoadGrammar = loadGrammar): CodeHydrato
         }
         cache.set(key, fragment)
         el.replaceChildren(fragment.cloneNode(true))
+        el.dataset.hydrated = ''
       }
 
       for (const k of cache.keys()) {

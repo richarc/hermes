@@ -52,6 +52,14 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
       for (const el of placeholders) {
         const specText = el.dataset.spec ?? ''
         liveSpecs.add(specText)
+        // A node this hydrator already finished, left in place by the
+        // preview's reconciliation because its block did not change. Its
+        // view is live and must count as placed, or the sweep below would
+        // finalize it; nothing else to do.
+        if (el.dataset.hydrated !== undefined) {
+          placedThisPass.add(el)
+          continue
+        }
         const cached = cache.get(specText)
 
         if (cached && !placedThisPass.has(cached)) {
@@ -86,6 +94,7 @@ export function createChartHydrator(embed: EmbedFn = embedChart): ChartHydrator 
           return
         }
         if (view) views.set(el, view)
+        el.dataset.hydrated = ''
         placedThisPass.add(el)
         if (!cache.has(specText)) cache.set(specText, el)
       }

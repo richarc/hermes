@@ -14,6 +14,19 @@ function container(...sources: string[]): HTMLElement {
 const svgFor: RenderFn = async (id, source) => `<svg id="${id}">${source}</svg>`
 
 describe('createMermaidHydrator', () => {
+  it('does not touch a diagram it already rendered when hydrated again in place', async () => {
+    const render = vi.fn(svgFor)
+    const h = createMermaidHydrator(render)
+    const el = container('flowchart LR')
+    await h.hydrate(el)
+    const svg = el.querySelector('svg')
+    expect((el.firstElementChild as HTMLElement).dataset.hydrated).toBeDefined()
+
+    await h.hydrate(el)
+    expect(render).toHaveBeenCalledTimes(1)
+    expect(el.querySelector('svg')).toBe(svg) // same node, not a re-parsed copy
+  })
+
   it('replaces a placeholder with the rendered SVG', async () => {
     const el = container('flowchart LR')
     await createMermaidHydrator(svgFor).hydrate(el)

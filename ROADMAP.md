@@ -809,7 +809,7 @@ hydration is 0–2 ms from the caches. Read against these numbers the two
 memoisation items move ahead of reconciliation, since citeproc and KaTeX
 are where the 38 ms goes.
 
-- [ ] **Reconcile the preview instead of replacing it.**
+- [x] **Reconcile the preview instead of replacing it.**
       `Preview.svelte`'s effect does `sheet.innerHTML = html`, which is the
       dominant cost and the root of the next item too: every KaTeX span is
       laid out again, every chart node is detached and re-attached, every
@@ -826,6 +826,24 @@ are where the 38 ms goes.
       keystroke should go from 3–150 ms of DOM work to about 1 ms. The tests
       around `data-source-line` and chart caching are the safety net, since
       this changes Preview's contract with the hydrators and scroll sync.
+      *Done 2026-09-05* as block-level reconciliation, on the DOM rather
+      than the token stream: `lib/reconcile.ts` parses the new HTML into a
+      template, keys each top-level block by its markup with the
+      `data-source-line` values blanked, keeps a common prefix and suffix,
+      and inside the changed region reuses any node whose recorded key is
+      still wanted; source lines are patched onto kept nodes (on the block
+      and on a fence's nested `<code>`). Keys are recorded at insertion, never
+      read back from the live DOM, so a hydrated node still matches its
+      source. The hydrators' side of the contract: each marks a node it has
+      finished `data-hydrated` and skips it on later passes — the chart
+      hydrator still counts it as placed so its view is not finalized.
+      Typing in prose in the test document, `hermes:preview-dom` reads 3–5 ms
+      as before — it now covers the parse and block keying instead of the
+      replacement — and `hermes:render` was 5–7 ms with the two memos in;
+      charts, diagrams and code no longer redraw while typing, checked by
+      hand on 2026-09-05 along with scroll sync after a line is added above
+      a chart, edits inside chart and diagram blocks, ToC links and a chart
+      width change.
 - [ ] **Stop refetching local images on every render.** `localimages.go`
       answers with `Cache-Control: no-store` so an edit made in another
       application shows up, and because the preview recreates every `<img>`
