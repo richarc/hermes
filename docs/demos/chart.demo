@@ -7,6 +7,8 @@
 # 2026-09-09-demo-mode-design.md for the verbs.
 open ../test-document.md
 pause 2000
+fullscreen
+pause 600
 record chart.mov
 pause 800
 goto 16

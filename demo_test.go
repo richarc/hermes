@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func parseDemo(t *testing.T, src string) []DemoStep {
@@ -18,10 +19,11 @@ func parseDemo(t *testing.T, src string) []DemoStep {
 }
 
 func TestParseDemoScriptSimpleVerbs(t *testing.T) {
-	steps := parseDemo(t, "pause 1500\ngoto 41\nrecord out.mov\nstop\nquit\n")
+	steps := parseDemo(t, "pause 1500\ngoto 41\nfullscreen\nrecord out.mov\nstop\nquit\n")
 	want := []DemoStep{
 		{Verb: "pause", Arg: "1500"},
 		{Verb: "goto", Arg: "41"},
+		{Verb: "fullscreen"},
 		{Verb: "record", Arg: filepath.Join("/demos", "out.mov")},
 		{Verb: "stop"},
 		{Verb: "quit"},
@@ -102,6 +104,7 @@ func TestParseDemoScriptErrors(t *testing.T) {
 		{"open without a path", "open\n", "line 1", "path"},
 		{"record without a path", "record\n", "line 1", "path"},
 		{"stop with an argument", "stop now\n", "line 1", "takes no argument"},
+		{"fullscreen with an argument", "fullscreen on\n", "line 1", "takes no argument"},
 		{"unterminated body", "pause 1\ntype\nabc\n", "line 2", "terminated"},
 		{"type with a bad cadence", "type fast\nx\n.\n", "line 1", "number"},
 		{"menu without a name", "menu\n", "line 1", "insert-chart"},
@@ -238,6 +241,44 @@ func TestDemoServiceRecordingReplacesAnExistingFile(t *testing.T) {
 	}
 	if strings.TrimSpace(string(got)) != "new" {
 		t.Errorf("recording file holds %q, want the new recording", got)
+	}
+}
+
+// Full screen is animated, and record measures the window afterwards, so
+// the binding must not return until the window reports it is full screen.
+func TestDemoServiceFullscreenWaitsForTheWindow(t *testing.T) {
+	s := NewDemoService(nil)
+	calls := 0
+	s.enterFullscreen = func() error { calls++; return nil }
+	polls := 0
+	s.isFullscreen = func() bool {
+		polls++
+		return polls >= 3
+	}
+	if err := s.Fullscreen(); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("entered full screen %d times, want 1", calls)
+	}
+	if polls < 3 {
+		t.Errorf("returned after %d polls, before the window was full screen", polls)
+	}
+}
+
+func TestDemoServiceFullscreenReportsAWindowThatNeverGetsThere(t *testing.T) {
+	s := NewDemoService(nil)
+	s.enterFullscreen = func() error { return nil }
+	s.isFullscreen = func() bool { return false }
+	s.fullscreenTimeout = 120 * time.Millisecond
+	if err := s.Fullscreen(); err == nil {
+		t.Error("no error for a window that never became full screen")
+	}
+}
+
+func TestDemoServiceFullscreenWithoutAWindow(t *testing.T) {
+	if err := NewDemoService(nil).Fullscreen(); err == nil {
+		t.Error("no error without a window")
 	}
 }
 

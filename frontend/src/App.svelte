@@ -904,6 +904,7 @@
       if (!parsed.ok) throw new Error(`the body is not a pipe table (${parsed.reason})`)
       commitTable(parsed.table)
     },
+    fullscreen: () => DemoService.Fullscreen(),
     record: (p) => DemoService.StartRecording(p),
     stop: () => DemoService.StopRecording(),
     async quit() {

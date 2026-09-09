@@ -65,7 +65,7 @@ func parseDemoScript(src, dir string) ([]DemoStep, error) {
 			if _, err := strconv.Atoi(arg); err != nil || arg == "" {
 				return nil, fmt.Errorf("line %d: %s needs a number, got %q", lineNo, verb, arg)
 			}
-		case "stop", "quit":
+		case "stop", "quit", "fullscreen":
 			if arg != "" {
 				return nil, fmt.Errorf("line %d: %s takes no argument", lineNo, verb)
 			}
@@ -129,9 +129,13 @@ type demoRect struct{ X, Y, W, H int }
 // screencapture while the script says so. One recording at a time.
 type DemoService struct {
 	window *application.WebviewWindow
-	// Seams for tests: the recorder command and where the window is.
-	recordCommand func(path string, r demoRect) *exec.Cmd
-	windowRect    func() (demoRect, error)
+	// Seams for tests: the recorder command, where the window is, and the
+	// window's full-screen state and entry.
+	recordCommand     func(path string, r demoRect) *exec.Cmd
+	windowRect        func() (demoRect, error)
+	enterFullscreen   func() error
+	isFullscreen      func() bool
+	fullscreenTimeout time.Duration
 
 	mu        sync.Mutex
 	recording *demoRecording
@@ -159,7 +163,40 @@ func NewDemoService(win *application.WebviewWindow) *DemoService {
 		b := s.window.Bounds()
 		return demoRect{b.X, b.Y, b.Width, b.Height}, nil
 	}
+	// Read s.window when called, like windowRect: main.go constructs the
+	// service before the window exists and attaches the window afterwards.
+	s.enterFullscreen = func() error {
+		if s.window == nil {
+			return fmt.Errorf("no window to make full screen")
+		}
+		s.window.Fullscreen()
+		return nil
+	}
+	s.isFullscreen = func() bool { return s.window != nil && s.window.IsFullscreen() }
+	s.fullscreenTimeout = 5 * time.Second
 	return s
+}
+
+// Fullscreen puts the window into macOS full screen and returns once it is
+// there. The transition is animated, and `record` measures the window's
+// bounds when it starts, so returning at once would record the rectangle
+// the window was leaving. Polled rather than observed: the window's own
+// state is what the recorder will read, so it is what is waited for.
+func (s *DemoService) Fullscreen() error {
+	if s.isFullscreen() {
+		return nil
+	}
+	if err := s.enterFullscreen(); err != nil {
+		return err
+	}
+	deadline := time.Now().Add(s.fullscreenTimeout)
+	for !s.isFullscreen() {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the window did not enter full screen within %s", s.fullscreenTimeout)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return nil
 }
 
 // Script returns the steps of the script named by HERMES_DEMO, nil when it

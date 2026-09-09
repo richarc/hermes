@@ -17,6 +17,17 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * Fullscreen puts the window into macOS full screen and returns once it is
+ * there. The transition is animated, and `record` measures the window's
+ * bounds when it starts, so returning at once would record the rectangle
+ * the window was leaving. Polled rather than observed: the window's own
+ * state is what the recorder will read, so it is what is waited for.
+ */
+export function Fullscreen(): $CancellablePromise<void> {
+    return $Call.ByID(654977979);
+}
+
+/**
  * Script returns the steps of the script named by HERMES_DEMO, nil when it
  * is unset, or the first line that could not be read.
  */

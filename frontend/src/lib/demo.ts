@@ -22,6 +22,8 @@ export interface DemoActions {
   menu(name: string): void
   chart(spec: string): void
   table(source: string): void
+  /** Resolves once the window is full screen, not when the transition starts. */
+  fullscreen(): Promise<void>
   record(path: string): Promise<void>
   stop(): Promise<void>
   quit(): Promise<void>
@@ -68,6 +70,9 @@ export async function runDemo(
           break
         case 'table':
           actions.table(body)
+          break
+        case 'fullscreen':
+          await actions.fullscreen()
           break
         case 'record':
           await actions.record(arg)

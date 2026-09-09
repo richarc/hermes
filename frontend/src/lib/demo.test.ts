@@ -13,6 +13,7 @@ function fakeActions(overrides: Partial<DemoActions> = {}) {
     menu: vi.fn((name: string) => rec('menu')(name)),
     chart: vi.fn((spec: string) => rec('chart')(spec)),
     table: vi.fn((src: string) => rec('table')(src)),
+    fullscreen: vi.fn(async () => rec('fullscreen')()),
     record: vi.fn(async (p: string) => rec('record')(p)),
     stop: vi.fn(async () => rec('stop')()),
     quit: vi.fn(async () => rec('quit')()),
@@ -43,6 +44,31 @@ describe('runDemo', () => {
     )
     expect(result).toEqual({ ok: true })
     expect(log).toEqual(['open /d/a.md', 'goto 3', 'menu insert-chart', 'record /d/o.mov', 'stop'])
+  })
+
+  it('awaits fullscreen before moving on, so record measures the finished window', async () => {
+    const order: string[] = []
+    let release!: () => void
+    const { actions } = fakeActions({
+      fullscreen: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            release = () => {
+              order.push('fullscreen done')
+              resolve()
+            }
+          }),
+      ),
+      record: vi.fn(async () => {
+        order.push('record')
+      }),
+    })
+    const run = runDemo([step('fullscreen'), step('record', '/d/o.mov')], actions, fakeSleep().sleep)
+    await Promise.resolve()
+    expect(order).toEqual([])
+    release()
+    await run
+    expect(order).toEqual(['fullscreen done', 'record'])
   })
 
   it('does not stop at the end when nothing was recording', async () => {
