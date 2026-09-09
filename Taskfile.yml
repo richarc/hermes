@@ -31,8 +31,12 @@ tasks:
       - task: bundle:licences
 
   bundle:licences:
-    summary: Copies the licence texts into the packaged .app
+    summary: Copies the licence texts into the packaged .app and signs it
     platforms: [darwin]
+    vars:
+      # Matched as a substring, like the release task's, so the default
+      # finds "Developer ID Application: Name (TEAM)" without naming it.
+      IDENTITY: '{{.IDENTITY | default "Developer ID Application"}}'
     desc: |
       A distributed binary has to carry its licences. Apache-2.0 §4(d) requires
       NOTICE to travel with the work, and citeproc-js is dual CPAL-1.0 /
@@ -51,11 +55,21 @@ tasks:
       # Signing must come last: codesign seals Contents/Resources, so files
       # added afterwards invalidate the signature.
       #
-      # Ad-hoc, because this is the development path. The release task does
-      # the same copy and then signs once with the Developer ID instead — if
-      # this ran there it would overwrite that signature with this one, and
-      # Gatekeeper rejects an ad-hoc signature on a download outright.
-      - codesign --force --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+      # With the Developer ID when the keychain has one, ad-hoc otherwise.
+      # macOS binds a privacy grant (Screen Recording, for demo mode) to the
+      # app's designated requirement. A Developer ID requirement is the
+      # bundle id plus the team, which every build shares, so a grant made
+      # once lasts; an ad-hoc signature is a new identity every build, so
+      # each repackage silently revoked it and the demo's record step failed.
+      # Not the release path: that one does the same copy and then signs
+      # with `wails3 tool sign` (hardened runtime, timestamp) for notarizing.
+      - |
+        if security find-identity -v -p codesigning | grep -q "{{.IDENTITY}}"; then
+          codesign --force --sign "{{.IDENTITY}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+        else
+          echo 'No "{{.IDENTITY}}" identity in the keychain; signing ad-hoc.'
+          codesign --force --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+        fi
 
   bundle:licences:copy:
     summary: Copies the licence texts in, without signing
@@ -85,10 +99,12 @@ tasks:
       this: its `deps: [package]` resolves inside build/darwin/Taskfile.yml to
       *that* file's package task, not the root one, so it notarizes a bundle
       with no licences in it — see bundle:licences for why they have to be
-      there. And the root `package` re-signs ad-hoc at the end, so running it
-      after signing swaps a Developer ID signature for an ad-hoc one, which
-      Gatekeeper rejects outright ("Hermes is damaged and can't be opened").
-      Neither is a fault in those tasks; they simply are not a release.
+      there. And the root `package` re-signs at the end — plainly, without
+      the hardened runtime or a timestamp, and ad-hoc on a machine with no
+      Developer ID — so running it after this task replaces the notarized
+      signature with one Gatekeeper rejects outright ("Hermes is damaged
+      and can't be opened"). Neither is a fault in those tasks; they simply
+      are not a release.
 
       Universal, not arm64-only: an Intel user downloading an arm64 build gets
       a baffling failure rather than a message.
