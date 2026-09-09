@@ -59,6 +59,10 @@ func main() {
 		log.Fatal(err)
 	}
 	docs := NewDocumentService(recentsPath)
+	// Demo mode: plays a script named by HERMES_DEMO into the editor and
+	// records the window (demo.go). Inert unless the variable is set. The
+	// window is attached once it exists, below.
+	demo := NewDemoService(nil)
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.
@@ -68,7 +72,10 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "Hermes Editor",
 		Description: "Academic markdown editor",
-		Services:    []application.Service{application.NewService(docs)},
+		Services:    []application.Service{application.NewService(docs), application.NewService(demo)},
+		// A recording the script left running is stopped so the file on disk
+		// is closed, whichever way the app ends.
+		OnShutdown: demo.shutdown,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 			// Serves images living beside the user's document. Without it a
@@ -105,6 +112,7 @@ func main() {
 	})
 
 	docs.window = win
+	demo.window = win
 	enableInspector(win)
 	// Focus() dispatches to the main thread itself (InvokeSync) and no-ops on
 	// a destroyed window, so it needs no wrapping here.

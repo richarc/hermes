@@ -62,7 +62,17 @@ vi.mock('@wailsio/runtime', () => ({
   },
   Browser: { OpenURL: vi.fn() },
 }))
-vi.mock('../bindings/hermes', () => ({ DocumentService }))
+// Demo mode is off in every test: Script() returns no script, so App's
+// startDemo returns before it touches anything. Defined inside the factory
+// because vi.mock is hoisted above any top-level constant.
+vi.mock('../bindings/hermes', () => ({
+  DocumentService,
+  DemoService: {
+    Script: vi.fn(async () => null),
+    StartRecording: vi.fn(async () => {}),
+    StopRecording: vi.fn(async () => {}),
+  },
+}))
 
 import { Browser } from '@wailsio/runtime'
 

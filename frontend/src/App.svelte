@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack, flushSync } from 'svelte'
   import { Events, Browser } from '@wailsio/runtime'
-  import { DocumentService } from '../bindings/hermes'
+  import { DocumentService, DemoService } from '../bindings/hermes'
   import type { Settings, Draft, UpdateResult } from '../bindings/hermes/models'
   import Editor from './Editor.svelte'
   import Preview from './Preview.svelte'
@@ -11,6 +11,7 @@
   import Outline from './Outline.svelte'
   import { debounce } from './lib/debounce'
   import { createAdaptiveWait } from './lib/adaptiveWait'
+  import { runDemo, type DemoActions } from './lib/demo'
   import { createDraftKeeper, DRAFT_DEBOUNCE_MS } from './lib/recoveryDraft'
   import {
     NEW_DOCUMENT_TEMPLATE,
@@ -862,7 +863,66 @@
     window.addEventListener('mouseup', up)
   }
 
+  // Demo mode (demo.go, lib/demo.ts): the script's verbs map onto the same
+  // functions the menus and builders call, so a recording shows exactly what
+  // a person would see. Each action throws on what it cannot do, and the
+  // player stops there and names the step.
+  const demoActions: DemoActions = {
+    async open(p) {
+      const doc = await DocumentService.OpenPath(p)
+      loadDocument(doc.path, doc.content)
+    },
+    goto: (line) => editor.goToLine(line),
+    typeChar: (c) => editor.insertAtCursor(c),
+    menu(name) {
+      if (name === 'insert-chart') return openChartBuilder()
+      if (name === 'insert-table') return openTableBuilder()
+      const [verb, arg] = name.split(/\s+/, 2)
+      if (verb === 'format' && arg && FORMAT_COMMANDS[arg]) return applyFormat(arg)
+      throw new Error(`unknown menu name ${JSON.stringify(name)}`)
+    },
+    chart(spec) {
+      if (!chartOpen) throw new Error('the chart builder is not open')
+      commitChart(spec)
+    },
+    table(source) {
+      if (!tableOpen) throw new Error('the table builder is not open')
+      const parsed = parsePipeTable(source)
+      if (!parsed.ok) throw new Error(`the body is not a pipe table (${parsed.reason})`)
+      commitTable(parsed.table)
+    },
+    record: (p) => DemoService.StartRecording(p),
+    stop: () => DemoService.StopRecording(),
+    async quit() {
+      await drafts.settle()
+      await DocumentService.Quit()
+    },
+  }
+
+  async function startDemo() {
+    let steps: Awaited<ReturnType<typeof DemoService.Script>>
+    try {
+      steps = await DemoService.Script()
+    } catch (err) {
+      toast(`Demo script: ${err}`)
+      return
+    }
+    if (!steps?.length) return
+    const result = await runDemo(
+      steps,
+      demoActions,
+      (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    )
+    if (!result.ok) {
+      toast(`Demo stopped at step ${result.step} (${result.verb}): ${result.message}`)
+    }
+  }
+
   onMount(() => {
+    // Asked from here, not pushed from Go: Go cannot know when this page is
+    // ready to be told, and a script that starts before the editor exists
+    // would type into nothing.
+    void startDemo()
     Events.On('menu:new', requestNew)
     Events.On('menu:open', requestOpen)
     Events.On('menu:open-recent', (ev: { data: unknown }) => {

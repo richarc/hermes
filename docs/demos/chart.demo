@@ -1,0 +1,39 @@
+# Opens the test document, adds a sentence, and inserts a chart through the
+# builder. Run with:
+#
+#   open -n "bin/Hermes Editor.app" --env HERMES_DEMO=$PWD/docs/demos/chart.demo
+#
+# The recording lands beside this script. See docs/superpowers/specs/
+# 2026-09-09-demo-mode-design.md for the verbs.
+open ../test-document.md
+pause 2000
+record chart.mov
+pause 800
+goto 16
+type 45
+Charting the counts makes the pattern easier to see than the table does.
+
+
+.
+pause 900
+menu insert-chart
+pause 2200
+chart
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "title": "Recovered sources by decade",
+  "mark": "bar",
+  "data": {"values": [
+    {"decade": "1950s", "sources": 4},
+    {"decade": "1960s", "sources": 9},
+    {"decade": "1970s", "sources": 15},
+    {"decade": "1980s", "sources": 12}
+  ]},
+  "encoding": {
+    "x": {"field": "decade", "type": "ordinal", "title": null},
+    "y": {"field": "sources", "type": "quantitative", "title": "Sources"}
+  }
+}
+.
+pause 3000
+stop

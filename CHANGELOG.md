@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Demo mode, for recording demo and guide videos. Launched with the
+  `HERMES_DEMO` environment variable naming a script, Hermes plays the
+  script into itself — opening a document, typing at a set cadence, using
+  the Insert menu and the chart and table builders — while recording its
+  own window with macOS's built-in screen recorder, so the same script
+  gives the same clip every time. Nothing in the app shows it exists, and a
+  document cannot switch it on. The script format and a sample are in
+  `docs/demos/`.
+
 ## [0.11.0] - 2026-09-05
 
 The rendering performance release. Nothing new to write with; the preview
