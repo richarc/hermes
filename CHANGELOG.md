@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   document cannot switch it on. The script format and a sample are in
   `docs/demos/`.
 
+### Fixed
+
+- The preview now updates during continuous typing. Its wait was reset by
+  every keystroke, so typing faster than it — a burst from a quick typist,
+  or a demo script's fixed cadence — left the preview unchanged until the
+  typing stopped. It now renders at least every four waits (240 ms to 1.2 s,
+  following the cost of the last update) while keystrokes keep coming.
+
 ## [0.11.0] - 2026-09-05
 
 The rendering performance release. Nothing new to write with; the preview

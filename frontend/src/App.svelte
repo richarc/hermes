@@ -168,13 +168,26 @@
   // flushSync runs the effect that reconciles the sheet here rather than in
   // the microtask Svelte would otherwise use — so a chart-heavy document
   // that is cheap to render but dear to lay out is still waited for.
+  //
+  // The wait alone is trailing-edge: keystrokes arriving faster than it
+  // reset it every time, and the preview shows nothing until they stop. A
+  // fast typist gets there in bursts; the demo player (lib/demo.ts) types
+  // at a fixed cadence with no pauses at all and starved the preview for a
+  // whole paragraph. The maximum wait, four times the current wait, bounds
+  // that: during continuous typing the preview still updates, and since the
+  // wait is twice the last update's cost, those updates take at most about
+  // an eighth of the time.
   const previewWait = createAdaptiveWait({ initial: 100, min: 60, max: 300, factor: 2 })
-  const updatePreview = debounce((text: string) => {
-    const start = performance.now()
-    renderInto(text)
-    flushSync()
-    previewWait.record(performance.now() - start)
-  }, previewWait.wait)
+  const updatePreview = debounce(
+    (text: string) => {
+      const start = performance.now()
+      renderInto(text)
+      flushSync()
+      previewWait.record(performance.now() - start)
+    },
+    previewWait.wait,
+    () => previewWait.wait() * 4,
+  )
 
   const filename = $derived(path ? path.split('/').pop() : 'Untitled')
   // Dirty means "differs from what's on disk" — typing back to the saved
