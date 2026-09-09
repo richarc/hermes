@@ -191,6 +191,14 @@ func (s *DemoService) StartRecording(path string) error {
 	if err != nil {
 		return err
 	}
+	// screencapture records to a staging file and moves it into place when
+	// it stops, and that move fails if the path is already taken — leaving
+	// the previous recording there, which stop() would then accept as this
+	// one. The script names the path, so what is there is meant to be
+	// replaced.
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear %s: %w", path, err)
+	}
 	cmd := s.recordCommand(path, r)
 	stderr := &bytes.Buffer{}
 	cmd.Stderr = stderr

@@ -210,6 +210,37 @@ func TestDemoServiceRecordingGuards(t *testing.T) {
 	}
 }
 
+// screencapture records to a staging file and moves it into place at stop,
+// and that move fails if the path already exists — so a re-run of a script
+// used to leave the previous recording there and report success, because
+// stop only checked that *a* file existed. The recorder must clear the path
+// before starting. The fake here refuses to overwrite, as screencapture does.
+func TestDemoServiceRecordingReplacesAnExistingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "out.mov")
+	if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewDemoService(nil)
+	s.recordCommand = func(path string, _ demoRect) *exec.Cmd {
+		// noclobber: the write fails, silently, if the file is already there.
+		return exec.Command("/bin/sh", "-c", `set -C; echo new > "$0" 2>/dev/null; exec /bin/sleep 30`, path)
+	}
+	s.windowRect = func() (demoRect, error) { return demoRect{0, 0, 10, 10}, nil }
+	if err := s.StartRecording(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.StopRecording(); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(got)) != "new" {
+		t.Errorf("recording file holds %q, want the new recording", got)
+	}
+}
+
 func TestDemoServiceStopAllAtShutdown(t *testing.T) {
 	s, _ := fakeRecorder()
 	if err := s.StartRecording(filepath.Join(t.TempDir(), "a.mov")); err != nil {
