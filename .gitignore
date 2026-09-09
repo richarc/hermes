@@ -18,3 +18,6 @@ build/android/gen/node_modules
 
 # macOS Finder metadata
 .DS_Store
+
+# Demo recordings (HERMES_DEMO record verb)
+docs/demos/*.mov
