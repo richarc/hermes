@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-12
+
 ### Added
 
 - Demo mode, for recording demo and guide videos. Launched with the
@@ -20,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Switching the contents on in a new document works by deleting one `#`
+  ([#8](https://github.com/richarc/hermes/issues/8)). The template's
+  `toc:` line carried its guidance in parentheses after the value, so
+  uncommenting it gave a value that was not `true` and no contents
+  appeared. The guidance is now a YAML comment, and the frontmatter reader
+  drops a trailing ` # …` from any unquoted value, as YAML does.
 - The preview now updates during continuous typing. Its wait was reset by
   every keystroke, so typing faster than it — a burst from a quick typist,
   or a demo script's fixed cadence — left the preview unchanged until the
