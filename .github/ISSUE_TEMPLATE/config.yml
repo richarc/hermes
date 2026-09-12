@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/richarc/hermes/discussions/categories/q-a
+    about: How do I…? Setup, citations, export, anything about using the editor.
+  - name: Suggest an improvement
+    url: https://github.com/richarc/hermes/discussions/categories/ideas
+    about: Features you would like, and votes on the ones already proposed.

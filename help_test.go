@@ -13,23 +13,26 @@ func TestFeedbackURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	body := parsed.Query().Get("body")
+	q := parsed.Query()
 
 	// The version fields are the entire reason this is built in the app
 	// rather than being a plain link: users never think to include them, and
-	// without them a report is usually unactionable. GitHub only reads its own
-	// parameters, so they have to arrive inside the issue body.
-	if !strings.Contains(body, "**Hermes version:** 0.7.0\n") {
-		t.Errorf("body does not carry the version: %q", body)
+	// without them a report is usually unactionable. The issue form's fields
+	// are filled from query parameters named by their ids.
+	if q.Get("template") != "bug_report.yml" {
+		t.Errorf("does not open the bug report form: %q", got)
 	}
-	if !strings.Contains(body, "**Operating system:** macOS 26.3.1\n") {
-		t.Errorf("body does not carry the OS: %q", body)
+	if q.Get("version") != "0.7.0" {
+		t.Errorf("version field not filled: %q", got)
+	}
+	if q.Get("os") != "macOS 26.3.1" {
+		t.Errorf("os field not filled: %q", got)
 	}
 	if !strings.HasPrefix(got, feedbackBaseURL) {
 		t.Errorf("does not point at GitHub Issues: %q", got)
 	}
-	if parsed.Query().Has("version") || parsed.Query().Has("os") {
-		t.Errorf("version and os must travel in the body, not as parameters GitHub ignores: %q", got)
+	if q.Has("body") {
+		t.Errorf("a form ignores body; the fields carry the details: %q", got)
 	}
 }
 
@@ -42,12 +45,11 @@ func TestFeedbackURLEscapes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	body := parsed.Query().Get("body")
-	if !strings.Contains(body, "**Hermes version:** 0.7.0+dev\n") {
-		t.Errorf("version mangled: %q", body)
+	if v := parsed.Query().Get("version"); v != "0.7.0+dev" {
+		t.Errorf("version mangled: %q", v)
 	}
-	if !strings.Contains(body, "**Operating system:** macOS Sequoia 26.3.1\n") {
-		t.Errorf("os mangled: %q", body)
+	if os := parsed.Query().Get("os"); os != "macOS Sequoia 26.3.1" {
+		t.Errorf("os mangled: %q", os)
 	}
 }
 
@@ -60,8 +62,8 @@ func TestFeedbackURLWithoutAVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("not a URL: %v", err)
 	}
-	if body := parsed.Query().Get("body"); !strings.Contains(body, "**Hermes version:** unknown\n") {
-		t.Errorf("body should say the version is unknown: %q", body)
+	if v := parsed.Query().Get("version"); v != "unknown" {
+		t.Errorf("version should be reported as unknown: %q", v)
 	}
 }
 
@@ -73,6 +75,9 @@ func TestOSDescription(t *testing.T) {
 		want    string
 	}{
 		{"name and version", "macOS", "26.3.1", "macOS 26.3.1"},
+		// Wails' branding falls back to "MacOS <version>" for a release it
+		// has no name for, and issue #8 arrived as "MacOS 26.6.2 26.6.2".
+		{"name already carries the version", "MacOS 26.6.2", "26.6.2", "MacOS 26.6.2"},
 		{"version missing", "macOS", "", "macOS"},
 		{"name missing", "", "26.3.1", "26.3.1"},
 		{"both missing", "", "", "unknown"},

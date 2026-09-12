@@ -20,20 +20,22 @@ import (
 const (
 	docsURL = "https://www.hermeseditor.com/guides"
 
-	feedbackBaseURL = "https://github.com/richarc/hermes/issues/new"
+	feedbackBaseURL  = "https://github.com/richarc/hermes/issues/new"
+	feedbackTemplate = "bug_report.yml"
 )
 
-// feedbackURL is the new-issue page with the details a user would never think
-// to include already filled in.
+// feedbackURL is the bug report form with the details a user would never
+// think to include already filled in.
 //
 // Which is the whole point of building this into the application rather than
 // putting a link in the README: a report that does not say which version it
 // came from usually cannot be acted on, and asking people to find that out is
 // how you get no reports at all.
 //
-// GitHub reads only its own query parameters — `title`, `body`, `labels` and
-// so on — so the version and OS travel inside `body`, as the head of an issue
-// the reporter finishes writing, rather than as fields of their own.
+// The form is .github/ISSUE_TEMPLATE/bug_report.yml. GitHub fills an issue
+// form's fields from query parameters named by the fields' ids, so `version`
+// and `os` here must match the ids there; `template` names the form, since a
+// bare issues/new opens the chooser once blank issues are turned off.
 //
 // Split from the menu closure so it is reachable by a test, the same reason
 // quitRequest and localImagePath are separate from what calls them — AppKit
@@ -45,24 +47,22 @@ func feedbackURL(appVersion, osName, osVersion string) string {
 		appVersion = "unknown"
 	}
 	q := url.Values{}
-	q.Set("body", feedbackBody(appVersion, osDescription(osName, osVersion)))
+	q.Set("template", feedbackTemplate)
+	q.Set("version", appVersion)
+	q.Set("os", osDescription(osName, osVersion))
 	return feedbackBaseURL + "?" + q.Encode()
-}
-
-// feedbackBody is the prefilled head of an issue: the environment as a short
-// list, then the headings a useful report has, left for the reporter to fill.
-func feedbackBody(appVersion, os string) string {
-	return "**Hermes version:** " + appVersion + "\n" +
-		"**Operating system:** " + os + "\n\n" +
-		"**What happened**\n\n\n" +
-		"**What you expected**\n\n\n" +
-		"**Steps to reproduce**\n\n"
 }
 
 // osDescription joins an operating system's name and version into something a
 // human would recognise, tolerating either being absent — Wails populates
-// OSInfo per platform and neither field is guaranteed.
+// OSInfo per platform and neither field is guaranteed. On macOS the name is
+// Wails' branding, which for a release it has no marketing name for is
+// already "MacOS <version>"; appending the version again gave "MacOS 26.6.2
+// 26.6.2" in issue #8, so a name that ends with the version is left alone.
 func osDescription(name, version string) string {
+	if version != "" && strings.HasSuffix(name, version) {
+		version = ""
+	}
 	joined := strings.TrimSpace(name + " " + version)
 	if joined == "" {
 		return "unknown"

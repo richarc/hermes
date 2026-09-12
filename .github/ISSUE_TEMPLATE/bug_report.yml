@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in Hermes Editor did not behave as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Questions and suggestions belong in
+        Discussions; this form is for things that are broken.
+  - type: input
+    id: version
+    attributes:
+      label: Hermes Editor version
+      description: From the About box, or the title of Help → Report an Issue…
+      placeholder: "0.11.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.6"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a new document
+        2. Paste the markdown below
+        3. Export to PDF
+    validations:
+      required: true
+  - type: textarea
+    id: document
+    attributes:
+      label: Minimal markdown that shows the problem
+      description: Paste the smallest document that reproduces it, if you have one.
+      render: markdown
