@@ -1083,6 +1083,12 @@
           >hermeseditor.com/guides</button
         >. Found a bug? Help → Report an Issue… opens a report with the version already filled in.
       </p>
+      <p class="welcome-intro">
+        Questions and ideas go to
+        <button class="link-button" onclick={() => void Browser.OpenURL('https://github.com/richarc/hermes/discussions')}
+          >github.com/richarc/hermes/discussions</button
+        >.
+      </p>
       <h2>Recent files</h2>
       <ul>
         {#each recents as r (r)}

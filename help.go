@@ -12,6 +12,9 @@ import (
 // in App.svelte names the same address in prose, so the two must move
 // together.
 //
+// discussionsURL is GitHub Discussions for the project: questions in Q&A,
+// suggestions and votes in Ideas. Bugs go through feedbackBaseURL below.
+//
 // feedbackBaseURL is not a placeholder. A hosted form (Tally, Formspree or
 // similar) was considered and rejected on 2026-08-27 in favour of GitHub
 // Issues: a report there is public, threaded, and lands where the work is
@@ -19,6 +22,8 @@ import (
 // paid for by a report that can be acted on and replied to.
 const (
 	docsURL = "https://www.hermeseditor.com/guides"
+
+	discussionsURL = "https://github.com/richarc/hermes/discussions"
 
 	feedbackBaseURL  = "https://github.com/richarc/hermes/issues/new"
 	feedbackTemplate = "bug_report.yml"

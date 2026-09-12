@@ -387,6 +387,13 @@ func installMenu(app *application.App, win *application.WebviewWindow, docs *Doc
 			log.Printf("could not open the documentation: %v", err)
 		}
 	})
+	// Questions and suggestions. Bugs have their own item below, because
+	// they go to the issue form rather than to a discussion.
+	help.Add("Discussions").OnClick(func(*application.Context) {
+		if err := app.Browser.OpenURL(discussionsURL); err != nil {
+			log.Printf("could not open the discussions: %v", err)
+		}
+	})
 	// The licence texts ride in the bundle because a distributed binary has to
 	// carry them — see Taskfile.yml's bundle:licences. Reachable from here so
 	// they are not only discoverable by way of Show Package Contents.

@@ -316,5 +316,7 @@ and the preview is drawn at that size so what you see is what prints.
   `.bib` file in sync with your library.
 - [The test document](test-document.md): every feature, one section each.
   Open it in Hermes and read it beside the preview.
+- **Help → Discussions** opens the project's discussions on GitHub: ask a
+  question, suggest an improvement, or vote for one already proposed.
 - **Help → Report an Issue…** opens a bug report with the version already
   filled in.

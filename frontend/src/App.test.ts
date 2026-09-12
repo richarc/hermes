@@ -179,6 +179,26 @@ describe('welcome pane', () => {
     expect(intro.querySelector('a[href]')).toBeNull()
   })
 
+  // Questions and ideas go to GitHub Discussions. The link sits between the
+  // guides and the recent files, and opens in the system browser like the
+  // guides link does.
+  it('points at Discussions, below the guides and above the recent files', async () => {
+    recents.current = ['/papers/thesis.md']
+    const { target } = mountApp()
+    await vi.waitFor(() => expect(target.querySelector('.welcome')).not.toBeNull())
+
+    const link = buttonByText(target, 'github.com/richarc/hermes/discussions')!
+    expect(link).toBeDefined()
+    const guides = buttonByText(target, 'hermeseditor.com/guides')!
+    const list = target.querySelector('.welcome ul')!
+    expect(guides.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(link.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    link.click()
+    expect(Browser.OpenURL).toHaveBeenCalledWith('https://github.com/richarc/hermes/discussions')
+    expect(target.querySelector('.welcome a[href]')).toBeNull()
+  })
+
   it('offers both New document and Open… when recents exist', async () => {
     recents.current = ['/papers/thesis.md']
     const { target } = mountApp()

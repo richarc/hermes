@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Help → Discussions, and a link on the start-up screen, open the
+  project's discussions on GitHub, for questions, suggestions and votes on
+  suggestions already made.
+
+### Changed
+
+- Help → Report an Issue… opens the new bug report form on GitHub with the
+  version and macOS fields filled in, rather than a free-text issue with
+  those details in the body. On a macOS release Wails has no name for, the
+  operating system no longer appears with its version twice.
+
 ## [0.11.1] - 2026-09-12
 
 ### Added
