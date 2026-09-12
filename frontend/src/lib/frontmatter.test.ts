@@ -17,6 +17,17 @@ describe('parseFrontmatter', () => {
     expect(fm.body).toBe('Body\n')
   })
 
+  it('drops a trailing YAML comment from an unquoted value', () => {
+    const fm = parseFrontmatter('---\ntoc: true  # a [[toc]] paragraph positions the contents\n---\nBody')
+    expect(fm.toc).toBe('true')
+  })
+
+  it('keeps a # that is part of the value', () => {
+    const fm = parseFrontmatter('---\nbibliography: refs#2.bib\ncsl: "a # b"\n---\nBody')
+    expect(fm.bibliography).toBe('refs#2.bib')
+    expect(fm.csl).toBe('a # b')
+  })
+
   it('handles quoted values and extra whitespace', () => {
     const doc = '---\nbibliography:  "my refs.bib"\n---\nText'
     const fm = parseFrontmatter(doc)

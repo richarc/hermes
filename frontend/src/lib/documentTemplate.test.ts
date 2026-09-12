@@ -30,6 +30,15 @@ describe('NEW_DOCUMENT_TEMPLATE', () => {
     }
   })
 
+  // Issue #8: the toc line's guidance used to follow the value on the same
+  // line, so uncommenting it gave `toc: true  (a [[toc]] ...)` and no ToC.
+  it('turns the contents on when only its leading # is removed', () => {
+    const live = NEW_DOCUMENT_TEMPLATE.replace(/^# (toc: true.*)$/m, '$1')
+    expect(live).not.toBe(NEW_DOCUMENT_TEMPLATE)
+    expect(parseFrontmatter(live).toc).toBe('true')
+    expect(render(live + '# Heading\n')).toContain('<nav class="toc"')
+  })
+
   it('ends with a newline, so the cursor lands below the closing fence', () => {
     expect(NEW_DOCUMENT_TEMPLATE.endsWith('---\n')).toBe(true)
   })

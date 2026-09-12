@@ -15,6 +15,11 @@ import { STYLE_IDS } from './citations'
  *
  * It names all five bundled styles because they are otherwise documented only
  * in the README, and a user who does not know them cannot use `csl:` at all.
+ *
+ * The `toc:` line's guidance is a trailing YAML comment, not a parenthesis:
+ * it has to be something `parseFrontmatter` drops, so that deleting the
+ * line's leading `#` — the obvious way to switch the contents on — leaves a
+ * value of exactly `true` (issue #8).
  */
 export const NEW_DOCUMENT_TEMPLATE = `---
 # To cite: put a .bib file beside this document, name
@@ -22,7 +27,7 @@ export const NEW_DOCUMENT_TEMPLATE = `---
 # apa, chicago-author-date, ieee, vancouver, harvard.
 # bibliography: references.bib
 # csl: apa
-# toc: true  (a [[toc]] paragraph positions the contents)
+# toc: true  # a [[toc]] paragraph positions the contents
 ---
 `
 

@@ -37,7 +37,21 @@ export function parseFrontmatter(markdown: string): Frontmatter {
     if (!m) continue
     const key = m[1] as (typeof KNOWN_KEYS)[number]
     if (!KNOWN_KEYS.includes(key)) continue
-    result[key] = m[2].replace(/^["']|["']$/g, '')
+    result[key] = unquote(m[2])
   }
   return result
+}
+
+/**
+ * A value with its surrounding quotes removed, or, when it is not quoted,
+ * with a trailing YAML comment removed. YAML's rule: `#` starts a comment
+ * only after whitespace, so `refs#2.bib` is a name and `true  # note` is
+ * `true`. The new-document template relies on this — its guidance for
+ * `toc:` sits on the same line as the value, and the line has to work as
+ * soon as its leading `#` is deleted (issue #8).
+ */
+function unquote(raw: string): string {
+  const quoted = raw.match(/^(["'])(.*)\1$/)
+  if (quoted) return quoted[2]
+  return raw.replace(/\s+#.*$/, '').trim()
 }

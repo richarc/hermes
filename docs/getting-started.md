@@ -80,7 +80,7 @@ Every new document starts with a block like this:
 # apa, chicago-author-date, ieee, vancouver, harvard.
 # bibliography: references.bib
 # csl: apa
-# toc: true  (a [[toc]] paragraph positions the contents)
+# toc: true  # a [[toc]] paragraph positions the contents
 ---
 ```
 
@@ -88,7 +88,9 @@ The two lines of `---` fence off the **frontmatter**: settings for the
 document, written as `key: value` lines. Hermes reads it and then removes
 the whole block before rendering, so nothing in it appears in the preview
 or the PDF. That is why the title goes in the document as a heading, not
-here: a `title:` line would be silently ignored.
+here: a `title:` line would be silently ignored. A `#` starts a comment,
+whether it begins a line or follows a value, so to switch the contents on
+delete just the `#` at the start of the `toc:` line and leave the rest.
 
 Hermes reads exactly four keys. Everything else is left alone.
 
