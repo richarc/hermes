@@ -8,6 +8,7 @@
   import { cssTextAlign, type FigureAlignment } from './lib/figures'
   import { timed, timedAsync } from './lib/perf'
   import { reconcileChildren } from './lib/reconcile'
+  import { fitDisplayMath } from './lib/fitMath'
   import {
     sheetStyle,
     DEFAULT_PAPER_SIZE,
@@ -64,6 +65,22 @@
     // defers style and layout, so in Web Inspector the cost of laying out
     // those is the Layout record that follows this measure, not part of it.
     timed('preview-dom', () => reconcileChildren(sheet, html))
+    // Before invalidating: a shrunk formula is shorter, so anchors below it move.
+    timed('fit-math', () => fitDisplayMath(sheet))
+    // KaTeX's web fonts load on first use, so the pass above can measure a new
+    // formula in the fallback font, which is narrower. Measuring forced layout,
+    // which starts those loads; fonts.ready read after that settles once they
+    // arrive. Read it any earlier — at mount, say — and it has already resolved
+    // with nothing pending: the formula then kept its fallback-font fit and ran
+    // off the sheet (#14; reproduced in WKWebView). Only while a load is
+    // pending: otherwise ready is already resolved, and every keystroke would
+    // pay for a second pass that measures the same widths.
+    if (document.fonts?.status === 'loading') {
+      void document.fonts.ready.then(() => {
+        fitDisplayMath(sheet)
+        sync.invalidate()
+      })
+    }
     // Anchor positions are invalid the moment the content changes, and again
     // once charts finish rendering — they change their own height after the
     // pass that created them.
@@ -98,6 +115,7 @@
     // and this one is here for the reflow these two cause, not their values.
     void paperSize
     void orientation
+    fitDisplayMath(sheet)
     sync.invalidate()
   })
 
@@ -116,7 +134,12 @@
     // firing can't be exercised by a test — verified by reading instead, per
     // the fix-wave notes.
     if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(() => sync.invalidate())
+    // The pane changing width changes the sheet's width with it, so every
+    // formula's fit is refreshed along with the anchors.
+    const observer = new ResizeObserver(() => {
+      fitDisplayMath(sheet)
+      sync.invalidate()
+    })
     observer.observe(container)
     return () => observer.disconnect()
   })

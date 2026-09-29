@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Display maths wider than the preview's sheet is scaled down to fit it
+  instead of running off the right-hand edge. A formula that would need
+  shrinking below half size scrolls sideways instead. The exported PDF is
+  unchanged. (#14)
+- A table as wide as the text column keeps its right-hand border in the
+  exported PDF. (#15)
+
 ## [0.11.2] - 2026-09-12
 
 ### Added
