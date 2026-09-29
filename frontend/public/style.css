@@ -697,6 +697,12 @@ dialog::backdrop { background: var(--backdrop); }
    .sheet: an element matching outside it would inherit no such property and
    the declaration would drop out entirely. */
 .sheet .katex-error { color: var(--doc-cite-error-fg) !important; }
+/* Display maths too wide for the sheet is scaled down by lib/fitMath.ts,
+   which sets --math-fit; 1.21em is KaTeX's own size for .katex, restated here
+   because the factor has to multiply it. One that would need shrinking past
+   fitMath's minimum scrolls sideways instead of running off the page. */
+.sheet .katex-display > .katex { font-size: calc(1.21em * var(--math-fit, 1)); }
+.sheet .katex-display { overflow-x: auto; overflow-y: hidden; }
 .preview-pane .csl-bib-body { line-height: 1.7; }
 .preview-pane .csl-entry { margin-bottom: 0.5em; }
 
@@ -719,6 +725,17 @@ dialog::backdrop { background: var(--backdrop); }
     width: auto; padding: 0; box-shadow: none;
   }
   .katex-display, .vega-lite-chart, .mermaid-diagram, figure, .chart-error, .csl-entry { break-inside: avoid; }
+  /* The printed page is true paper width, so the preview's fit does not
+     apply — and a scrollbar means nothing on paper. */
+  .sheet .katex-display > .katex { font-size: 1.21em; }
+  .sheet .katex-display { overflow: visible; }
+  /* The printed text column is a fractional number of CSS pixels wide, and
+     WebKit clips each page to a whole pixel. A table as wide as the column
+     had its right-hand border in that last fraction, so the PDF lost it
+     (#15) — measured: the row lines stopped at the clip and the border was
+     gone. One pixel of margin keeps the border inside the clip; a narrower
+     table is unaffected. */
+  .sheet table { margin-right: 1px; }
   h1, h2, h3 { break-after: avoid; }
   @page { margin: 25mm; }
 }
