@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-09-29
+
 ### Fixed
 
 - Display maths wider than the preview's sheet is scaled down to fit it
